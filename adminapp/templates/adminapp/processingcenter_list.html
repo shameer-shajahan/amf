@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><title>Processing Center List</title></head>
+<body>
+    <h1>Processing Center List</h1>
+    <table border="1">
+        <tr><th>ID</th><th>Name</th><th>Manager</th><th>Actions</th></tr>
+        {% for obj in object_list %}
+        <tr>
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.name }}</td>
+            <td>{{ obj.manager_name }}</td>
+            <td><a href="{% url 'adminapp:processing_center_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:processing_center_delete' obj.id %}">Delete</a></td>
+            
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

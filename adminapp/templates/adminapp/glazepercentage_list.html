@@ -1,0 +1,24 @@
+<!-- GlazePercentage List Template -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Glaze Percentage List</title>
+</head>
+<body>
+    <h1>Glaze Percentage List</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Percentage</th>
+            <th>Actions</th>
+        </tr>
+        {% for obj in object_list %}
+        <tr>
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.percentage }}</td>
+            <td><a href="{% url 'adminapp:glaze_percentage_update' obj.id %}">Edit</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

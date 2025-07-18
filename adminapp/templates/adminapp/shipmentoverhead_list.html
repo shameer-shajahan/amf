@@ -1,0 +1,14 @@
+<!-- ShipmentOverhead List Template -->
+<!DOCTYPE html>
+<html>
+<head><title>Shipment Overhead List</title></head>
+<body>
+<h1>Shipment Overhead List</h1>
+<table border="1">
+<tr><th>ID</th><th>Amount</th><th>Actions</th></tr>
+{% for obj in object_list %}
+<tr><td>{{ obj.id }}</td><td>{{ obj.amount }}</td><td><a href="{% url 'adminapp:shipment_overhead_update' obj.id %}">Edit</a></td></tr>
+{% endfor %}
+</table>
+</body>
+</html>

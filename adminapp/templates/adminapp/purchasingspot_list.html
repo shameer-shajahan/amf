@@ -1,0 +1,14 @@
+<!-- PurchasingSpot List Template -->
+<!DOCTYPE html>
+<html>
+<head><title>Purchasing Spot List</title></head>
+<body>
+<h1>Purchasing Spot List</h1>
+<table border="1">
+<tr><th>ID</th><th>Name</th><th>Actions</th></tr>
+{% for obj in object_list %}
+<tr><td>{{ obj.id }}</td><td>{{ obj.name }}</td><td><a href="{% url 'adminapp:purchasing_spot_update' obj.id %}">Edit</a></td></tr>
+{% endfor %}
+</table>
+</body>
+</html>
