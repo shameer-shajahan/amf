@@ -1,11 +1,11 @@
-<!-- ItemCategory List Template -->
+<!-- FreezingCategory List Template -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Item Category List</title>
+    <title>Freezing Category List</title>
 </head>
 <body>
-    <h1>Item Category List</h1>
+    <h1>Freezing Category List</h1>
     <table border="1">
         <tr>
             <th>ID</th>
@@ -16,7 +16,9 @@
         <tr>
             <td>{{ obj.id }}</td>
             <td>{{ obj.name }}</td>
-            <td><a href="{% url 'adminapp:item_category_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:freezing_category_update' obj.id %}">Edit</a></td>
+            <td><a href="{%url 'adminapp:freezing_category_delete' obj.id %}">Delete</a></td>
+            
         </tr>
         {% endfor %}
     </table>

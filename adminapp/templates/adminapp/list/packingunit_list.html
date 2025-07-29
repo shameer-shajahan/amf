@@ -17,6 +17,7 @@
             <td>{{ obj.id }}</td>
             <td>{{ obj.name }}</td>
             <td><a href="{% url 'adminapp:packing_unit_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:packing_unit_delete' obj.id %}">Delete</a></td>
         </tr>
         {% endfor %}
     </table>

@@ -9,6 +9,10 @@ urlpatterns = [
 
     path('admin_dashboard/', views.admin_dashboard, name='admin_dashboard'),
 
+    path('login/', views.admin_login, name='admin_login'),
+    
+    path('logout/', views.admin_logout, name='admin_logout'),
+
     path('create-user/', views.create_user_view, name='create_user'),
     
     # Operational & Location Masters
@@ -22,10 +26,10 @@ urlpatterns = [
     path('store/update/<str:pk>/', views.StoreUpdateView.as_view(), name='store_update'),
     path('store/delete/<str:pk>/', views.StoreDeleteView.as_view(), name='store_delete'),
 
-    path('peeling-center/create/', views.PeelingCenterCreateView.as_view(), name='peeling_center_create'),
-    path('peeling-center/list/', views.PeelingCenterListView.as_view(), name='peeling_center_list'),
-    path('peeling-center/update/<str:pk>/', views.PeelingCenterUpdateView.as_view(), name='peeling_center_update'),
-    path('peeling-center/delete/<str:pk>/', views.PeelingCenterDeleteView.as_view(), name='peeling_center_delete'),
+    path('peeling-center/create/', views.ShedCreateView.as_view(), name='peeling_center_create'),
+    path('peeling-center/list/', views.ShedListView.as_view(), name='peeling_center_list'),
+    path('peeling-center/update/<str:pk>/', views.ShedUpdateView.as_view(), name='peeling_center_update'),
+    path('peeling-center/delete/<str:pk>/', views.ShedDeleteView.as_view(), name='peeling_center_delete'),
 
     path('purchasing-spot/create/', views.PurchasingSpotCreateView.as_view(), name='purchasing_spot_create'),
     path('purchasing-spot/list/', views.PurchasingSpotListView.as_view(), name='purchasing_spot_list'),
@@ -84,11 +88,6 @@ urlpatterns = [
     path('tenant/list/', views.TenantListView.as_view(), name='tenant_list'),
     path('tenant/update/<str:pk>/', views.TenantUpdateView.as_view(), name='tenant_update'),
     path('tenant/delete/<str:pk>/', views.TenantDeleteView.as_view(), name='tenant_delete'),
-
-    path('freezing-tariff/create/', views.FreezingTariffCreateView.as_view(), name='freezing_tariff_create'),
-    path('freezing-tariff/list/', views.FreezingTariffListView.as_view(), name='freezing_tariff_list'),
-    path('freezing-tariff/update/<str:pk>/', views.FreezingTariffUpdateView.as_view(), name='freezing_tariff_update'),
-    path('freezing-tariff/delete/<str:pk>/', views.FreezingTariffDeleteView.as_view(), name='freezing_tariff_delete'),
 
     path('peeling-charge/create/', views.PeelingChargeCreateView.as_view(), name='peeling_charge_create'),
     path('peeling-charge/list/', views.PeelingChargeListView.as_view(), name='peeling_charge_list'),

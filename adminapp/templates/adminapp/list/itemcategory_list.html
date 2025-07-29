@@ -1,11 +1,11 @@
-<!-- ItemBrand List Template -->
+<!-- ItemCategory List Template -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Item Brand List</title>
+    <title>Item Category List</title>
 </head>
 <body>
-    <h1>Item Brand List</h1>
+    <h1>Item Category List</h1>
     <table border="1">
         <tr>
             <th>ID</th>
@@ -16,7 +16,8 @@
         <tr>
             <td>{{ obj.id }}</td>
             <td>{{ obj.name }}</td>
-            <td><a href="{% url 'adminapp:item_brand_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_category_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_category_delete' obj.id %}">Delete</a></td>
         </tr>
         {% endfor %}
     </table>

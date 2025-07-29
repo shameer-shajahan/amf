@@ -74,6 +74,12 @@
 <div class="container mt-5">
     <h2 class="text-center mb-4">Admin Master Management Panel</h2>
 
+    <div>
+        <h2>Create a new User</h2>
+        <a href="{% url 'adminapp:create_user' %}">Add New User</a>
+    </div>
+
+
     <!-- Operational & Location Masters -->
     <div class="section-title">Operational & Location Masters</div>
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
@@ -215,15 +221,6 @@
                 <div class="btn-group-custom d-flex">
                     <a href="{% url 'adminapp:tenant_create' %}" class="btn-add flex-fill text-center">Add New</a>
                     <a href="{% url 'adminapp:tenant_list' %}" class="btn-list flex-fill text-center">View List</a>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card module-card">
-                <div class="card-title">Freezing Tariff</div>
-                <div class="btn-group-custom d-flex">
-                    <a href="{% url 'adminapp:freezing_tariff_create' %}" class="btn-add flex-fill text-center">Add New</a>
-                    <a href="{% url 'adminapp:freezing_tariff_list' %}" class="btn-list flex-fill text-center">View List</a>
                 </div>
             </div>
         </div>

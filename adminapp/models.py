@@ -30,7 +30,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     address = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
-
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('user', 'User'),
+        ('owner','Owner')
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -69,34 +74,44 @@ class BaseModel(models.Model):
         abstract = True
 
 
-
-
 # Operational & Location Masters
 
 class ProcessingCenter(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
-    manager_name = models.CharField(max_length=100, blank=True)
     contact_number = models.CharField(max_length=15, blank=True)
+    code=models.CharField(null=True,blank=True)
     is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
 
 class Store(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
+    contact_number = models.CharField(max_length=15, blank=True)
+    code=models.CharField(null=True,blank=True)
     store_type = models.CharField(max_length=100, choices=[('Retail', 'Retail'), ('Warehouse', 'Warehouse')])
     is_active = models.BooleanField(default=True)
 
-class PeelingCenter(BaseModel):
+    def __str__(self):
+        return self.name
+
+class Shed(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
-    equipment_type = models.CharField(max_length=100, blank=True)
+    contact_number = models.CharField(max_length=15, blank=True)
+    code=models.CharField(null=True,blank=True)    
     capacity_per_day_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
 
 class PurchasingSpot(BaseModel):
     location_name = models.CharField(max_length=150)
     district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    gps_coordinates = models.CharField(max_length=100, blank=True)
+    code = models.CharField(null=True,blank=True)
 
 #  Personnel Masters
 
@@ -108,68 +123,92 @@ class PurchasingSupervisor(BaseModel):
     is_active = models.BooleanField(default=True)
 
 class PurchasingAgent(BaseModel):
+    purchasingSpot = models.ForeignKey(PurchasingSpot, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
     mobile = models.CharField(max_length=15, unique=True)
-    supervisor = models.ForeignKey(PurchasingSupervisor, on_delete=models.SET_NULL, null=True, blank=True)
-    region = models.CharField(max_length=100, blank=True)
+    code = models.CharField(null=True,blank=True)
 
 # Item & Product Masters
 
 class ItemCategory(BaseModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    code = models.CharField(null=True,blank=True)
+
+    def __str__(self):
+        return self.name
 
 class Item(BaseModel):
     category = models.ForeignKey(ItemCategory, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
+    species = models.CharField(max_length=100, blank=True)
     code = models.CharField(max_length=50, unique=True)
-    unit = models.CharField(max_length=20, choices=[('Kg', 'Kg'), ('Gram', 'Gram'), ('Piece', 'Piece')])
-    is_perishable = models.BooleanField(default=False)
+    is_peeling = models.BooleanField(default=False)
+    peeling_method = models.CharField(max_length=100, blank=True)
+
+    def __str__(self):
+        return self.name
 
 class ItemGrade(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    method_name = models.CharField(max_length=100)
-    logic_description = models.TextField()
+    grade = models.CharField(max_length=100)
 
 class FreezingCategory(BaseModel):
     name = models.CharField(max_length=100)
-    storage_space = models.DecimalField(max_digits=10, decimal_places=2)
+    code = models.CharField(null=True,blank=True)
+    tariff = models.PositiveIntegerField(null=True, blank=True)
+    def __str__(self):
+        return self.name
 
 class PackingUnit(BaseModel):
-    unit = models.CharField(max_length=50)
-    calculation_logic = models.TextField()
+
+    unit_code = models.CharField(max_length=50, unique=True)  # e.g., '10X0.350GRAM'
+    basic_unit = models.CharField(max_length=20, choices=[
+        ('KG', 'Kilogram'),
+        ('GRAM', 'Gram'),
+        ('LTR', 'Liter'),
+        # Add more as needed
+    ], default='KG')
+    precision = models.DecimalField(max_digits=10, decimal_places=2)  # e.g., 10.00
+    factor = models.DecimalField(max_digits=10, decimal_places=5)     # e.g., 0.35
+    description = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.unit_code} ({self.description})"
 
 class GlazePercentage(BaseModel):
-    method = models.TextField()
-    min_percentage = models.DecimalField(max_digits=5, decimal_places=2)
-    max_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
 
 class ItemBrand(BaseModel):
     name = models.CharField(max_length=100)
-    address = models.TextField(blank=True)
-    country = models.CharField(max_length=100, blank=True)
-    website = models.URLField(blank=True)
+    code = models.CharField(max_length=50, unique=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 #  Financial & Expense Masters
 
 class Tenant(BaseModel):
     company_name = models.CharField(max_length=150)
-    address = models.TextField()
+    address = models.TextField(blank= True, null=True)
     contact_person = models.CharField(max_length=100)
-    email = models.EmailField()
-    phone = models.CharField(max_length=15)
+    email = models.EmailField(blank= True, null=True)
+    phone = models.CharField(max_length=15,blank= True, null=True)
+    freezing_tariff = models.PositiveIntegerField(null=True, blank=True)
 
-class FreezingTariff(BaseModel):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
-    tariff_type = models.CharField(max_length=100)
-    name = models.CharField(max_length=100)
-    rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    notes = models.TextField(blank=True)
+    def __str__(self):
+        return self.company_name
+
+class PeelingChargeManager(models.Manager):
+    def peeling_items_only(self):
+        return self.get_queryset().filter(item__is_peeling=True)
 
 class PeelingCharge(BaseModel):
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='peeling_for_item')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.CharField(max_length=50, default='kg')
+
+    objects = PeelingChargeManager()
 
 class PurchaseOverhead(BaseModel):
     category_name = models.CharField(max_length=100)

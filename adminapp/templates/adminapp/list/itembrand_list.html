@@ -1,24 +1,23 @@
-<!-- Item List Template -->
+<!-- ItemBrand List Template -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Item List</title>
+    <title>Item Brand List</title>
 </head>
 <body>
-    <h1>Item List</h1>
+    <h1>Item Brand List</h1>
     <table border="1">
         <tr>
             <th>ID</th>
             <th>Name</th>
-            <th>Category</th>
             <th>Actions</th>
         </tr>
         {% for obj in object_list %}
         <tr>
             <td>{{ obj.id }}</td>
             <td>{{ obj.name }}</td>
-            <td>{{ obj.category }}</td>
-            <td><a href="{% url 'adminapp:item_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_brand_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_brand_delete' obj.id %}">Delete</a></td>
         </tr>
         {% endfor %}
     </table>

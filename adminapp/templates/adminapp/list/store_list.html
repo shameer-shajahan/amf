@@ -11,6 +11,8 @@
             <td>{{ obj.name }}</td>
             <td>{{ obj.manager_name }}</td>
             <td><a href="{% url 'adminapp:store_update' obj.id %}">Edit</a></td>
+            <td><a href="{%url 'adminapp:store_delete' obj.id %}">Delete</a></td>
+
         </tr>
         {% endfor %}
     </table>

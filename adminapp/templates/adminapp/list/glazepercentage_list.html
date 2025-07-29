@@ -17,6 +17,7 @@
             <td>{{ obj.id }}</td>
             <td>{{ obj.percentage }}</td>
             <td><a href="{% url 'adminapp:glaze_percentage_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:glaze_percentage_delete' obj.id %}">Delete</a></td>
         </tr>
         {% endfor %}
     </table>

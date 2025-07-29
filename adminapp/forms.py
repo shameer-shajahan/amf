@@ -31,9 +31,9 @@ class StoreForm(forms.ModelForm):
         model = Store
         fields = '__all__'
 
-class PeelingCenterForm(forms.ModelForm):
+class ShedForm(forms.ModelForm):
     class Meta:
-        model = PeelingCenter
+        model = Shed
         fields = '__all__'
 
 class PurchasingSpotForm(forms.ModelForm):
@@ -94,15 +94,15 @@ class TenantForm(forms.ModelForm):
         model = Tenant
         fields = '__all__'
 
-class FreezingTariffForm(forms.ModelForm):
-    class Meta:
-        model = FreezingTariff
-        fields = '__all__'
-
 class PeelingChargeForm(forms.ModelForm):
     class Meta:
         model = PeelingCharge
-        fields = '__all__'
+        fields = '__all__'  # This is fine
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limit item choices to only those with is_peeling=True
+        self.fields['item'].queryset = Item.objects.filter(is_peeling=True)
 
 class PurchaseOverheadForm(forms.ModelForm):
     class Meta:
