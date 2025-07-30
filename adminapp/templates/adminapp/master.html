@@ -1,0 +1,205 @@
+
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Admin Master Management Panel</h2>
+
+   
+    <!-- Operational & Location Masters -->
+    <div class="section-title">Operational & Location Masters</div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Processing Center</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:processing_center_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:processing_center_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Store</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:store_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:store_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Peeling Center</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:peeling_center_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:peeling_center_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Purchasing Spot</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:purchasing_spot_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:purchasing_spot_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personnel Masters -->
+    <div class="section-title">Personnel Masters</div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Purchasing Supervisor</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:purchasing_supervisor_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:purchasing_supervisor_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Purchasing Agent</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:purchasing_agent_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:purchasing_agent_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item & Product Masters -->
+    <div class="section-title">Item & Product Masters</div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Item Category</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:item_category_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:item_category_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Item</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:item_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:item_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Item Grade</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:item_grade_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:item_grade_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Freezing Category</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:freezing_category_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:freezing_category_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Packing Unit</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:packing_unit_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:packing_unit_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Glaze Percentage</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:glaze_percentage_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:glaze_percentage_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Item Brand</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:item_brand_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:item_brand_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial & Expense Masters -->
+    <div class="section-title">Financial & Expense Masters</div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Tenant</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:tenant_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:tenant_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Peeling Charge</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:peeling_charge_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:peeling_charge_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Purchase Overhead</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:purchase_overhead_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:purchase_overhead_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Peeling Overhead</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:peeling_overhead_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:peeling_overhead_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Processing Overhead</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:processing_overhead_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:processing_overhead_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Shipment Overhead</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:shipment_overhead_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:shipment_overhead_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-5 mb-3"></div>
+</div>
+
+
+
+{% endblock %}

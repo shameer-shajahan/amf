@@ -149,20 +149,20 @@ class ItemCategory(BaseModel):
 class Item(BaseModel):
     category = models.ForeignKey(ItemCategory, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
-    species = models.CharField(max_length=100, blank=True)
     code = models.CharField(max_length=50, unique=True)
     is_peeling = models.BooleanField(default=False)
     peeling_method = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
-        return f"{self.name} {self.species} - {self.code}"
+        return f"{self.name}  - {self.code}"
 
 class ItemGrade(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    species = models.CharField(max_length=100, blank=True)
     grade = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.item.name} - {self.grade}"
+        return f"{self.species} - {self.grade}"
     
 class FreezingCategory(BaseModel):
     name = models.CharField(max_length=100)

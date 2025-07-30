@@ -4,6 +4,12 @@
     <title>Local Purchases</title>
 </head>
 <body>
+    <nav>
+        <ul>
+            <li><a href="{% url 'adminapp:admin_dashboard' %}">Home</a></li>
+        </ul>
+    </nav>
+
     <h2>All Local Purchases</h2>
     <a href="{% url 'adminapp:local_purchase_create' %}">+ New Purchase</a>
     <table border="1">

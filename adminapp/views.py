@@ -11,8 +11,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 
-def is_admin(user):
-    return user.is_superuser or user.is_staff
+
 
 # Check if user is an admin
 def is_admin(user):
@@ -40,7 +39,7 @@ def admin_login(request):
 # Admin logout view
 def admin_logout(request):
     logout(request)
-    return redirect('admin_login')
+    return redirect('adminapp:admin_login')
 
 @login_required
 @user_passes_test(is_admin)
@@ -69,6 +68,8 @@ from .forms import *
 def admin_dashboard(request):
     return render(request, 'adminapp/dashboard.html')
 
+def master(request):
+    return render(request, 'adminapp/master.html')
 # -------------------------------
 # Operational & Location Masters
 # -------------------------------
