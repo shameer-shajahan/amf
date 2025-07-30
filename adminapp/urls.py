@@ -114,6 +114,19 @@ urlpatterns = [
     path('shipment-overhead/update/<str:pk>/', views.ShipmentOverheadUpdateView.as_view(), name='shipment_overhead_update'),
     path('shipment-overhead/delete/<str:pk>/', views.ShipmentOverheadDeleteView.as_view(), name='shipment_overhead_delete'),
 
+# spot purchase urls.py
+    path('spot-purchase/add/', views.spot_purchase_create, name='spot_purchase_add'),
+    path('spot-purchases/', views.spot_purchase_list, name='spot_purchase_list'),
+    path('spot-purchases/<str:pk>/edit/', views.spot_purchase_update, name='spot_purchase_update'),
+    path('spot-purchases/<str:pk>/delete/', views.spot_purchase_delete, name='spot_purchase_delete'),
+    path('spot-purchases/<str:pk>/', views.spot_purchase_detail, name='spot_purchase_detail'),
+
+   # Local Purchase URLs
+    path('local-purchase/create/', views.local_purchase_create, name='local_purchase_create'),
+    path('local-purchase/', views.local_purchase_list, name='local_purchase_list'),
+    path('local-purchase/<str:pk>/update/', views.local_purchase_update, name='local_purchase_update'),
+    path('local-purchase/<str:pk>/delete/', views.local_purchase_delete, name='local_purchase_delete'),
+    path('local-purchase/<str:pk>/detail/', views.local_purchase_detail, name='local_purchase_detail'),
 
 
 

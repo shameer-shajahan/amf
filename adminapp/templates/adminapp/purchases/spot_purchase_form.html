@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spot Purchase</title>
+    <style>
+        .formset-row { margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; }
+        .totals-box { margin-top: 20px; padding: 10px; border: 2px solid #007bff; background: #f9f9f9; }
+        .totals-box span { font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <ul>
+            <li><a href="{% url 'adminapp:spot_purchase_list' %}">list</a></li>
+        </ul>
+    </nav>
+
+    <h2>Spot Purchase Entry</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <h3>Items</h3>
+        <div id="formset-container">
+            {{ formset.management_form }}
+            {% for form in formset %}
+                <div class="formset-row">
+                    {% for field in form.visible_fields %}
+                        <div>
+                            {{ field.label_tag }} {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" id="add-more">+ Add More</button>
+
+        <!-- Totals Display -->
+        <div class="totals-box">
+            <p>Total Quantity: <span id="total-quantity">0.00</span></p>
+            <p>Total Amount: <span id="total-amount">0.00</span></p>
+            <p>Total Items: <span id="total-items">0</span></p>
+        </div>
+
+        <br>
+        <button type="submit">Save</button>
+    </form>
+
+    <!-- Hidden empty form template -->
+    <template id="empty-form-template">
+        <div class="formset-row">
+            {% with formset.empty_form as form %}
+                {% for field in form.visible_fields %}
+                    <div>
+                        {{ field.label_tag }} {{ field }}
+                    </div>
+                {% endfor %}
+            {% endwith %}
+        </div>
+    </template>
+
+    <script>
+    function calculateTotals() {
+        let totalAmount = 0;
+        let totalQuantity = 0;
+        let totalItems = 0;
+
+        const formRows = document.querySelectorAll('.formset-row');
+
+        formRows.forEach(row => {
+            const quantityInput = row.querySelector('input[name$="-quantity"]');
+            const rateInput = row.querySelector('input[name$="-rate"]');
+
+            const quantity = parseFloat(quantityInput?.value) || 0;
+            const rate = parseFloat(rateInput?.value) || 0;
+
+            if (quantity > 0 || rate > 0) {
+                totalItems += 1;
+                totalQuantity += quantity;
+                totalAmount += quantity * rate;
+            }
+        });
+
+        document.getElementById('total-quantity').textContent = totalQuantity.toFixed(2);
+        document.getElementById('total-amount').textContent = totalAmount.toFixed(2);
+        document.getElementById('total-items').textContent = totalItems;
+    }
+
+    // Add event listener to recalculate on quantity/rate input
+    document.addEventListener('input', function (e) {
+        if (e.target.name?.includes('-quantity') || e.target.name?.includes('-rate')) {
+            calculateTotals();
+        }
+    });
+
+    // Handle Add More button
+    document.getElementById("add-more").addEventListener("click", function () {
+        const totalForms = document.getElementById("id_form-TOTAL_FORMS");
+        const currentIndex = parseInt(totalForms.value);
+        const template = document.getElementById("empty-form-template").innerHTML;
+
+        // Replace __prefix__ with current index
+        const newFormHtml = template.replace(/__prefix__/g, currentIndex);
+
+        // Append new form
+        const container = document.getElementById("formset-container");
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newFormHtml;
+        container.appendChild(tempDiv);
+
+        totalForms.value = currentIndex + 1;
+
+        // Attach listener to new inputs
+        calculateTotals();
+    });
+
+    // Run once on load
+    calculateTotals();
+    </script>
+</body>
+</html>

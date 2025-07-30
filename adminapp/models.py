@@ -80,39 +80,42 @@ class ProcessingCenter(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
     contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True)
+    code=models.CharField(null=True,blank=True,unique=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 class Store(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
     contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True)
+    code=models.CharField(null=True,blank=True,unique=True)
     store_type = models.CharField(max_length=100, choices=[('Retail', 'Retail'), ('Warehouse', 'Warehouse')])
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 class Shed(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
     contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True)    
+    code=models.CharField(null=True,blank=True,unique=True)    
     capacity_per_day_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 class PurchasingSpot(BaseModel):
     location_name = models.CharField(max_length=150)
     district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    code = models.CharField(null=True,blank=True)
+    code = models.CharField(null=True,blank=True,unique=True)
 
+    def __str__(self):
+        return f"{self.location_name} - {self.code}"
+    
 #  Personnel Masters
 
 class PurchasingSupervisor(BaseModel):
@@ -122,21 +125,26 @@ class PurchasingSupervisor(BaseModel):
     joining_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
+    def __str__(self):
+        return f"{self.name} - {self.mobile}"
+
 class PurchasingAgent(BaseModel):
     purchasingSpot = models.ForeignKey(PurchasingSpot, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
     mobile = models.CharField(max_length=15, unique=True)
-    code = models.CharField(null=True,blank=True)
+    code = models.CharField(null=True,blank=True,unique=True)
 
+    def __str__(self):
+        return f"{self.name} - {self.code}"
 # Item & Product Masters
 
 class ItemCategory(BaseModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    code = models.CharField(null=True,blank=True)
+    code = models.CharField(null=True,blank=True, unique=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 class Item(BaseModel):
     category = models.ForeignKey(ItemCategory, on_delete=models.CASCADE)
@@ -147,18 +155,22 @@ class Item(BaseModel):
     peeling_method = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} {self.species} - {self.code}"
 
 class ItemGrade(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     grade = models.CharField(max_length=100)
 
+    def __str__(self):
+        return f"{self.item.name} - {self.grade}"
+    
 class FreezingCategory(BaseModel):
     name = models.CharField(max_length=100)
-    code = models.CharField(null=True,blank=True)
+    code = models.CharField(null=True,blank=True,unique=True)
     tariff = models.PositiveIntegerField(null=True, blank=True)
+
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 class PackingUnit(BaseModel):
 
@@ -184,7 +196,7 @@ class ItemBrand(BaseModel):
     code = models.CharField(max_length=50, unique=True, blank=True, null=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.code}"
 
 #  Financial & Expense Masters
 
@@ -210,6 +222,9 @@ class PeelingCharge(BaseModel):
 
     objects = PeelingChargeManager()
 
+    def __str__(self):
+        return f"{self.item.name} - {self.amount} {self.unit}"
+
 class PurchaseOverhead(BaseModel):
     category_name = models.CharField(max_length=100)
     other_expenses = models.DecimalField(max_digits=10, decimal_places=2)
@@ -229,3 +244,55 @@ class ShipmentOverhead(BaseModel):
     vehicle_rent = models.DecimalField(max_digits=10, decimal_places=2)
     buyers_agent_commission = models.DecimalField(max_digits=10, decimal_places=2)
     other_expense = models.DecimalField(max_digits=10, decimal_places=2)
+
+
+# Spot Purchase Models
+
+class SpotPurchase(BaseModel):
+    date = models.DateField()
+    voucher_number = models.CharField(max_length=20, unique=True)
+    spot = models.ForeignKey(PurchasingSpot, on_delete=models.CASCADE)
+    supervisor = models.ForeignKey(PurchasingSupervisor, on_delete=models.CASCADE)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_items = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Voucher {self.voucher_number} on {self.date} at {self.spot.location_name}"
+
+class SpotPurchaseItem(BaseModel):
+    purchase = models.ForeignKey(SpotPurchase, on_delete=models.CASCADE, related_name='items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    agent = models.ForeignKey(PurchasingAgent, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    boxes = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    rate = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.item.name} from {self.agent.name} - {self.quantity}kg @ {self.rate}"
+
+
+# local purchase models
+
+class LocalPurchase(BaseModel):
+    date = models.DateField()
+    voucher_number = models.CharField(max_length=20, unique=True)
+    party_name = models.CharField(max_length=150)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_items = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Voucher {self.voucher_number} on {self.date} from {self.party_name}"
+    
+class LocalPurchaseItem(BaseModel):
+    purchase = models.ForeignKey(LocalPurchase, on_delete=models.CASCADE, related_name='items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    grade = models.ForeignKey(ItemGrade, on_delete=models.CASCADE, null=True, blank=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    rate = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.item.name} - {self.quantity}kg @ {self.rate}"

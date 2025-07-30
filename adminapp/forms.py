@@ -123,3 +123,78 @@ class ShipmentOverheadForm(forms.ModelForm):
     class Meta:
         model = ShipmentOverhead
         fields = '__all__'
+
+
+
+# forms for create a Purchase Entry 
+from django import forms
+from django.forms import inlineformset_factory
+from .models import SpotPurchase, SpotPurchaseItem
+
+class SpotPurchaseForm(forms.ModelForm):
+    class Meta:
+        model = SpotPurchase
+        fields = ['date', 'voucher_number', 'spot', 'supervisor']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'spot': forms.Select(attrs={'class': 'form-control'}),
+            'supervisor': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class SpotPurchaseItemForm(forms.ModelForm):
+    class Meta:
+        model = SpotPurchaseItem
+        fields = ['item', 'agent', 'quantity', 'rate', 'boxes']
+        widgets = {
+            'item': forms.Select(attrs={'class': 'form-control'}),
+            'agent': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'boxes': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'rate': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
+
+
+SpotPurchaseItemFormSet = inlineformset_factory(
+    SpotPurchase,
+    SpotPurchaseItem,
+    form=SpotPurchaseItemForm,
+    extra=1,
+    can_delete=True
+)
+
+
+# local purchase forms
+
+from django import forms
+from django.forms import inlineformset_factory
+from .models import LocalPurchase, LocalPurchaseItem
+
+class LocalPurchaseForm(forms.ModelForm):
+    class Meta:
+        model = LocalPurchase
+        fields = ['date', 'voucher_number', 'party_name']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'party_name': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+class LocalPurchaseItemForm(forms.ModelForm):
+    class Meta:
+        model = LocalPurchaseItem
+        exclude = ['purchase', 'amount']
+        widgets = {
+            'item': forms.Select(attrs={'class': 'form-control'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control quantity-input', 'step': '0.01'}),
+            'rate': forms.NumberInput(attrs={'class': 'form-control rate-input', 'step': '0.01'}),
+        }
+
+LocalPurchaseItemFormSet = inlineformset_factory(
+    LocalPurchase,
+    LocalPurchaseItem,
+    form=LocalPurchaseItemForm,
+    extra=1,
+    can_delete=True
+)

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+        }
+        th {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+<h2>{{ title }}</h2>
+
+<p><strong>Date:</strong> {{ purchase.date }}</p>
+<p><strong>Voucher No:</strong> {{ purchase.voucher_number }}</p>
+<p><strong>Party Name:</strong> {{ purchase.party_name }}</p>
+
+<h3>Item Details</h3>
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Item</th>
+            <th>Grade</th>
+            <th>Quantity</th>
+            <th>Rate</th>
+            <th>Amount</th>
+        </tr>
+    </thead>
+<tbody>
+    {% for item in items %}
+    <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ item.item.name }}</td>
+        <td>
+            {% if item.grade %}
+                 {{ item.grade.item.name }} {{ item.grade.item.species }} {{ item.grade.grade }} 
+            {% else %}
+                -
+            {% endif %}
+        </td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.rate }}</td>
+        <td>{{ item.amount }}</td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+
+<h4>Total Quantity: {{ purchase.total_quantity }}</h4>
+<h4>Total Items: {{ purchase.total_items }}</h4>
+<h4>Total Amount: ₹{{ purchase.total_amount }}</h4>
+
+<a href="{% url 'adminapp:local_purchase_list' %}">← Back to List</a>
+
+</body>
+</html>

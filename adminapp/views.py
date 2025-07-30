@@ -502,3 +502,198 @@ class ShipmentOverheadDeleteView(DeleteView):
     model = ShipmentOverhead
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:shipment_overhead_list')
+
+
+# function for creating a Purchase Entry
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db import transaction
+from .forms import SpotPurchaseForm, SpotPurchaseItemFormSet
+
+def spot_purchase_create(request):
+    if request.method == 'POST':
+        form = SpotPurchaseForm(request.POST)
+        formset = SpotPurchaseItemFormSet(request.POST, prefix='form')  # ✅ Add prefix
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                total_amount = 0
+                total_quantity = 0
+
+                for item_form in formset:
+                    item = item_form.save(commit=False)
+                    item.purchase = purchase
+                    item.amount = item.quantity * item.rate
+                    item.save()
+                    total_amount += item.amount
+                    total_quantity += item.quantity
+
+                purchase.total_amount = total_amount
+                purchase.total_quantity = total_quantity
+                purchase.total_items = formset.total_form_count()
+                purchase.save()
+
+                return redirect('adminapp:admin_dashboard')  # update as needed
+
+    else:
+        form = SpotPurchaseForm()
+        formset = SpotPurchaseItemFormSet(prefix='form')  # ✅ Add prefix
+
+    return render(request, 'adminapp/purchases/spot_purchase_form.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+# List View
+def spot_purchase_list(request):
+    purchases = SpotPurchase.objects.all().order_by('-date')
+    return render(request, 'adminapp/purchases/spot_purchase_list.html', {'purchases': purchases})
+
+# Update View
+def spot_purchase_update(request, pk):
+    purchase = get_object_or_404(SpotPurchase, pk=pk)
+    if request.method == 'POST':
+        form = SpotPurchaseForm(request.POST, instance=purchase)
+        formset = SpotPurchaseItemFormSet(request.POST, instance=purchase)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                total_amount = 0
+                total_quantity = 0
+                items = formset.save(commit=False)
+                for item in items:
+                    item.purchase = purchase
+                    item.amount = item.quantity * item.rate
+                    item.save()
+                    total_amount += item.amount
+                    total_quantity += item.quantity
+
+                formset.save_m2m()
+                purchase.total_amount = total_amount
+                purchase.total_quantity = total_quantity
+                purchase.total_items = formset.total_form_count()
+                purchase.save()
+
+                return redirect('adminapp:spot_purchase_list')
+    else:
+        form = SpotPurchaseForm(instance=purchase)
+        formset = SpotPurchaseItemFormSet(instance=purchase)
+
+    return render(request, 'adminapp/purchases/spot_purchase_form.html', {'form': form, 'formset': formset})
+
+# Delete View
+def spot_purchase_delete(request, pk):
+    purchase = get_object_or_404(SpotPurchase, pk=pk)
+    if request.method == 'POST':
+        purchase.delete()
+        return redirect('adminapp:spot_purchase_list')
+    return render(request, 'adminapp/purchases/spot_purchase_confirm_delete.html', {'purchase': purchase})
+
+# Details View
+def spot_purchase_detail(request, pk):
+    purchase = get_object_or_404(SpotPurchase, pk=pk)
+    items = SpotPurchaseItem.objects.filter(purchase=purchase)
+    return render(request, 'adminapp/purchases/spot_purchase_detail.html', {
+        'purchase': purchase,
+        'items': items
+    })
+
+
+# Local Purchase Entry
+
+from django.shortcuts import render, redirect
+from django.db import transaction
+from .models import LocalPurchase
+from .forms import LocalPurchaseForm, LocalPurchaseItemFormSet
+
+def local_purchase_create(request):
+    if request.method == 'POST':
+        form = LocalPurchaseForm(request.POST)
+        formset = LocalPurchaseItemFormSet(request.POST, prefix='form')  # ✅ Add prefix
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                total_amount = 0
+                total_quantity = 0
+
+                for item_form in formset:
+                    item = item_form.save(commit=False)
+                    item.purchase = purchase
+                    item.amount = item.quantity * item.rate
+                    item.save()
+                    total_amount += item.amount
+                    total_quantity += item.quantity
+
+                purchase.total_amount = total_amount
+                purchase.total_quantity = total_quantity
+                purchase.total_items = formset.total_form_count()
+                purchase.save()
+
+                return redirect('adminapp:admin_dashboard')  # update as needed
+
+    else:
+        form = LocalPurchaseForm()
+        formset = LocalPurchaseItemFormSet(prefix='form')  # ✅ Add prefix
+
+    return render(request, 'adminapp/purchases/local_purchase_form.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+# List View
+def local_purchase_list(request):
+    purchases = LocalPurchase.objects.all().order_by('-date')
+    return render(request, 'adminapp/purchases/local_purchase_list.html', {'purchases': purchases})
+
+# Update View
+def local_purchase_update(request, pk):
+    purchase = get_object_or_404(LocalPurchase, pk=pk)
+    if request.method == 'POST':
+        form = LocalPurchaseForm(request.POST, instance=purchase)
+        formset = LocalPurchaseItemFormSet(request.POST, instance=purchase, prefix='form')
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                total_amount = 0
+                total_quantity = 0
+                items = formset.save(commit=False)
+                for item in items:
+                    item.purchase = purchase
+                    item.amount = item.quantity * item.rate
+                    item.save()
+                    total_amount += item.amount
+                    total_quantity += item.quantity
+
+                formset.save_m2m()
+                purchase.total_amount = total_amount
+                purchase.total_quantity = total_quantity
+                purchase.total_items = formset.total_form_count()
+                purchase.save()
+
+                return redirect('adminapp:local_purchase_list')
+    else:
+        form = LocalPurchaseForm(instance=purchase)
+        formset = LocalPurchaseItemFormSet(instance=purchase, prefix='form')
+
+    return render(request, 'adminapp/purchases/local_purchase_form.html', {
+        'form': form,
+        'formset': formset
+    })
+
+# Delete View
+def local_purchase_delete(request, pk):
+    purchase = get_object_or_404(LocalPurchase, pk=pk)
+    if request.method == 'POST':
+        purchase.delete()
+        return redirect('adminapp:local_purchase_list')
+    return render(request, 'adminapp/purchases/local_purchase_confirm_delete.html', {'purchase': purchase})
+
+# Detail View
+def local_purchase_detail(request, pk):
+    purchase = get_object_or_404(LocalPurchase, pk=pk)
+    items = purchase.items.all()  # using related_name='items' from the model
+    return render(request, 'adminapp/purchases/local_purchase_detail.html', {
+        'purchase': purchase,
+        'items': items,
+        'title': f"Local Purchase Details - Voucher #{purchase.voucher_number}"
+    })

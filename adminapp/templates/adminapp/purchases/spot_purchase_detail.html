@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spot Purchase Detail</title>
+</head>
+<body>
+    <h2>Spot Purchase Detail</h2>
+    <p><strong>Date:</strong> {{ purchase.date }}</p>
+    <p><strong>Voucher Number:</strong> {{ purchase.voucher_number }}</p>
+    <p><strong>Spot:</strong> {{ purchase.spot }}</p>
+    <p><strong>Supervisor:</strong> {{ purchase.supervisor }}</p>
+    <p><strong>Total Quantity:</strong> {{ purchase.total_quantity }}</p>
+    <p><strong>Total Amount:</strong> {{ purchase.total_amount }}</p>
+    <p><strong>Total Items:</strong> {{ purchase.total_items }}</p>
+
+    <h3>Items</h3>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Agent</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.item }}</td>
+                <td>{{ item.agent }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.rate }}</td>
+                <td>{{ item.amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+    <a href="{% url 'adminapp:spot_purchase_list' %}">← Back to List</a>
+</body>
+</html>
