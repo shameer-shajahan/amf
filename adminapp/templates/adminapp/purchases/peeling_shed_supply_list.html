@@ -1,0 +1,41 @@
+<!-- adminapp/templates/adminapp/peeling_shed_supply_list.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Peeling Shed Supply List</title>
+</head>
+<body>
+    <h2>Peeling Shed Supplies</h2>
+    <a href="{% url 'adminapp:create_peeling_shed_supply' %}">Add New Supply</a>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Voucher Number</th>
+                <th>Spot Purchase</th>
+                <th>Shed</th>
+                <th>Total Quantity</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for supply in supplies %}
+            <tr>
+                <td>{{ supply.date }}</td>
+                <td>{{ supply.voucher_number }}</td>
+                <td>{{ supply.spot_purchase }}</td>
+                <td>{{ supply.shed }}</td>
+                <td>{{ supply.total_quantity }}</td>
+                <td>{{ supply.total_amount }}</td>
+                <td>
+                    <a href="{% url 'adminapp:peeling_shed_supply_delete' supply.pk %}">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7">No records found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

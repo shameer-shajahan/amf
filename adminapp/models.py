@@ -80,7 +80,7 @@ class ProcessingCenter(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
     contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True,unique=True)
+    code=models.CharField(null=True,blank=True,unique=True,max_length=15)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -97,15 +97,7 @@ class Store(BaseModel):
     def __str__(self):
         return f"{self.name} - {self.code}"
 
-class Shed(BaseModel):
-    name = models.CharField(max_length=150)
-    address = models.TextField()
-    contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True,unique=True)    
-    capacity_per_day_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    def __str__(self):
-        return f"{self.name} - {self.code}"
 
 class PurchasingSpot(BaseModel):
     location_name = models.CharField(max_length=150)
@@ -217,23 +209,6 @@ class Tenant(BaseModel):
     def __str__(self):
         return self.company_name
 
-class PeelingChargeManager(models.Manager):
-    def peeling_items_only(self):
-        return self.get_queryset().filter(item__is_peeling=True)
-
-class PeelingCharge(BaseModel):
-    shed = models.ForeignKey(Shed, on_delete=models.CASCADE)
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='peeling_for_item')
-    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.CharField(max_length=50, default='kg')
-    date = models.DateField(auto_created=True, auto_now=True) 
-
-    objects = PeelingChargeManager()
-
-    def __str__(self):
-        return f"{self.item.name} - {self.amount} {self.unit}"
-
 class PurchaseOverhead(BaseModel):
     category_name = models.CharField(max_length=100)
     other_expenses = models.DecimalField(max_digits=10, decimal_places=2)
@@ -255,9 +230,28 @@ class ShipmentOverhead(BaseModel):
     other_expense = models.DecimalField(max_digits=10, decimal_places=2)
 
 
-# Spot Purchase Models
+# shed creation
 
-from django.db import models
+class Shed(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    address = models.TextField()
+    contact_number = models.CharField(max_length=20)
+    capacity_per_day_kg = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return self.name
+
+class ShedItem(models.Model):
+    shed = models.ForeignKey(Shed, on_delete=models.CASCADE, related_name='shed_items')
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, limit_choices_to={'is_peeling': True})
+    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    unit = models.CharField(max_length=50, default='kg')
+
+
+
+# Spot Purchase Models
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -265,7 +259,6 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
-
 
 class SpotPurchase(BaseModel):
     date = models.DateField()
@@ -288,7 +281,6 @@ class SpotPurchase(BaseModel):
         self.total_items = items.count()
         self.save()
 
-
 class SpotPurchaseItem(BaseModel):
     purchase = models.ForeignKey(SpotPurchase, on_delete=models.CASCADE, related_name='items')
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
@@ -299,7 +291,6 @@ class SpotPurchaseItem(BaseModel):
 
     def __str__(self):
         return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
-
 
 class SpotPurchaseExpense(BaseModel):
     purchase = models.OneToOneField(SpotPurchase, on_delete=models.CASCADE, related_name='expense')
@@ -347,4 +338,33 @@ class LocalPurchaseItem(BaseModel):
     def __str__(self):
         return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
     
+
+# Peeling Shead Supply Entry
+class PeelingShedSupply(models.Model):
+    date = models.DateField()
+    voucher_number = models.CharField(max_length=50)
+
+    shed = models.ForeignKey('shed', on_delete=models.CASCADE)
+
+    vehicle_number = models.CharField(max_length=50)
+
+    spot_purchase_date = models.DateField(null=True, blank=True)
+
+    spot_purchase = models.ForeignKey('SpotPurchase', on_delete=models.CASCADE)
+    spot_purchase_item = models.ForeignKey('SpotPurchaseItem', on_delete=models.CASCADE)
+
+    SpotPurchase_total_boxes = models.PositiveIntegerField()
+    SpotPurchase_quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    SpotPurchase_average_box_weight = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    boxes_received_shed = models.PositiveIntegerField(default=0)
+    quantity_received_shed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    peeling_type = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.voucher_number} - {self.date}"
+
+
 

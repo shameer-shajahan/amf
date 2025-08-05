@@ -33,7 +33,20 @@ class StoreForm(forms.ModelForm):
 class ShedForm(forms.ModelForm):
     class Meta:
         model = Shed
-        fields = '__all__'
+        fields = ['name', 'code', 'address', 'contact_number', 'capacity_per_day_kg']
+
+class ShedItemForm(forms.ModelForm):
+    class Meta:
+        model = ShedItem
+        fields = ['item', 'item_type', 'amount', 'unit']
+
+ShedItemFormSet = inlineformset_factory(
+    parent_model=Shed,
+    model=ShedItem,
+    form=ShedItemForm,
+    extra=1,
+    can_delete=True
+)
 
 class PurchasingSpotForm(forms.ModelForm):
     class Meta:
@@ -104,26 +117,7 @@ class TenantForm(forms.ModelForm):
         fields = '__all__'
 
 from django import forms
-from .models import PeelingCharge, Item, ItemType
-
-class PeelingChargeForm(forms.ModelForm):
-    class Meta:
-        model = PeelingCharge
-        fields = ['shed', 'item', 'item_type', 'amount']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.fields['item'].queryset = Item.objects.filter(is_peeling=True)
-        self.fields['item_type'].queryset = ItemType.objects.none()
-        self.fields['item_type'].required = False
-
-        if self.is_bound:
-            item_id = self.data.get('item')
-            if item_id:
-                self.fields['item_type'].queryset = ItemType.objects.filter(item_id=item_id)
-        elif self.instance and getattr(self.instance, 'item_id', None):
-            self.fields['item_type'].queryset = ItemType.objects.filter(item=self.instance.item)
+from .models import  Item, ItemType
 
 class PurchaseOverheadForm(forms.ModelForm):
     class Meta:
@@ -230,4 +224,45 @@ LocalPurchaseItemFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+# Peeling Shed Supply Form
+
+# forms.py
+
+from django import forms
+from .models import PeelingShedSupply
+from django.forms import inlineformset_factory
+from django import forms
+from .models import PeelingShedSupply
+
+class PeelingShedSupplyForm(forms.ModelForm):
+    class Meta:
+        model = PeelingShedSupply
+        fields = [
+            'date',
+            'voucher_number',
+            'shed',
+            'vehicle_number',
+            'spot_purchase_date',
+            'spot_purchase',
+            'spot_purchase_item',
+            'SpotPurchase_total_boxes',
+            'SpotPurchase_quantity',
+            'SpotPurchase_average_box_weight',
+            'boxes_received_shed',
+            'quantity_received_shed',
+            'peeling_type',
+            'amount',
+        ]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'spot_purchase_date': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'ajax-date',  # ✅ Add class here
+                'id': 'id_spot_purchase_date'  # Make sure this matches the JS selector
+            }),
+        }
+
+
 

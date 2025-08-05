@@ -7,7 +7,9 @@
 <table border="1">
 <tr><th>ID</th><th>Name</th><th>Actions</th></tr>
 {% for obj in object_list %}
-<tr><td>{{ obj.id }}</td><td>{{ obj.name }}</td><td><a href="{% url 'adminapp:peeling_center_update' obj.id %}">Edit</a></td>
+<tr><td>{{ obj.id }}</td><td>{{ obj.name }}</td>
+    <td>
+        <a href="{% url 'adminapp:update_shed' obj.id %}">Edit</a></td>
             <td><a href="{% url 'adminapp:peeling_center_delete' obj.id %}">Delete</a></td>
 </tr>
 {% endfor %}

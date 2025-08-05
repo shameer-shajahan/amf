@@ -28,9 +28,12 @@ urlpatterns = [
     path('store/update/<str:pk>/', views.StoreUpdateView.as_view(), name='store_update'),
     path('store/delete/<str:pk>/', views.StoreDeleteView.as_view(), name='store_delete'),
 
-    path('peeling-center/create/', views.ShedCreateView.as_view(), name='peeling_center_create'),
+
+    # shed
+    path('shed/add/', views.create_shed, name='create_shed'),
+    path('ajax/get-item-types/', views.get_item_types, name='get_item_types'),
     path('peeling-center/list/', views.ShedListView.as_view(), name='peeling_center_list'),
-    path('peeling-center/update/<str:pk>/', views.ShedUpdateView.as_view(), name='peeling_center_update'),
+    path('shed/<str:pk>/edit/', views.update_shed, name='update_shed'),
     path('peeling-center/delete/<str:pk>/', views.ShedDeleteView.as_view(), name='peeling_center_delete'),
 
     path('purchasing-spot/create/', views.PurchasingSpotCreateView.as_view(), name='purchasing_spot_create'),
@@ -96,12 +99,6 @@ urlpatterns = [
     path('tenant/update/<str:pk>/', views.TenantUpdateView.as_view(), name='tenant_update'),
     path('tenant/delete/<str:pk>/', views.TenantDeleteView.as_view(), name='tenant_delete'),
 
-    path('peeling-charge/create/', views.PeelingChargeCreateView.as_view(), name='peeling_charge_create'),
-    path('ajax/get-item-types/<str:item_id>/', views.get_item_types, name='get_item_types'),
-    path('peeling-charge/list/', views.PeelingChargeListView.as_view(), name='peeling_charge_list'),
-    path('peeling-charge/update/<str:pk>/', views.PeelingChargeUpdateView.as_view(), name='peeling_charge_update'),
-    path('peeling-charge/delete/<str:pk>/', views.PeelingChargeDeleteView.as_view(), name='peeling_charge_delete'),
-
     path('purchase-overhead/create/', views.PurchaseOverheadCreateView.as_view(), name='purchase_overhead_create'),
     path('purchase-overhead/list/', views.PurchaseOverheadListView.as_view(), name='purchase_overhead_list'),
     path('purchase-overhead/update/<str:pk>/', views.PurchaseOverheadUpdateView.as_view(), name='purchase_overhead_update'),
@@ -136,6 +133,15 @@ urlpatterns = [
     path('local-purchase/<str:pk>/delete/', views.local_purchase_delete, name='local_purchase_delete'),
     path('local-purchase/<str:pk>/detail/', views.local_purchase_detail, name='local_purchase_detail'),
 
+
+
+    # Peeling Shed Supply
+    path('peeling-shed-supply/create/', views.create_peeling_shed_supply, name='create_peeling_shed_supply'),
+    path('peeling-shed-supply/', views.PeelingShedSupplyListView.as_view(), name='peeling_shed_supply_list'),
+    path('peeling-shed-supply/<int:pk>/delete/', views.PeelingShedSupplyDeleteView.as_view(), name='peeling_shed_supply_delete'),
+    path('ajax/get-spot-purchases/', views.get_spot_purchases_by_date, name='get_spot_purchases_by_date'),
+    path('ajax/get-spot-purchase-items/', views.get_spot_purchase_items, name='get_spot_purchase_items'),    path('ajax/get-spot-purchase-item-details/', views.get_spot_purchase_item_details, name='get_spot_purchase_item_details'),
+    path('ajax/get-peeling-charges/', views.get_peeling_charges, name='get_peeling_charges'),
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

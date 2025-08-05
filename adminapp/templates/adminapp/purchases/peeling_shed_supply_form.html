@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Peeling Shed Supply</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+    <a href="{% url 'adminapp:peeling_shed_supply_list' %}">Back to List</a>
+    <h2>Create Peeling Shed Supply</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {{ form.date.label_tag }} {{ form.date }}<br>
+        {{ form.voucher_number.label_tag }} {{ form.voucher_number }}<br>
+        {{ form.shed.label_tag }} {{ form.shed }}<br>
+        {{ form.vehicle_number.label_tag }} {{ form.vehicle_number }}<br>
+
+        {{ form.spot_purchase_date.label_tag }} {{ form.spot_purchase_date }}<br>
+
+        {{ form.spot_purchase.label_tag }}
+        <select id="id_spot_purchase" name="spot_purchase">
+            <option value="">---------</option>
+        </select><br>
+
+        {{ form.spot_purchase_item.label_tag }}
+        <select id="id_spot_purchase_item" name="spot_purchase_item">
+            <option value="">---------</option>
+        </select><br>
+
+        {{ form.SpotPurchase_total_boxes.label_tag }} {{ form.SpotPurchase_total_boxes }}<br>
+        {{ form.SpotPurchase_quantity.label_tag }} {{ form.SpotPurchase_quantity }}<br>
+        {{ form.SpotPurchase_average_box_weight.label_tag }} {{ form.SpotPurchase_average_box_weight }}<br>
+<label for="id_boxes_received_shed">Boxes Received Shed</label>
+<input type="text" name="boxes_received_shed" id="id_boxes_received_shed"><br>
+
+<label for="id_quantity_received_shed">Quantity Received Shed</label>
+<input type="text" name="quantity_received_shed" id="id_quantity_received_shed" readonly><br>
+
+        {{ form.peeling_type.label_tag }} {{ form.peeling_type }}<br>
+        {{ form.amount.label_tag }} {{ form.amount }}<br>
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        // 1. Spot Purchase Date -> Spot Purchases
+        $('#id_spot_purchase_date').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchases_by_date' %}", {
+                'date': $(this).val()
+            }, function (data) {
+                const select = $('#id_spot_purchase');
+                select.empty().append('<option value="">---------</option>');
+                data.forEach(p => select.append(`<option value="${p.id}">${p.name}</option>`));
+                $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+            });
+        });
+
+        // 2. Spot Purchase -> Items
+        $('#id_spot_purchase').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchase_items' %}", {
+                'spot_purchase_id': $(this).val()
+            }, function (data) {
+                const select = $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+                data.forEach(i => select.append(`<option value="${i.id}">${i.name}</option>`));
+            });
+        });
+
+
+        // 3. Item -> Auto-fill details
+        $('#id_spot_purchase_item').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchase_item_details' %}", {
+                'item_id': $(this).val()
+            }, function (data) {
+                $('#id_SpotPurchase_total_boxes').val(data.total_boxes);
+                $('#id_SpotPurchase_quantity').val(data.quantity);
+                $('#id_SpotPurchase_average_box_weight').val(data.average_weight);
+            });
+        });
+
+        // 4. Shed -> Peeling Charges
+        $('#id_shed').on('change', function () {
+            $.get("{% url 'adminapp:get_peeling_charges' %}", {
+                'shed_id': $(this).val()
+            }, function (data) {
+                if (data.length === 1) {
+                    $('#id_peeling_type').val(data[0].peeling_type);
+                    $('#id_amount').val(data[0].amount);
+                } else {
+                    // Clear fields if multiple or none
+                    $('#id_peeling_type').val('');
+                    $('#id_amount').val('');
+                }
+            });
+        });
+    </script>
+
+<!-- shed box Received quantity calculation script -->
+
+<script>
+    function calculateQuantityReceivedShed() {
+        let boxesReceived = parseFloat($("#id_boxes_received_shed").val()) || 0;
+        let avgWeight = parseFloat($("#id_SpotPurchase_average_box_weight").val()) || 0;
+        let quantity = boxesReceived * avgWeight;
+        $("#id_quantity_received_shed").val(quantity.toFixed(2));
+    }
+
+    $(document).ready(function(){
+        // Trigger on change or keyup
+        $("#id_boxes_received_shed").on('input', function(){
+            calculateQuantityReceivedShed();
+        });
+
+        // Also recalculate if average box weight is changed by AJAX (if editable)
+        $("#id_SpotPurchase_average_box_weight").on('input', function(){
+            calculateQuantityReceivedShed();
+        });
+    });
+</script>
+
+
+</body>
+</html>

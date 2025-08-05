@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Shed</title>
+    <style>
+        .formset-row {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+
+        .delete-row {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .form-section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #999;
+            background: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Create Shed</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+        <div>
+            {{ field.label_tag }} {{ field }}
+            {% if field.errors %}
+                <div class="text-danger">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <div class="form-section">
+        <h3>Shed Items</h3>
+
+        <div id="formset-container">
+            {{ formset.management_form }}
+            {% for form in formset %}
+                <div class="formset-row">
+                    {% for field in form.visible_fields %}
+                        <div>
+                            {{ field.label_tag }} {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    <button type="button" class="delete-row">Delete</button>
+                </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" id="add-more">+ Add More</button>
+    </div>
+
+    <br>
+    <button type="submit">Save</button>
+</form>
+
+<!-- Hidden empty form template -->
+<template id="empty-form-template">
+    <div class="formset-row">
+        {% with formset.empty_form as form %}
+            {% for field in form.visible_fields %}
+                <div>
+                    {{ field.label_tag }} {{ field.as_widget }}
+                </div>
+            {% endfor %}
+        {% endwith %}
+        <button type="button" class="delete-row">Delete</button>
+    </div>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('formset-container');
+    const totalFormsInput = container.querySelector('input[name$="-TOTAL_FORMS"]');
+
+    // Add form
+    document.getElementById('add-more').addEventListener('click', function () {
+        const formCount = parseInt(totalFormsInput.value);
+        const template = document.getElementById('empty-form-template').innerHTML;
+        const newFormHtml = template.replace(/__prefix__/g, formCount);
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newFormHtml;
+        const newForm = tempDiv.firstElementChild;
+
+        container.appendChild(newForm);
+        totalFormsInput.value = formCount + 1;
+    });
+
+    // Delete form
+    container.addEventListener('click', function (e) {
+        if (e.target.classList.contains('delete-row')) {
+            const row = e.target.closest('.formset-row');
+            row.remove();
+            updateTotalForms(-1);
+        }
+    });
+
+    // Adjust TOTAL_FORMS when deleting
+    function updateTotalForms(change) {
+        const currentValue = parseInt(totalFormsInput.value);
+        totalFormsInput.value = currentValue + change;
+    }
+});
+</script>
+
+</body>
+</html>

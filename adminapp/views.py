@@ -113,22 +113,71 @@ class StoreDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:store_list')
 
-class ShedCreateView(CreateView):
-    model = Shed
-    form_class = ShedForm
-    template_name = 'adminapp/forms/shed_form.html'
-    success_url = reverse_lazy('adminapp:peeling_center_create')
+def create_shed(request):
+    if request.method == 'POST':
+        form = ShedForm(request.POST)
+        formset = ShedItemFormSet(request.POST)
+
+        if form.is_valid() and formset.is_valid():
+            shed = form.save()
+            items = formset.save(commit=False)
+
+            for item in items:
+                item.shed = shed
+                item.save()
+
+            for deleted_item in formset.deleted_objects:
+                deleted_item.delete()
+
+            return redirect('adminapp:peeling_center_list')
+    else:
+        form = ShedForm()
+        formset = ShedItemFormSet()
+
+    return render(request, 'adminapp/forms/create_shed.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+def get_item_types(request):
+    item_id = request.GET.get('item_id')
+    item_types = ItemType.objects.filter(item_id=item_id).values('id', 'name')
+    return JsonResponse(list(item_types), safe=False)
 
 class ShedListView(ListView):
     model = Shed
     template_name = 'adminapp/list/shed_list.html'
     context_object_name = 'peeling_centers'
 
-class ShedUpdateView(UpdateView):
-    model = Shed
-    form_class = ShedForm
-    template_name = 'adminapp/forms/shed_form.html'
-    success_url = reverse_lazy('adminapp:peeling_center_list')
+def update_shed(request, pk):
+    shed = get_object_or_404(Shed, pk=pk)
+
+    if request.method == 'POST':
+        form = ShedForm(request.POST, instance=shed)
+        formset = ShedItemFormSet(request.POST, instance=shed)
+
+        if form.is_valid() and formset.is_valid():
+            shed = form.save()
+            items = formset.save(commit=False)
+
+            for item in items:
+                item.shed = shed
+                item.save()
+
+            # Delete any items marked for deletion
+            for deleted_item in formset.deleted_objects:
+                deleted_item.delete()
+
+            return redirect('adminapp:peeling_center_list')
+    else:
+        form = ShedForm(instance=shed)
+        formset = ShedItemFormSet(instance=shed)
+
+    return render(request, 'adminapp/forms/update_shed.html', {
+        'form': form,
+        'formset': formset,
+        'shed': shed
+    })
 
 class ShedDeleteView(DeleteView):
     model = Shed
@@ -411,40 +460,40 @@ class TenantDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:tenant_list')
 
-class PeelingChargeCreateView(CreateView):
-    model = PeelingCharge
-    form_class = PeelingChargeForm
-    template_name = 'adminapp/forms/peelingcharge_form.html'
-    success_url = reverse_lazy('adminapp:peeling_charge_create')
+# class PeelingChargeCreateView(CreateView):
+#     model = PeelingCharge
+#     form_class = PeelingChargeForm
+#     template_name = 'adminapp/forms/peelingcharge_form.html'
+#     success_url = reverse_lazy('adminapp:peeling_charge_create')
 
-    def form_valid(self, form):
-        # Optional: Debug what’s being submitted
-        print("SAVING ITEM:", form.cleaned_data.get("item"))
-        print("SAVING SPECIES:", form.cleaned_data.get("species"))
-        return super().form_valid(form)
+#     def form_valid(self, form):
+#         # Optional: Debug what’s being submitted
+#         print("SAVING ITEM:", form.cleaned_data.get("item"))
+#         print("SAVING SPECIES:", form.cleaned_data.get("species"))
+#         return super().form_valid(form)
 
 from django.http import JsonResponse
 from .models import ItemGrade
 
-def get_item_types(request, item_id):
-    item_types = ItemType.objects.filter(item_id=item_id).values('id', 'name')
-    return JsonResponse(list(item_types), safe=False)
+# def get_item_types(request, item_id):
+#     item_types = ItemType.objects.filter(item_id=item_id).values('id', 'name')
+#     return JsonResponse(list(item_types), safe=False)
 
-class PeelingChargeListView(ListView):
-    model = PeelingCharge
-    template_name = 'adminapp/list/peelingcharge_list.html'
-    context_object_name = 'peeling_charges'
+# class PeelingChargeListView(ListView):
+#     model = PeelingCharge
+#     template_name = 'adminapp/list/peelingcharge_list.html'
+#     context_object_name = 'peeling_charges'
 
-class PeelingChargeUpdateView(UpdateView):
-    model = PeelingCharge
-    form_class = PeelingChargeForm
-    template_name = 'adminapp/forms/peelingcharge_form.html'
-    success_url = reverse_lazy('adminapp:peeling_charge_list')
+# class PeelingChargeUpdateView(UpdateView):
+#     model = PeelingCharge
+#     form_class = PeelingChargeForm
+#     template_name = 'adminapp/forms/peelingcharge_form.html'
+#     success_url = reverse_lazy('adminapp:peeling_charge_list')
 
-class PeelingChargeDeleteView(DeleteView):
-    model = PeelingCharge
-    template_name = 'adminapp/confirm_delete.html'
-    success_url = reverse_lazy('adminapp:peeling_charge_list')
+# class PeelingChargeDeleteView(DeleteView):
+#     model = PeelingCharge
+#     template_name = 'adminapp/confirm_delete.html'
+#     success_url = reverse_lazy('adminapp:peeling_charge_list')
 
 class PurchaseOverheadCreateView(CreateView):
     model = PurchaseOverhead
@@ -740,7 +789,96 @@ def local_purchase_detail(request, pk):
 
 
 
+# views.py
+
+from django.views.generic import ListView, DeleteView
+from django.urls import reverse_lazy
+from .models import PeelingShedSupply
+
+class PeelingShedSupplyListView(ListView):
+    model = PeelingShedSupply
+    template_name = 'adminapp/purchases/peeling_shed_supply_list.html'
+    context_object_name = 'supplies'
+
+# views.py
+
+class PeelingShedSupplyDeleteView(DeleteView):
+    model = PeelingShedSupply
+    template_name = 'adminapp/purchases/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:peeling_shed_supply_list')
 
 
 
+
+# views.py
+def create_peeling_shed_supply(request):
+    if request.method == 'POST':
+        form = PeelingShedSupplyForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('adminapp:peeling_shed_supply_list')  # Change to your desired redirect
+    else:
+        form = PeelingShedSupplyForm()
+
+    return render(request, 'adminapp/purchases/peeling_shed_supply_form.html', {'form': form})
+
+
+
+def get_spot_purchases_by_date(request):
+    date = request.GET.get('date')
+    spot_purchases = SpotPurchase.objects.filter(date=date)
+
+    data = [
+        {
+            'id': purchase.id,
+            'name': f"{purchase.voucher_number} - {purchase.spot.location_name}"
+        }
+        for purchase in spot_purchases
+    ]
+    return JsonResponse(data, safe=False)
+
+def get_spot_purchase_items(request):
+    spot_purchase_id = request.GET.get('spot_purchase_id')
+    items = SpotPurchaseItem.objects.filter(purchase_id=spot_purchase_id)
+
+    data = [
+        {
+            'id': item.id,
+            'name': item.item.name
+        }
+        for item in items
+    ]
+    return JsonResponse(data, safe=False)
+
+def get_spot_purchase_item_details(request):
+    item_id = request.GET.get('item_id')
+    try:
+        item = SpotPurchaseItem.objects.get(id=item_id)
+        avg_weight = float(item.quantity) / float(item.boxes) if item.boxes else 0
+        data = {
+            'total_boxes': float(item.boxes or 0),
+            'quantity': float(item.quantity),
+            'average_weight': round(avg_weight, 2)
+        }
+    except SpotPurchaseItem.DoesNotExist:
+        data = {
+            'total_boxes': 0,
+            'quantity': 0,
+            'average_weight': 0
+        }
+
+    return JsonResponse(data)
+
+def get_peeling_charges(request):
+    shed_id = request.GET.get('shed_id')
+    charges = Shed.objects.filter(shed_id=shed_id)
+
+    data = [
+        {
+            'peeling_type': charge.peeling_type,
+            'amount': float(charge.amount)
+        }
+        for charge in charges
+    ]
+    return JsonResponse(data, safe=False)
 
