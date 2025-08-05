@@ -1,0 +1,25 @@
+<!-- ItemType List Template -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Item Type List</title>
+</head>
+<body>
+    <h1>Item Type List</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+        {% for obj in object_list %}
+        <tr>
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.name }}</td>
+            <td><a href="{% url 'adminapp:item_type_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_type_delete' obj.id %}">Delete</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

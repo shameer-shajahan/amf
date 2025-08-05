@@ -50,34 +50,22 @@
     {% csrf_token %}
     {{ item_formset.management_form }}
 
+    {{ purchase_form.non_field_errors }}
+    {% for field in purchase_form %}
+      {{ field.errors }}
+    {% endfor %}
 
-{{ purchase_form.non_field_errors }}
-{% for field in purchase_form %}
-  {{ field.errors }}
-{% endfor %}
+    {{ expense_form.non_field_errors }}
+    {% for field in expense_form %}
+      {{ field.errors }}
+    {% endfor %}
 
-{{ expense_form.non_field_errors }}
-{% for field in expense_form %}
-  {{ field.errors }}
-{% endfor %}
-
-{% for form in item_formset %}
-  {{ form.non_field_errors }}
-  {% for field in form %}
-    {{ field.errors }}
-  {% endfor %}
-{% endfor %}
-
-
-
-
-
-
-
-
-
-
-
+    {% for form in item_formset %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        {{ field.errors }}
+      {% endfor %}
+    {% endfor %}
 
     <div class="form-section">
         <h3>Purchase Details</h3>
@@ -87,9 +75,10 @@
     <div class="form-section">
         <h3>Purchase Items</h3>
         <div id="formset-container">
-            {{ item_formset.management_form }}
             {% for form in item_formset %}
                 <div class="formset-row">
+                    {{ form.id }}  <!-- ✅ Required hidden ID field -->
+
                     {% for field in form.visible_fields %}
                         <div>
                             {{ field.label_tag }} {{ field }}
@@ -98,6 +87,8 @@
                             {% endif %}
                         </div>
                     {% endfor %}
+
+                    {{ form.DELETE }}  <!-- Optional delete checkbox -->
                     <button type="button" class="delete-row">Delete</button>
                 </div>
             {% endfor %}
@@ -125,11 +116,14 @@
 <template id="empty-form-template">
     <div class="formset-row">
         {% with item_formset.empty_form as form %}
+            {{ form.id }}  <!-- ✅ Include hidden ID field -->
+
             {% for field in form.visible_fields %}
                 <div>
                     {{ field.label_tag }} {{ field.as_widget }}
                 </div>
             {% endfor %}
+            {{ form.DELETE }}  <!-- Optional checkbox for deletions -->
         {% endwith %}
         <button type="button" class="delete-row">Delete</button>
     </div>
@@ -207,8 +201,15 @@ document.addEventListener('click', function (e) {
     if (e.target.classList.contains('delete-row')) {
         const row = e.target.closest('.formset-row');
         if (row) {
-            row.remove();
-            updateTotalForms(-1);
+            // Mark as deleted instead of removing
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();  // fallback if DELETE field not present
+                updateTotalForms(-1);
+            }
             calculateTotals();
         }
     }
@@ -233,7 +234,7 @@ document.getElementById('add-more').addEventListener('click', function () {
     calculateTotals();
 });
 
-// Helper to update TOTAL_FORMS when deleting
+// Helper to update TOTAL_FORMS when deleting (if physically removing rows)
 function updateTotalForms(change) {
     const container = document.getElementById('formset-container');
     const totalFormsInput = container.querySelector('input[name$="-TOTAL_FORMS"]');

@@ -160,6 +160,7 @@ class ItemGrade(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     species = models.CharField(max_length=100, blank=True)
     grade = models.CharField(max_length=100)
+    date = models.DateField(auto_created=True, auto_now=True) 
 
     def __str__(self):
         return f"{self.species} - {self.grade}"
@@ -198,6 +199,11 @@ class ItemBrand(BaseModel):
     def __str__(self):
         return f"{self.name} - {self.code}"
 
+class ItemType(BaseModel):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=50, unique=True, blank=True, null=True)
+
 #  Financial & Expense Masters
 
 class Tenant(BaseModel):
@@ -216,9 +222,12 @@ class PeelingChargeManager(models.Manager):
         return self.get_queryset().filter(item__is_peeling=True)
 
 class PeelingCharge(BaseModel):
+    shed = models.ForeignKey(Shed, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='peeling_for_item')
+    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.CharField(max_length=50, default='kg')
+    date = models.DateField(auto_created=True, auto_now=True) 
 
     objects = PeelingChargeManager()
 
@@ -248,11 +257,23 @@ class ShipmentOverhead(BaseModel):
 
 # Spot Purchase Models
 
+from django.db import models
+
+class BaseModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
 class SpotPurchase(BaseModel):
     date = models.DateField()
     voucher_number = models.CharField(max_length=20, unique=True)
-    spot = models.ForeignKey(PurchasingSpot, on_delete=models.CASCADE)
-    supervisor = models.ForeignKey(PurchasingSupervisor, on_delete=models.CASCADE)
+    spot = models.ForeignKey('PurchasingSpot', on_delete=models.CASCADE)
+    supervisor = models.ForeignKey('PurchasingSupervisor', on_delete=models.CASCADE)
+    agent = models.ForeignKey('PurchasingAgent', on_delete=models.CASCADE)
+
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_items = models.IntegerField(null=True, blank=True)
@@ -260,18 +281,47 @@ class SpotPurchase(BaseModel):
     def __str__(self):
         return f"Voucher {self.voucher_number} on {self.date} at {self.spot.location_name}"
 
+    def update_totals(self):
+        items = self.items.all()
+        self.total_amount = sum(item.amount for item in items)
+        self.total_quantity = sum(item.quantity for item in items)
+        self.total_items = items.count()
+        self.save()
+
+
 class SpotPurchaseItem(BaseModel):
     purchase = models.ForeignKey(SpotPurchase, on_delete=models.CASCADE, related_name='items')
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    agent = models.ForeignKey(PurchasingAgent, on_delete=models.CASCADE)
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     boxes = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=2)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self):
-        return f"{self.item.name} from {self.agent.name} - {self.quantity}kg @ {self.rate}"
+        return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
 
+
+class SpotPurchaseExpense(BaseModel):
+    purchase = models.OneToOneField(SpotPurchase, on_delete=models.CASCADE, related_name='expense')
+    ice_expense = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vehicle_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    loading_and_unloading = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    peeling_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    other_expense = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_expense = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def save(self, *args, **kwargs):
+        self.total_expense = (
+            self.ice_expense +
+            self.vehicle_rent +
+            self.loading_and_unloading +
+            self.peeling_charge +
+            self.other_expense
+        )
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Expense for {self.purchase.voucher_number} at {self.purchase.spot.location_name}"
 
 # local purchase models
 
@@ -296,3 +346,5 @@ class LocalPurchaseItem(BaseModel):
 
     def __str__(self):
         return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
+    
+

@@ -85,6 +85,11 @@ urlpatterns = [
     path('item-brand/update/<str:pk>/', views.ItemBrandUpdateView.as_view(), name='item_brand_update'),
     path('item-brand/delete/<str:pk>/', views.ItemBrandDeleteView.as_view(), name='item_brand_delete'),
 
+    path('item-type/create/', views.ItemTypeCreateView.as_view(), name='item_type_create'),
+    path('item-type/list/', views.ItemTypeListView.as_view(), name='item_type_list'),
+    path('item-type/update/<str:pk>/', views.ItemTypeUpdateView.as_view(), name='item_type_update'),
+    path('item-type/delete/<str:pk>/', views.ItemTypeDeleteView.as_view(), name='item_type_delete'),
+
     # Financial & Expense Masters
     path('tenant/create/', views.TenantCreateView.as_view(), name='tenant_create'),
     path('tenant/list/', views.TenantListView.as_view(), name='tenant_list'),
@@ -92,6 +97,7 @@ urlpatterns = [
     path('tenant/delete/<str:pk>/', views.TenantDeleteView.as_view(), name='tenant_delete'),
 
     path('peeling-charge/create/', views.PeelingChargeCreateView.as_view(), name='peeling_charge_create'),
+    path('ajax/get-item-types/<str:item_id>/', views.get_item_types, name='get_item_types'),
     path('peeling-charge/list/', views.PeelingChargeListView.as_view(), name='peeling_charge_list'),
     path('peeling-charge/update/<str:pk>/', views.PeelingChargeUpdateView.as_view(), name='peeling_charge_update'),
     path('peeling-charge/delete/<str:pk>/', views.PeelingChargeDeleteView.as_view(), name='peeling_charge_delete'),
@@ -117,9 +123,9 @@ urlpatterns = [
     path('shipment-overhead/delete/<str:pk>/', views.ShipmentOverheadDeleteView.as_view(), name='shipment_overhead_delete'),
 
 # spot purchase urls.py
-    path('spot-purchase/add/', views.spot_purchase_create, name='spot_purchase_add'),
+    path('spot-purchase/add/', views.create_spot_purchase, name='spot_purchase_add'),
     path('spot-purchases/', views.spot_purchase_list, name='spot_purchase_list'),
-    path('spot-purchases/<str:pk>/edit/', views.spot_purchase_update, name='spot_purchase_update'),
+    path('spot-purchase/<str:pk>/edit/', views.edit_spot_purchase, name='spot_purchase_edit'),
     path('spot-purchases/<str:pk>/delete/', views.spot_purchase_delete, name='spot_purchase_delete'),
     path('spot-purchases/<str:pk>/', views.spot_purchase_detail, name='spot_purchase_detail'),
 

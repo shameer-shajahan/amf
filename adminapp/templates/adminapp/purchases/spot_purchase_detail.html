@@ -1,43 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Spot Purchase Detail</title>
+    <title>Spot Purchase Details</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        h2 { margin-top: 0; }
+    </style>
 </head>
 <body>
-    <h2>Spot Purchase Detail</h2>
+
+    <h2>Spot Purchase #{{ purchase.id }}</h2>
+
+    <h3>Purchase Info</h3>
     <p><strong>Date:</strong> {{ purchase.date }}</p>
-    <p><strong>Voucher Number:</strong> {{ purchase.voucher_number }}</p>
+    <p><strong>Agent:</strong> {{ purchase.agent }}</p>
     <p><strong>Spot:</strong> {{ purchase.spot }}</p>
     <p><strong>Supervisor:</strong> {{ purchase.supervisor }}</p>
-    <p><strong>Total Quantity:</strong> {{ purchase.total_quantity }}</p>
-    <p><strong>Total Amount:</strong> {{ purchase.total_amount }}</p>
-    <p><strong>Total Items:</strong> {{ purchase.total_items }}</p>
 
     <h3>Items</h3>
-    <table border="1">
+    <table>
         <thead>
             <tr>
+                <th>Item Type</th>
                 <th>Item</th>
-                <th>Agent</th>
-                <th>Quantity</th>
+                <th>Qty</th>
                 <th>Rate</th>
                 <th>Amount</th>
             </tr>
         </thead>
         <tbody>
-            {% for item in items %}
+            {% for item in purchase.items.all %}
             <tr>
+                <td>{{ item.item_type }}</td>
                 <td>{{ item.item }}</td>
-                <td>{{ item.agent }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ item.rate }}</td>
                 <td>{{ item.amount }}</td>
             </tr>
+            {% empty %}
+            <tr><td colspan="5">No items added.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
+    <h3>Expenses</h3>
+    {% if purchase.expense %}
+    <table>
+        <tbody>
+            <tr><th>Ice Expense</th><td>{{ purchase.expense.ice_expense }}</td></tr>
+            <tr><th>Vehicle Rent</th><td>{{ purchase.expense.vehicle_rent }}</td></tr>
+            <tr><th>Loading/Unloading</th><td>{{ purchase.expense.loading_and_unloading }}</td></tr>
+            <tr><th>Peeling Charge</th><td>{{ purchase.expense.peeling_charge }}</td></tr>
+            <tr><th>Other Expense</th><td>{{ purchase.expense.other_expense }}</td></tr>
+            <tr><th><strong>Total</strong></th><td><strong>{{ purchase.expense.total_expense }}</strong></td></tr>
+        </tbody>
+    </table>
+    {% else %}
+        <p>No expense details available.</p>
+    {% endif %}
+
     <br>
     <a href="{% url 'adminapp:spot_purchase_list' %}">← Back to List</a>
+
 </body>
 </html>

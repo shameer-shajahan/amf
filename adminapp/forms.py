@@ -1,6 +1,9 @@
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from adminapp.models import CustomUser  # adjust if CustomUser is elsewhere
+from django.forms import inlineformset_factory
+from .models import *
+
 
 class CustomUserCreationForm(forms.ModelForm):
     password = forms.CharField(label='Password', widget=forms.PasswordInput)
@@ -16,10 +19,6 @@ class CustomUserCreationForm(forms.ModelForm):
             user.save()
         return user
     
-
-from django import forms
-from .models import *
-
 # Operational & Location
 class ProcessingCenterForm(forms.ModelForm):
     class Meta:
@@ -88,21 +87,43 @@ class ItemBrandForm(forms.ModelForm):
         model = ItemBrand
         fields = '__all__'
 
+class ItemTypeForm(forms.ModelForm):
+    class Meta:
+        model = ItemType
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['item'].queryset = Item.objects.filter(is_peeling=True)
+
 # Financial & Expense
 class TenantForm(forms.ModelForm):
     class Meta:
         model = Tenant
         fields = '__all__'
 
+from django import forms
+from .models import PeelingCharge, Item, ItemType
+
 class PeelingChargeForm(forms.ModelForm):
     class Meta:
         model = PeelingCharge
-        fields = '__all__'  # This is fine
+        fields = ['shed', 'item', 'item_type', 'amount']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Limit item choices to only those with is_peeling=True
+
         self.fields['item'].queryset = Item.objects.filter(is_peeling=True)
+        self.fields['item_type'].queryset = ItemType.objects.none()
+        self.fields['item_type'].required = False
+
+        if self.is_bound:
+            item_id = self.data.get('item')
+            if item_id:
+                self.fields['item_type'].queryset = ItemType.objects.filter(item_id=item_id)
+        elif self.instance and getattr(self.instance, 'item_id', None):
+            self.fields['item_type'].queryset = ItemType.objects.filter(item=self.instance.item)
 
 class PurchaseOverheadForm(forms.ModelForm):
     class Meta:
@@ -124,36 +145,34 @@ class ShipmentOverheadForm(forms.ModelForm):
         model = ShipmentOverhead
         fields = '__all__'
 
-
-
 # forms for create a Purchase Entry 
+
 from django import forms
 from django.forms import inlineformset_factory
-from .models import SpotPurchase, SpotPurchaseItem
+from .models import SpotPurchase, SpotPurchaseItem, SpotPurchaseExpense
 
 class SpotPurchaseForm(forms.ModelForm):
     class Meta:
         model = SpotPurchase
-        fields = ['date', 'voucher_number', 'spot', 'supervisor']
+        fields = ['date', 'voucher_number', 'spot', 'supervisor', 'agent']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
             'spot': forms.Select(attrs={'class': 'form-control'}),
             'supervisor': forms.Select(attrs={'class': 'form-control'}),
+            'agent': forms.Select(attrs={'class': 'form-control'}),
         }
 
 class SpotPurchaseItemForm(forms.ModelForm):
     class Meta:
         model = SpotPurchaseItem
-        fields = ['item', 'agent', 'quantity', 'rate', 'boxes']
+        fields = ['item', 'quantity', 'rate', 'boxes']
         widgets = {
             'item': forms.Select(attrs={'class': 'form-control'}),
-            'agent': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'boxes': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'rate': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
-
 
 SpotPurchaseItemFormSet = inlineformset_factory(
     SpotPurchase,
@@ -163,12 +182,25 @@ SpotPurchaseItemFormSet = inlineformset_factory(
     can_delete=True
 )
 
+class SpotPurchaseExpenseForm(forms.ModelForm):
+    class Meta:
+        model = SpotPurchaseExpense
+        fields = [
+            'ice_expense',
+            'vehicle_rent',
+            'loading_and_unloading',
+            'peeling_charge',
+            'other_expense'
+        ]
+        widgets = {
+            'ice_expense': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'vehicle_rent': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'loading_and_unloading': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'peeling_charge': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'other_expense': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
 
 # local purchase forms
-
-from django import forms
-from django.forms import inlineformset_factory
-from .models import LocalPurchase, LocalPurchaseItem
 
 class LocalPurchaseForm(forms.ModelForm):
     class Meta:
@@ -198,3 +230,4 @@ LocalPurchaseItemFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+

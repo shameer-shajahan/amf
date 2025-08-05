@@ -1,46 +1,37 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Spot Purchase List</title>
-</head>
+<head><title>Spot Purchase List</title></head>
 <body>
-    <nav>
-        <ul>
-            <li><a href="{% url 'adminapp:admin_dashboard' %}">Home</a></li>
-            <li><a href="{% url 'adminapp:spot_purchase_list' %}">list</a></li>
-            <li><a href="{% url 'adminapp:spot_purchase_add' %}">+ Add New Purchase</a></li>
-        </ul>
-    </nav>
-    <h2>Spot Purchases</h2>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Voucher</th>
-                <th>Spot</th>
-                <th>Supervisor</th>
-                <th>Total Qty</th>
-                <th>Total Amount</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for purchase in purchases %}
-            <tr>
-                <td>{{ purchase.date }}</td>
-                <td>{{ purchase.voucher_number }}</td>
-                <td>{{ purchase.spot }}</td>
-                <td>{{ purchase.supervisor }}</td>
-                <td>{{ purchase.total_quantity }}</td>
-                <td>{{ purchase.total_amount }}</td>
-                <td>
-                    <a href="{% url 'adminapp:spot_purchase_update' purchase.pk %}">Edit</a> |
-                    <a href="{% url 'adminapp:spot_purchase_delete' purchase.pk %}">Delete</a>|
-                    <a href="{% url 'adminapp:spot_purchase_detail' purchase.pk %}">View</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<h2>Spot Purchases</h2>
+<a href="{% url 'adminapp:spot_purchase_add' %}">+ Add New</a>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Supplier</th>
+            <th>Total Quantity</th>
+            <th>Total Amount</th>
+            <th>Total Expense</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for purchase in purchases %}
+        <tr>
+            <td>{{ purchase.date }}</td>
+            <td>{{ purchase.supplier }}</td>
+            <td>{{ purchase.total_quantity }}</td>
+            <td>{{ purchase.total_amount }}</td>
+            <td>{{ purchase.total_expense }}</td>
+            <td>
+                <a href="{% url 'adminapp:spot_purchase_detail' purchase.pk %}">View</a> |
+                <a href="{% url 'adminapp:spot_purchase_edit' purchase.pk %}">Edit</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">No purchases found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
 </body>
 </html>

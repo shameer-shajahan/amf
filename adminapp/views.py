@@ -1,15 +1,18 @@
-from django.shortcuts import render
 
 # Create your views here.
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from .forms import CustomUserCreationForm
-from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
+from django.urls import reverse_lazy
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic import ListView
+from django.shortcuts import render
+from .models import *
+from .forms import *
 
 
 
@@ -55,14 +58,6 @@ def create_user_view(request):
     else:
         form = CustomUserCreationForm()
     return render(request, 'adminapp/create_user.html', {'form': form})
-
-
-from django.urls import reverse_lazy
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
-from django.views.generic import ListView
-from django.shortcuts import render
-from .models import *
-from .forms import *
 
 # Dashboard View
 def admin_dashboard(request):
@@ -368,6 +363,28 @@ class ItemBrandDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:item_brand_list')
 
+class ItemTypeCreateView(CreateView):
+    model = ItemType
+    form_class = ItemTypeForm
+    template_name = 'adminapp/forms/itemtype_form.html'
+    success_url = reverse_lazy('adminapp:item_type_create')
+
+class ItemTypeListView(ListView):
+    model = ItemType
+    template_name = 'adminapp/list/itemtype_list.html'
+    context_object_name = 'item_types'
+
+class ItemTypeUpdateView(UpdateView):
+    model = ItemType
+    form_class = ItemTypeForm
+    template_name = 'adminapp/forms/itemtype_form.html'
+    success_url = reverse_lazy('adminapp:item_type_list')
+
+class ItemTypeDeleteView(DeleteView):
+    model = ItemType
+    template_name = 'adminapp/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:item_type_list')
+
 # ----------------------------
 # Financial & Expense Masters
 # ----------------------------
@@ -399,6 +416,19 @@ class PeelingChargeCreateView(CreateView):
     form_class = PeelingChargeForm
     template_name = 'adminapp/forms/peelingcharge_form.html'
     success_url = reverse_lazy('adminapp:peeling_charge_create')
+
+    def form_valid(self, form):
+        # Optional: Debug what’s being submitted
+        print("SAVING ITEM:", form.cleaned_data.get("item"))
+        print("SAVING SPECIES:", form.cleaned_data.get("species"))
+        return super().form_valid(form)
+
+from django.http import JsonResponse
+from .models import ItemGrade
+
+def get_item_types(request, item_id):
+    item_types = ItemType.objects.filter(item_id=item_id).values('id', 'name')
+    return JsonResponse(list(item_types), safe=False)
 
 class PeelingChargeListView(ListView):
     model = PeelingCharge
@@ -504,82 +534,98 @@ class ShipmentOverheadDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:shipment_overhead_list')
 
-
 # function for creating a Purchase Entry
-from django.shortcuts import render, redirect, get_object_or_404
-from django.db import transaction
-from .forms import SpotPurchaseForm, SpotPurchaseItemFormSet
 
-def spot_purchase_create(request):
+def create_spot_purchase(request):
     if request.method == 'POST':
-        form = SpotPurchaseForm(request.POST)
-        formset = SpotPurchaseItemFormSet(request.POST, prefix='form')  # ✅ Add prefix
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
-                purchase = form.save()
-                total_amount = 0
-                total_quantity = 0
+        purchase_form = SpotPurchaseForm(request.POST)
+        item_formset = SpotPurchaseItemFormSet(request.POST)
+        expense_form = SpotPurchaseExpenseForm(request.POST)
 
-                for item_form in formset:
-                    item = item_form.save(commit=False)
-                    item.purchase = purchase
-                    item.amount = item.quantity * item.rate
-                    item.save()
-                    total_amount += item.amount
-                    total_quantity += item.quantity
+        if purchase_form.is_valid() and item_formset.is_valid() and expense_form.is_valid():
+            purchase = purchase_form.save()
 
-                purchase.total_amount = total_amount
-                purchase.total_quantity = total_quantity
-                purchase.total_items = formset.total_form_count()
-                purchase.save()
+            items = item_formset.save(commit=False)
+            for item in items:
+                item.purchase = purchase
+                item.amount = item.quantity * item.rate  # Ensure amount is calculated
+                item.save()
+            item_formset.save_m2m()
 
-                return redirect('adminapp:admin_dashboard')  # update as needed
+            expense = expense_form.save(commit=False)
+            expense.purchase = purchase
+            expense.save()
+
+            purchase.update_totals()
+            return redirect('adminapp:spot_purchase_list')
 
     else:
-        form = SpotPurchaseForm()
-        formset = SpotPurchaseItemFormSet(prefix='form')  # ✅ Add prefix
+        purchase_form = SpotPurchaseForm()
+        item_formset = SpotPurchaseItemFormSet()
+        expense_form = SpotPurchaseExpenseForm()
 
+    # ✅ Always return something at the end
     return render(request, 'adminapp/purchases/spot_purchase_form.html', {
-        'form': form,
-        'formset': formset,
+        'purchase_form': purchase_form,
+        'item_formset': item_formset,
+        'expense_form': expense_form,
     })
 
-# List View
+def edit_spot_purchase(request, pk):
+    purchase = get_object_or_404(SpotPurchase, pk=pk)
+
+    # Get expense or set to None if it doesn't exist
+    try:
+        expense = purchase.expense
+    except SpotPurchaseExpense.DoesNotExist:
+        expense = None
+
+    if request.method == 'POST':
+        purchase_form = SpotPurchaseForm(request.POST, instance=purchase)
+        item_formset = SpotPurchaseItemFormSet(request.POST, instance=purchase)
+        expense_form = SpotPurchaseExpenseForm(request.POST, instance=expense)
+
+        if purchase_form.is_valid() and item_formset.is_valid() and expense_form.is_valid():
+            purchase = purchase_form.save()
+
+            items = item_formset.save(commit=False)
+            for item in items:
+                item.purchase = purchase
+                item.amount = item.quantity * item.rate  # Auto calculate amount
+                item.save()
+            item_formset.save_m2m()
+
+            # Handle deleted items
+            for obj in item_formset.deleted_objects:
+                obj.delete()
+
+            # Save expense (create if it doesn't exist)
+            expense = expense_form.save(commit=False)
+            expense.purchase = purchase
+            expense.save()
+
+            purchase.update_totals()
+            return redirect('adminapp:spot_purchase_list')
+
+        # 🐍 Debugging form errors
+        print("Purchase Form Errors:", purchase_form.errors)
+        print("Item Formset Errors:", item_formset.errors)
+        print("Expense Form Errors:", expense_form.errors)
+
+    else:
+        purchase_form = SpotPurchaseForm(instance=purchase)
+        item_formset = SpotPurchaseItemFormSet(instance=purchase)
+        expense_form = SpotPurchaseExpenseForm(instance=expense)
+
+    return render(request, 'adminapp/purchases/spot_purchase_edit.html', {
+        'purchase_form': purchase_form,
+        'item_formset': item_formset,
+        'expense_form': expense_form,
+    })
+
 def spot_purchase_list(request):
     purchases = SpotPurchase.objects.all().order_by('-date')
     return render(request, 'adminapp/purchases/spot_purchase_list.html', {'purchases': purchases})
-
-# Update View
-def spot_purchase_update(request, pk):
-    purchase = get_object_or_404(SpotPurchase, pk=pk)
-    if request.method == 'POST':
-        form = SpotPurchaseForm(request.POST, instance=purchase)
-        formset = SpotPurchaseItemFormSet(request.POST, instance=purchase)
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
-                purchase = form.save()
-                total_amount = 0
-                total_quantity = 0
-                items = formset.save(commit=False)
-                for item in items:
-                    item.purchase = purchase
-                    item.amount = item.quantity * item.rate
-                    item.save()
-                    total_amount += item.amount
-                    total_quantity += item.quantity
-
-                formset.save_m2m()
-                purchase.total_amount = total_amount
-                purchase.total_quantity = total_quantity
-                purchase.total_items = formset.total_form_count()
-                purchase.save()
-
-                return redirect('adminapp:spot_purchase_list')
-    else:
-        form = SpotPurchaseForm(instance=purchase)
-        formset = SpotPurchaseItemFormSet(instance=purchase)
-
-    return render(request, 'adminapp/purchases/spot_purchase_form.html', {'form': form, 'formset': formset})
 
 # Delete View
 def spot_purchase_delete(request, pk):
@@ -589,22 +635,15 @@ def spot_purchase_delete(request, pk):
         return redirect('adminapp:spot_purchase_list')
     return render(request, 'adminapp/purchases/spot_purchase_confirm_delete.html', {'purchase': purchase})
 
-# Details View
 def spot_purchase_detail(request, pk):
-    purchase = get_object_or_404(SpotPurchase, pk=pk)
-    items = SpotPurchaseItem.objects.filter(purchase=purchase)
+    purchase = get_object_or_404(
+        SpotPurchase.objects.select_related('expense', 'spot', 'supervisor', 'agent')
+                            .prefetch_related('items'),
+        pk=pk
+    )
     return render(request, 'adminapp/purchases/spot_purchase_detail.html', {
-        'purchase': purchase,
-        'items': items
+        'purchase': purchase
     })
-
-
-# Local Purchase Entry
-
-from django.shortcuts import render, redirect
-from django.db import transaction
-from .models import LocalPurchase
-from .forms import LocalPurchaseForm, LocalPurchaseItemFormSet
 
 def local_purchase_create(request):
     if request.method == 'POST':
@@ -698,3 +737,10 @@ def local_purchase_detail(request, pk):
         'items': items,
         'title': f"Local Purchase Details - Voucher #{purchase.voucher_number}"
     })
+
+
+
+
+
+
+
