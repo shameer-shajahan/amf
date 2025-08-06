@@ -229,40 +229,22 @@ LocalPurchaseItemFormSet = inlineformset_factory(
 # Peeling Shed Supply Form
 
 # forms.py
-
 from django import forms
-from .models import PeelingShedSupply
-from django.forms import inlineformset_factory
-from django import forms
-from .models import PeelingShedSupply
+from .models import PeelingShedSupply, PeelingShedPeelingType
 
 class PeelingShedSupplyForm(forms.ModelForm):
     class Meta:
         model = PeelingShedSupply
-        fields = [
-            'date',
-            'voucher_number',
-            'shed',
-            'vehicle_number',
-            'spot_purchase_date',
-            'spot_purchase',
-            'spot_purchase_item',
-            'SpotPurchase_total_boxes',
-            'SpotPurchase_quantity',
-            'SpotPurchase_average_box_weight',
-            'boxes_received_shed',
-            'quantity_received_shed',
-            'peeling_type',
-            'amount',
-        ]
+        fields = '__all__'
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
-            'spot_purchase_date': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'ajax-date',  # ✅ Add class here
-                'id': 'id_spot_purchase_date'  # Make sure this matches the JS selector
-            }),
+            'spot_purchase_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
-
-
+PeelingShedPeelingTypeFormSet = inlineformset_factory(
+    PeelingShedSupply,
+    PeelingShedPeelingType,
+    fields=('item', 'item_type', 'amount', 'unit'),
+    extra=0,
+    can_delete=False
+)

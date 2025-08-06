@@ -811,16 +811,47 @@ class PeelingShedSupplyDeleteView(DeleteView):
 
 
 # views.py
+from django.shortcuts import render, redirect
+from .forms import PeelingShedSupplyForm, PeelingShedPeelingTypeFormSet
+
+from django.db import transaction
+from django.shortcuts import render, redirect
+from .models import PeelingShedSupply, PeelingShedPeelingType
+from .forms import PeelingShedSupplyForm, PeelingShedPeelingTypeFormSet
+
 def create_peeling_shed_supply(request):
     if request.method == 'POST':
         form = PeelingShedSupplyForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('adminapp:peeling_shed_supply_list')  # Change to your desired redirect
+        formset = PeelingShedPeelingTypeFormSet(request.POST, prefix='form')
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                supply = form.save()
+
+                # Optional: calculate totals (if needed later)
+                total_amount = 0
+
+                for item_form in formset:
+                    peeling_type = item_form.save(commit=False)
+                    peeling_type.supply = supply
+                    peeling_type.save()
+                    total_amount += peeling_type.amount  # If total needed
+
+                # Example: supply.total_amount = total_amount
+                # supply.save()
+
+                return redirect('adminapp:peeling_shed_supply_list')
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", formset.errors)
     else:
         form = PeelingShedSupplyForm()
+        formset = PeelingShedPeelingTypeFormSet(prefix='form')
 
-    return render(request, 'adminapp/purchases/peeling_shed_supply_form.html', {'form': form})
+    return render(request, 'adminapp/purchases/peeling_shed_supply_form.html', {
+        'form': form,
+        'formset': formset,
+    })
 
 
 
@@ -869,16 +900,23 @@ def get_spot_purchase_item_details(request):
 
     return JsonResponse(data)
 
-def get_peeling_charges(request):
+def get_peeling_charge_by_shed(request):
     shed_id = request.GET.get('shed_id')
-    charges = Shed.objects.filter(shed_id=shed_id)
+    data = []
 
-    data = [
-        {
-            'peeling_type': charge.peeling_type,
-            'amount': float(charge.amount)
-        }
-        for charge in charges
-    ]
-    return JsonResponse(data, safe=False)
+    if shed_id:
+        items = ShedItem.objects.filter(shed_id=shed_id)
+        for i in items:
+            data.append({
+                'item_id': i.item.id,
+                'item_name': i.item.name,
+                'item_type_id': i.item_type.id if i.item_type else None,
+                'item_type_name': i.item_type.name if i.item_type else '',
+                'amount': float(i.amount),
+                'unit': i.unit
+            })
+    return JsonResponse({'peeling_types': data})
+
+
+
 

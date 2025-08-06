@@ -141,7 +141,6 @@ urlpatterns = [
     path('peeling-shed-supply/<int:pk>/delete/', views.PeelingShedSupplyDeleteView.as_view(), name='peeling_shed_supply_delete'),
     path('ajax/get-spot-purchases/', views.get_spot_purchases_by_date, name='get_spot_purchases_by_date'),
     path('ajax/get-spot-purchase-items/', views.get_spot_purchase_items, name='get_spot_purchase_items'),    path('ajax/get-spot-purchase-item-details/', views.get_spot_purchase_item_details, name='get_spot_purchase_item_details'),
-    path('ajax/get-peeling-charges/', views.get_peeling_charges, name='get_peeling_charges'),
-
+    path('ajax/get-peeling-types/', views.get_peeling_charge_by_shed, name='get_peeling_charge_by_shed'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Create Peeling Shed Supply</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
+
 <body>
 
     <a href="{% url 'adminapp:peeling_shed_supply_list' %}">Back to List</a>
@@ -32,14 +34,36 @@
         {{ form.SpotPurchase_total_boxes.label_tag }} {{ form.SpotPurchase_total_boxes }}<br>
         {{ form.SpotPurchase_quantity.label_tag }} {{ form.SpotPurchase_quantity }}<br>
         {{ form.SpotPurchase_average_box_weight.label_tag }} {{ form.SpotPurchase_average_box_weight }}<br>
-<label for="id_boxes_received_shed">Boxes Received Shed</label>
-<input type="text" name="boxes_received_shed" id="id_boxes_received_shed"><br>
+        <label for="id_boxes_received_shed">Boxes Received Shed</label>
+        <input type="text" name="boxes_received_shed" id="id_boxes_received_shed"><br>
 
-<label for="id_quantity_received_shed">Quantity Received Shed</label>
-<input type="text" name="quantity_received_shed" id="id_quantity_received_shed" readonly><br>
+        <label for="id_quantity_received_shed">Quantity Received Shed</label>
+        <input type="text" name="quantity_received_shed" id="id_quantity_received_shed" readonly><br>
 
         {{ form.peeling_type.label_tag }} {{ form.peeling_type }}<br>
         {{ form.amount.label_tag }} {{ form.amount }}<br>
+
+
+
+
+
+        <h4>Peeling Charges</h4>
+        <div id="formset-container">
+            {{ formset.management_form }}
+            {% for form in formset %}
+            <div class="formset-row">
+                {{ form.id }}
+                {{ form.item.label_tag }} {{ form.item }}
+                {{ form.item_type.label_tag }} {{ form.item_type }}
+                {{ form.amount.label_tag }} {{ form.amount }}
+                {{ form.unit.label_tag }} {{ form.unit }}
+            </div>
+            {% endfor %}
+        </div>
+
+
+
+
 
         <button type="submit">Submit</button>
     </form>
@@ -78,47 +102,124 @@
                 $('#id_SpotPurchase_average_box_weight').val(data.average_weight);
             });
         });
+    </script>
 
-        // 4. Shed -> Peeling Charges
-        $('#id_shed').on('change', function () {
-            $.get("{% url 'adminapp:get_peeling_charges' %}", {
-                'shed_id': $(this).val()
-            }, function (data) {
-                if (data.length === 1) {
-                    $('#id_peeling_type').val(data[0].peeling_type);
-                    $('#id_amount').val(data[0].amount);
-                } else {
-                    // Clear fields if multiple or none
-                    $('#id_peeling_type').val('');
-                    $('#id_amount').val('');
+    <!-- shed box Received quantity calculation script -->
+
+    <script>
+        function calculateQuantityReceivedShed() {
+            let boxesReceived = parseFloat($("#id_boxes_received_shed").val()) || 0;
+            let avgWeight = parseFloat($("#id_SpotPurchase_average_box_weight").val()) || 0;
+            let quantity = boxesReceived * avgWeight;
+            $("#id_quantity_received_shed").val(quantity.toFixed(2));
+        }
+
+        $(document).ready(function () {
+            // Trigger on change or keyup
+            $("#id_boxes_received_shed").on('input', function () {
+                calculateQuantityReceivedShed();
+            });
+
+            // Also recalculate if average box weight is changed by AJAX (if editable)
+            $("#id_SpotPurchase_average_box_weight").on('input', function () {
+                calculateQuantityReceivedShed();
+            });
+        });
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        $('#id_shed').change(function () {
+            var shedId = $(this).val();
+            if (shedId) {
+                $.ajax({
+                    url: '/adminapp/ajax/get-peeling-types/',
+                    data: {
+                        'shed_id': shedId
+                    },
+                    dataType: 'json',
+                    success: function (data) {
+                        const peelingTypes = data.peeling_types;
+                        const formsetDiv = $('#peeling-type-formset'); // Your formset container
+                        formsetDiv.empty(); // Clear existing rows
+
+                        peelingTypes.forEach(function (type, index) {
+                            const formHtml = `
+                        <div class="formset-row">
+                            <input type="hidden" name="peelings-${index}-item" value="${type.item_id}">
+                            <input type="hidden" name="peelings-${index}-item_type" value="${type.item_type_id}">
+                            <input type="text" value="${type.item_name}" readonly>
+                            <input type="text" value="${type.item_type_name}" readonly>
+                            <input type="text" name="peelings-${index}-amount" value="${type.amount}">
+                            <input type="text" name="peelings-${index}-unit" value="${type.unit}">
+                        </div>
+                    `;
+                            formsetDiv.append(formHtml);
+                        });
+
+                        $('#id_peelings-TOTAL_FORMS').val(peelingTypes.length);
+                    }
+                });
+            }
+        });
+    </script>
+
+    <script>
+        function updatePeelingCharges(peelingTypes) {
+            const container = $('#formset-container');
+            const totalForms = $('#id_form-TOTAL_FORMS');
+            const currentCount = parseInt(totalForms.val());
+            let newCount = 0;
+
+            // Clear existing dynamic forms (optional: or keep existing and append)
+            container.find('.formset-row:gt(0)').remove();
+
+            peelingTypes.forEach((pt, i) => {
+                const index = i;
+                const newForm = $(`
+                    <div class="formset-row">
+                        <input type="hidden" name="form-${index}-id" id="id_form-${index}-id">
+                        <label for="id_form-${index}-item">Item:</label>
+                        <select name="form-${index}-item" id="id_form-${index}-item">
+                            <option value="${pt.item_id}" selected>${pt.item_name}</option>
+                        </select>
+
+                        <label for="id_form-${index}-item_type">Type:</label>
+                        <select name="form-${index}-item_type" id="id_form-${index}-item_type">
+                            ${pt.item_type_id ? `<option value="${pt.item_type_id}" selected>${pt.item_type_name}</option>` : `<option value="">------</option>`}
+                        </select>
+
+                        <label for="id_form-${index}-amount">Amount:</label>
+                        <input type="text" name="form-${index}-amount" id="id_form-${index}-amount" value="${pt.amount}">
+
+                        <label for="id_form-${index}-unit">Unit:</label>
+                        <input type="text" name="form-${index}-unit" id="id_form-${index}-unit" value="${pt.unit}">
+                    </div>
+                `);
+                container.append(newForm);
+                newCount++;
+            });
+
+            totalForms.val(newCount);
+        }
+
+        $(document).ready(function () {
+            $('#id_shed').change(function () {
+                const shedId = $(this).val();
+                if (shedId) {
+                    $.ajax({
+                        url: "{% url 'adminapp:get_peeling_charge_by_shed' %}",
+                        data: { 'shed_id': shedId },
+                        success: function (response) {
+                            updatePeelingCharges(response.peeling_types);
+                        }
+                    });
                 }
             });
         });
     </script>
 
-<!-- shed box Received quantity calculation script -->
-
-<script>
-    function calculateQuantityReceivedShed() {
-        let boxesReceived = parseFloat($("#id_boxes_received_shed").val()) || 0;
-        let avgWeight = parseFloat($("#id_SpotPurchase_average_box_weight").val()) || 0;
-        let quantity = boxesReceived * avgWeight;
-        $("#id_quantity_received_shed").val(quantity.toFixed(2));
-    }
-
-    $(document).ready(function(){
-        // Trigger on change or keyup
-        $("#id_boxes_received_shed").on('input', function(){
-            calculateQuantityReceivedShed();
-        });
-
-        // Also recalculate if average box weight is changed by AJAX (if editable)
-        $("#id_SpotPurchase_average_box_weight").on('input', function(){
-            calculateQuantityReceivedShed();
-        });
-    });
-</script>
-
-
 </body>
+
 </html>
