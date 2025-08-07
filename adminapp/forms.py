@@ -75,10 +75,39 @@ class ItemForm(forms.ModelForm):
         model = Item
         fields = '__all__'
 
+# forms.py
+class SpeciesForm(forms.ModelForm):
+    class Meta:
+        model = Species
+        fields = ['item', 'name', 'code']
+
 class ItemGradeForm(forms.ModelForm):
     class Meta:
         model = ItemGrade
         fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        item_id = None
+
+        # Try getting item from bound form data (POST)
+        if 'item' in self.data:
+            item_id = self.data.get('item')
+
+        # Or from initial data (GET with initial value)
+        elif 'item' in self.initial:
+            item_id = self.initial.get('item')
+
+        # Or from instance (if editing existing object)
+        elif self.instance and self.instance.pk:
+            item_id = self.instance.item_id
+
+        if item_id:
+            self.fields['species'].queryset = Species.objects.filter(item_id=item_id)
+        else:
+            self.fields['species'].queryset = Species.objects.none()
+
 
 class FreezingCategoryForm(forms.ModelForm):
     class Meta:
@@ -228,10 +257,6 @@ LocalPurchaseItemFormSet = inlineformset_factory(
 
 # Peeling Shed Supply Form
 
-# forms.py
-from django import forms
-from .models import PeelingShedSupply, PeelingShedPeelingType
-
 class PeelingShedSupplyForm(forms.ModelForm):
     class Meta:
         model = PeelingShedSupply
@@ -247,4 +272,50 @@ PeelingShedPeelingTypeFormSet = inlineformset_factory(
     fields=('item', 'item_type', 'amount', 'unit'),
     extra=0,
     can_delete=False
+)
+
+
+
+# Freezing Entry Spot Form
+
+
+class FreezingEntrySpotForm(forms.ModelForm):
+    class Meta:
+        model = FreezingEntrySpot
+        fields = '__all__'
+        widgets = {
+            'freezing_date': forms.DateInput(attrs={'type': 'date'}),
+            'spot_purchase_date': forms.DateInput(attrs={'type': 'date'}),
+            'total_yield_percentage': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_usd': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_inr': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+        }
+
+
+class FreezingEntrySpotItemForm(forms.ModelForm):
+    class Meta:
+        model = FreezingEntrySpotItem
+        fields = '__all__'
+        widgets = {
+            # Example widgets for actual fields in FreezingEntrySpotItem
+            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'kg': forms.NumberInput(attrs={'class': 'form-control'}),
+            'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control'}),
+            'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control'}),
+            'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control'}),
+            'yield_percentage': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+
+# Create the inline formset
+FreezingEntrySpotItemFormSet = inlineformset_factory(
+    FreezingEntrySpot,
+    FreezingEntrySpotItem,
+    form=FreezingEntrySpotItemForm,
+    extra=1,
+    can_delete=True
 )

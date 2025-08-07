@@ -13,6 +13,7 @@ from django.views.generic import ListView
 from django.shortcuts import render
 from .models import *
 from .forms import *
+from decimal import Decimal
 
 
 
@@ -302,11 +303,49 @@ class ItemDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:item_list')
 
+class SpeciesListView(ListView):
+    model = Species
+    template_name = 'adminapp/list/species_list.html'
+    context_object_name = 'species_list'
+
+class SpeciesCreateView(CreateView):
+    model = Species
+    form_class = SpeciesForm
+    template_name = 'adminapp/forms/species_form.html'
+    success_url = reverse_lazy('adminapp:species_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['action'] = 'Create'
+        return context
+
+class SpeciesUpdateView(UpdateView):
+    model = Species
+    form_class = SpeciesForm
+    template_name = 'adminapp/forms/species_form.html'
+    success_url = reverse_lazy('adminapp:species_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['action'] = 'Update'
+        return context
+
+class SpeciesDeleteView(DeleteView):
+    model = Species
+    template_name = 'adminapp/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:species_list')
+
 class ItemGradeCreateView(CreateView):
     model = ItemGrade
     form_class = ItemGradeForm
     template_name = 'adminapp/forms/itemgrade_form.html'
-    success_url = reverse_lazy('adminapp:item_grade_create')
+    success_url = reverse_lazy('adminapp:item_grade_list')
+
+def load_species(request):
+    item_id = request.GET.get('item_id')
+    species = Species.objects.filter(item_id=item_id).values('id', 'name', 'code')
+    data = list(species)
+    return JsonResponse(data, safe=False)
 
 class ItemGradeListView(ListView):
     model = ItemGrade
@@ -469,31 +508,11 @@ class TenantDeleteView(DeleteView):
 #     def form_valid(self, form):
 #         # Optional: Debug what’s being submitted
 #         print("SAVING ITEM:", form.cleaned_data.get("item"))
-#         print("SAVING SPECIES:", form.cleaned_data.get("species"))
+#         print("SAVING species:", form.cleaned_data.get("species"))
 #         return super().form_valid(form)
 
 from django.http import JsonResponse
 from .models import ItemGrade
-
-# def get_item_types(request, item_id):
-#     item_types = ItemType.objects.filter(item_id=item_id).values('id', 'name')
-#     return JsonResponse(list(item_types), safe=False)
-
-# class PeelingChargeListView(ListView):
-#     model = PeelingCharge
-#     template_name = 'adminapp/list/peelingcharge_list.html'
-#     context_object_name = 'peeling_charges'
-
-# class PeelingChargeUpdateView(UpdateView):
-#     model = PeelingCharge
-#     form_class = PeelingChargeForm
-#     template_name = 'adminapp/forms/peelingcharge_form.html'
-#     success_url = reverse_lazy('adminapp:peeling_charge_list')
-
-# class PeelingChargeDeleteView(DeleteView):
-#     model = PeelingCharge
-#     template_name = 'adminapp/confirm_delete.html'
-#     success_url = reverse_lazy('adminapp:peeling_charge_list')
 
 class PurchaseOverheadCreateView(CreateView):
     model = PurchaseOverhead
@@ -919,4 +938,138 @@ def get_peeling_charge_by_shed(request):
 
 
 
+# create freezing entry spot
 
+def create_freezing_entry_spot(request):
+    if request.method == 'POST':
+        form = FreezingEntrySpotForm(request.POST)
+        formset = FreezingEntrySpotItemFormSet(request.POST, prefix='form')
+
+        # 🔧 Fix: Set shed queryset for each form in the formset
+        for f in formset.forms:
+            f.fields['shed'].queryset = Shed.objects.all()
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                freezing_entry = form.save(commit=False)
+
+                total_kg = Decimal(0)
+                total_slab = Decimal(0)
+                total_c_s = Decimal(0)
+                total_usd = Decimal(0)
+                total_inr = Decimal(0)
+                yield_percentages = []
+
+                for f in formset:
+                    if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
+                        slab = f.cleaned_data.get('slab_quantity') or 0
+                        cs = f.cleaned_data.get('c_s_quantity') or 0
+                        kg = f.cleaned_data.get('kg') or 0
+                        usd = f.cleaned_data.get('usd_rate_item') or 0
+                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or 0
+                        yield_percent = f.cleaned_data.get('yield_percentage')
+
+                        total_slab += slab
+                        total_c_s += cs
+                        total_kg += kg
+                        total_usd += usd
+                        total_inr += inr
+                        if yield_percent is not None:
+                            yield_percentages.append(yield_percent)
+
+                # Average yield percentage
+                total_yield = sum(yield_percentages) / len(yield_percentages) if yield_percentages else 0
+
+                # Assign totals
+                freezing_entry.total_slab = total_slab
+                freezing_entry.total_c_s = total_c_s
+                freezing_entry.total_kg = total_kg
+                freezing_entry.total_usd = total_usd
+                freezing_entry.total_inr = total_inr
+                freezing_entry.total_yield_percentage = total_yield
+
+                freezing_entry.save()
+                formset.instance = freezing_entry
+                formset.save()
+
+            return redirect('adminapp:freezing_entry_spot_list')
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", formset.errors)
+    else:
+        form = FreezingEntrySpotForm()
+        form.fields['spot_agent'].queryset = PurchasingAgent.objects.none()
+        form.fields['spot_supervisor'].queryset = PurchasingSupervisor.objects.none()
+        formset = FreezingEntrySpotItemFormSet(prefix='form')
+
+    return render(request, 'adminapp/freezing_entry_spot_create.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+def get_spots_by_date(request):
+    date = request.GET.get('date')
+    spots = SpotPurchase.objects.filter(date=date).values('id', 'spot__location_name' , 'voucher_number')
+    return JsonResponse({'spots': list(spots)})
+
+def get_spot_details(request):
+    spot_id = request.GET.get('spot_id')
+
+    try:
+        spot = SpotPurchase.objects.select_related('agent', 'supervisor').get(id=spot_id)
+        data = {
+            'agent_id': spot.agent.id,
+            'agent_name': str(spot.agent),  # e.g. "John - AG001"
+            'supervisor_id': spot.supervisor.id,
+            'supervisor_name': str(spot.supervisor),  # e.g. "Anita - 9876543210"
+        }
+        return JsonResponse(data)
+    except SpotPurchase.DoesNotExist:
+        return JsonResponse({'error': 'SpotPurchase not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+def get_sheds_by_date(request):
+    date = request.GET.get('date')
+    if not date:
+        return JsonResponse({'error': 'Missing date'}, status=400)
+
+    supplies = PeelingShedSupply.objects.filter(
+        spot_purchase__date=date
+    ).select_related('shed', 'spot_purchase_item__item')
+
+    seen_pairs = set()
+    result = []
+
+    for supply in supplies:
+        shed = supply.shed
+        item = supply.spot_purchase_item.item
+        key = (shed.id, item.id)
+
+        if key not in seen_pairs:
+            seen_pairs.add(key)
+            result.append({
+                'shed_id': shed.id,
+                'shed_name': str(shed),
+                'item_id': item.id,
+                'item_name': str(item),
+                'boxes_received_shed': supply.boxes_received_shed,
+                'quantity_received_shed': str(supply.quantity_received_shed),
+            })
+
+    return JsonResponse({'sheds': result})
+
+
+
+
+
+def freezing_entry_spot_list(request):
+    entries = FreezingEntrySpot.objects.all()
+    return render(request, 'adminapp/freezing_entry_spot_list.html', {'entries': entries})
+
+def delete_freezing_entry_spot(request, pk):
+    entry = get_object_or_404(FreezingEntrySpot, pk=pk)
+    if request.method == 'POST':
+        entry.delete()
+        return redirect('adminapp:freezing_entry_spot_list')
+    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})

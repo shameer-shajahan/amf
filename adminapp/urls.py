@@ -63,7 +63,14 @@ urlpatterns = [
     path('item/update/<str:pk>/', views.ItemUpdateView.as_view(), name='item_update'),
     path('item/delete/<str:pk>/', views.ItemDeleteView.as_view(), name='item_delete'),
 
+    path('species/', views.SpeciesListView.as_view(), name='species_list'),
+    path('species/create/', views.SpeciesCreateView.as_view(), name='species_create'),
+    path('species/<str:pk>/update/', views.SpeciesUpdateView.as_view(), name='species_update'),
+    path('species/<str:pk>/delete/', views.SpeciesDeleteView.as_view(), name='species_delete'),
+
+
     path('item-grade/create/', views.ItemGradeCreateView.as_view(), name='item_grade_create'),
+    path('ajax/load-species/', views.load_species, name='ajax_load_species'),
     path('item-grade/list/', views.ItemGradeListView.as_view(), name='item_grade_list'),
     path('item-grade/update/<str:pk>/', views.ItemGradeUpdateView.as_view(), name='item_grade_update'),
     path('item-grade/delete/<str:pk>/', views.ItemGradeDeleteView.as_view(), name='item_grade_delete'),
@@ -142,5 +149,14 @@ urlpatterns = [
     path('ajax/get-spot-purchases/', views.get_spot_purchases_by_date, name='get_spot_purchases_by_date'),
     path('ajax/get-spot-purchase-items/', views.get_spot_purchase_items, name='get_spot_purchase_items'),    path('ajax/get-spot-purchase-item-details/', views.get_spot_purchase_item_details, name='get_spot_purchase_item_details'),
     path('ajax/get-peeling-types/', views.get_peeling_charge_by_shed, name='get_peeling_charge_by_shed'),
+
+    #  create freezing entry spot
+    path('freezing-entry/create/', views.create_freezing_entry_spot, name='freezing_entry_spot_create'),
+    path('freezing-entry/list/', views.freezing_entry_spot_list, name='freezing_entry_spot_list'),
+    path('freezing-entry/<str:pk>/delete/', views.delete_freezing_entry_spot, name='freezing_entry_spot_delete'),
+    path('ajax/get-spots-by-date/', views.get_spots_by_date, name='get_spots_by_date'),
+    path('ajax/get-spot-details/', views.get_spot_details, name='get_spot_details'),
+    path('ajax/get-sheds-by-date/', views.get_sheds_by_date, name='get_sheds_by_date'),
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -3,6 +3,37 @@
 {% block content %}
 <div class="container mt-5">
   <h2>Create Item Grade</h2>
-  <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn btn-primary">Save</button></form>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('#id_item').change(function() {
+            const itemId = $(this).val();
+            const speciesDropdown = $('#id_species');
+
+            $.ajax({
+                url: "{% url 'adminapp:ajax_load_species' %}",
+                data: {
+                    'item_id': itemId
+                },
+                success: function(data) {
+                    speciesDropdown.empty();
+                    speciesDropdown.append('<option value="">---------</option>');
+                    data.forEach(function(species) {
+                        speciesDropdown.append(
+                            $('<option></option>').attr('value', species.id).text(species.name)
+                        );
+                    });
+                }
+            });
+        });
+    });
+    </script>
+
+    <button type="submit">Save</button>
+</form>
 </div>
 {% endblock %}

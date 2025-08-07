@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Freezing Entry</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .formset-form {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Create Freezing Entry</h2>
+    <a href="{% url 'adminapp:freezing_entry_spot_list' %}">Back to List</a>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <fieldset>
+            <legend>Freezing Entry</legend>
+            {{ form.as_p }}
+        </fieldset>
+
+        <fieldset>
+            <legend>Items</legend>
+            {{ formset.management_form }}
+            <div id="formset-container">
+                {% for form in formset %}
+                    <div class="formset-form">
+                        {{ form.as_p }}
+                    </div>
+                {% endfor %}
+            </div>
+            <button type="button" id="add-more-btn">+ Add More Item</button>
+        </fieldset>
+
+        <br>
+        <button type="submit">Save</button>
+    </form>
+
+    <!-- Clone & Add More Formset -->
+    <script>
+        $(document).ready(function () {
+            const formsetContainer = $('#formset-container');
+            const totalForms = $('#id_form-TOTAL_FORMS');
+
+            $('#add-more-btn').click(function () {
+                let formIndex = parseInt(totalForms.val());
+                let newForm = $('.formset-form:first').clone(false);
+
+                newForm.find(':input').each(function () {
+                    let name = $(this).attr('name').replace(/-\d+-/, `-${formIndex}-`);
+                    let id = 'id_' + name;
+                    $(this).attr({ name: name, id: id }).val('');
+                    if ($(this).is(':checkbox') || $(this).is(':radio')) {
+                        $(this).prop('checked', false);
+                    }
+                });
+
+                formsetContainer.append(newForm);
+                totalForms.val(formIndex + 1);
+            });
+        });
+    </script>
+
+    <!-- Populate Spots based on Date -->
+    <script>
+        $('#id_spot_purchase_date').on('change', function () {
+            const date = $(this).val();
+            $.get("{% url 'adminapp:get_spots_by_date' %}", { date: date }, function (data) {
+                const spotSelect = $('#id_spot').empty().append('<option value="">---------</option>');
+                data.spots.forEach(spot => {
+                    spotSelect.append(`<option value="${spot.id}">${spot.spot__location_name} - ${spot.voucher_number}</option>`);
+                });
+            });
+        });
+    </script>
+
+    <!-- Populate Agent & Supervisor based on Spot -->
+    <script>
+        $('#id_spot').on('change', function () {
+            const spotId = $(this).val();
+            if (!spotId) return;
+
+            $.get("{% url 'adminapp:get_spot_details' %}", { spot_id: spotId }, function (data) {
+                const agent = $('#id_spot_agent');
+                const supervisor = $('#id_spot_supervisor');
+
+                if (!agent.find(`option[value="${data.agent_id}"]`).length) {
+                    agent.append(`<option value="${data.agent_id}">${data.agent_name}</option>`);
+                }
+                agent.val(data.agent_id);
+
+                if (!supervisor.find(`option[value="${data.supervisor_id}"]`).length) {
+                    supervisor.append(`<option value="${data.supervisor_id}">${data.supervisor_name}</option>`);
+                }
+                supervisor.val(data.supervisor_id);
+            });
+        });
+    </script>
+
+    <!-- Populate Sheds and Items based on Date -->
+    <script>
+        $('#id_spot_purchase_date').on('change', function () {
+            const selectedDate = $(this).val();
+            if (!selectedDate) return;
+
+            $.get("{% url 'adminapp:get_sheds_by_date' %}", { date: selectedDate }, function (data) {
+                const shedSet = new Set();
+                const itemSet = new Set();
+
+                data.sheds.forEach(supply => {
+                    shedSet.add(`<option value="${supply.shed_id}">${supply.shed_name}</option>`);
+                    itemSet.add(`<option value="${supply.item_id}">${supply.item_name}</option>`);
+                });
+
+                $('[name$="-shed"]').each(function () {
+                    $(this).empty().append('<option value="">---------</option>');
+                    shedSet.forEach(opt => $(this).append(opt));
+                });
+
+                $('[name$="-item"]').each(function () {
+                    $(this).empty().append('<option value="">---------</option>');
+                    itemSet.forEach(opt => $(this).append(opt));
+                });
+            }).fail(() => alert("Failed to load sheds/items for the selected date."));
+        });
+    </script>
+
+    <!-- Total Calculation -->
+    <script>
+        function calculateTotals() {
+            let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0, count = 0;
+
+            $('.formset-form').each(function () {
+                const getVal = (name) => parseFloat($(this).find(`[name$="${name}"]`).val()) || 0;
+
+                const yieldVal = getVal('yield_percentage');
+                if (yieldVal > 0) {
+                    totalYield += yieldVal;
+                    count++;
+                }
+
+                totalUSD += getVal('usd_rate_item');
+                totalINR += getVal('usd_rate_item_to_inr');
+                totalSlab += getVal('slab_quantity');
+                totalCS += getVal('c_s_quantity');
+                totalKG += getVal('kg');
+            });
+
+            $('#id_total_yield_percentage').val(count ? (totalYield / count).toFixed(2) : 0);
+            $('#id_total_usd').val(totalUSD.toFixed(2));
+            $('#id_total_inr').val(totalINR.toFixed(2));
+            $('#id_total_slab').val(totalSlab.toFixed(2));
+            $('#id_total_c_s').val(totalCS.toFixed(2));
+            $('#id_total_kg').val(totalKG.toFixed(2));
+        }
+
+        $(document).on('input', '.formset-form :input', calculateTotals);
+        $(document).ready(calculateTotals);
+    </script>
+
+    <!-- Packing Unit Selection -->
+    <script>
+        const unitSelect = document.getElementById("id_unit");
+        if (unitSelect && unitSelect.hasAttribute("data-units")) {
+            const unitData = JSON.parse(unitSelect.getAttribute("data-units"));
+            unitSelect.addEventListener("change", function () {
+                const selected = unitData[this.value];
+                if (selected) {
+                    console.log("Precision:", selected.precision);
+                    console.log("Factor:", selected.factor);
+                    // You can use these for dynamic calculations if needed
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>

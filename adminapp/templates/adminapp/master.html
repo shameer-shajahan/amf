@@ -93,6 +93,15 @@
         </div>
         <div class="col">
             <div class="card module-card">
+                <div class="card-title">Item Species</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:species_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:species_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
                 <div class="card-title">Item Grade</div>
                 <div class="btn-group-custom d-flex">
                     <a href="{% url 'adminapp:item_grade_create' %}" class="btn-add flex-fill text-center">Add New</a>
@@ -156,13 +165,6 @@
                 <div class="btn-group-custom d-flex">
                     <a href="{% url 'adminapp:tenant_create' %}" class="btn-add flex-fill text-center">Add New</a>
                     <a href="{% url 'adminapp:tenant_list' %}" class="btn-list flex-fill text-center">View List</a>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card module-card">
-                <div class="card-title">Peeling Charge</div>
-                <div class="btn-group-custom d-flex">
                 </div>
             </div>
         </div>

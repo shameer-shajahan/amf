@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Species List</title>
+</head>
+<body>
+    <h2>Species List</h2>
+
+    <a href="{% url 'adminapp:species_create' %}">Add New Species</a>
+
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Item</th>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Actions</th>
+        </tr>
+        {% for species in species_list %}
+        <tr>
+            <td>{{ species.id }}</td>
+            <td>{{ species.item }}</td>
+            <td>{{ species.name }}</td>
+            <td>{{ species.code }}</td>
+            <td>
+                <a href="{% url 'adminapp:species_update' species.id %}">Edit</a> |
+                <a href="{% url 'adminapp:species_delete' species.id %}">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

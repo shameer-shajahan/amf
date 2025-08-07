@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div>-</div>
+<div>-</div>
+<h2>{{ action }} Species</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{{ action }}</button>
+    <a href="{% url 'adminapp:species_list' %}">Back</a>
+</form>
+
+{% endblock %}
