@@ -602,6 +602,39 @@ class ShipmentOverheadDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:shipment_overhead_list')
 
+def settings_list(request):
+    settings = Settings.objects.all()
+    return render(request, 'adminapp/list/settings_list.html', {'settings': settings})
+
+def settings_create(request):
+    if request.method == 'POST':
+        form = SettingsForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('adminapp:settings_list')
+    else:
+        form = SettingsForm()
+    return render(request, 'adminapp/forms/settings_form.html', {'form': form})
+
+def settings_update(request, pk):
+    setting = get_object_or_404(Settings, pk=pk)
+    if request.method == 'POST':
+        form = SettingsForm(request.POST, instance=setting)
+        if form.is_valid():
+            form.save()
+            return redirect('adminapp:settings_list')
+    else:
+        form = SettingsForm(instance=setting)
+    return render(request, 'adminapp/forms/settings_form.html', {'form': form})
+
+def settings_delete(request, pk):
+    setting = get_object_or_404(Settings, pk=pk)
+    if request.method == 'POST':
+        setting.delete()
+        return redirect('adminapp:settings_list')
+    return render(request, 'adminapp/confirm_delete.html', {'setting': setting})
+
+
 # function for creating a Purchase Entry
 
 def create_spot_purchase(request):
@@ -945,7 +978,7 @@ def create_freezing_entry_spot(request):
         form = FreezingEntrySpotForm(request.POST)
         formset = FreezingEntrySpotItemFormSet(request.POST, prefix='form')
 
-        # 🔧 Fix: Set shed queryset for each form in the formset
+        # Set shed queryset for each inline form
         for f in formset.forms:
             f.fields['shed'].queryset = Shed.objects.all()
 
@@ -962,11 +995,11 @@ def create_freezing_entry_spot(request):
 
                 for f in formset:
                     if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
-                        slab = f.cleaned_data.get('slab_quantity') or 0
-                        cs = f.cleaned_data.get('c_s_quantity') or 0
-                        kg = f.cleaned_data.get('kg') or 0
-                        usd = f.cleaned_data.get('usd_rate_item') or 0
-                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or 0
+                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
+                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
+                        kg = f.cleaned_data.get('kg') or Decimal(0)
+                        usd = f.cleaned_data.get('usd_rate_item') or Decimal(0)
+                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
                         yield_percent = f.cleaned_data.get('yield_percentage')
 
                         total_slab += slab
@@ -977,16 +1010,15 @@ def create_freezing_entry_spot(request):
                         if yield_percent is not None:
                             yield_percentages.append(yield_percent)
 
-                # Average yield percentage
-                total_yield = sum(yield_percentages) / len(yield_percentages) if yield_percentages else 0
-
-                # Assign totals
                 freezing_entry.total_slab = total_slab
                 freezing_entry.total_c_s = total_c_s
                 freezing_entry.total_kg = total_kg
                 freezing_entry.total_usd = total_usd
                 freezing_entry.total_inr = total_inr
-                freezing_entry.total_yield_percentage = total_yield
+                freezing_entry.total_yield_percentage = (
+                    sum(yield_percentages) / len(yield_percentages)
+                    if yield_percentages else Decimal(0)
+                )
 
                 freezing_entry.save()
                 formset.instance = freezing_entry
@@ -1059,9 +1091,24 @@ def get_sheds_by_date(request):
 
     return JsonResponse({'sheds': result})
 
+def get_unit_details(request):
+    unit_id = request.GET.get('unit_id')
+    try:
+        unit = PackingUnit.objects.get(pk=unit_id)
+        return JsonResponse({
+            'precision': float(unit.precision),
+            'factor': float(unit.factor)
+        })
+    except PackingUnit.DoesNotExist:
+        return JsonResponse({'error': 'Unit not found'}, status=404)
 
-
-
+def get_dollar_rate(request):
+    settings_obj = Settings.objects.first()
+    if settings_obj:
+        return JsonResponse({
+            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
+        })
+    return JsonResponse({'error': 'Settings not found'}, status=404)
 
 def freezing_entry_spot_list(request):
     entries = FreezingEntrySpot.objects.all()
@@ -1073,3 +1120,125 @@ def delete_freezing_entry_spot(request, pk):
         entry.delete()
         return redirect('adminapp:freezing_entry_spot_list')
     return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+
+# Create Freezing Entry Local
+
+def create_freezing_entry_local(request):
+    if request.method == 'POST':
+        form = FreezingEntryLocalForm(request.POST)
+        formset = FreezingEntryLocalItemFormSet(request.POST, prefix='form')
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                freezing_entry = form.save(commit=False)
+
+                total_kg = Decimal(0)
+                total_slab = Decimal(0)
+                total_c_s = Decimal(0)
+                total_usd = Decimal(0)
+                total_inr = Decimal(0)
+                yield_percentages = []
+
+                for f in formset:
+                    if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
+                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
+                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
+                        kg = f.cleaned_data.get('kg') or Decimal(0)
+                        usd = f.cleaned_data.get('usd_rate_item') or Decimal(0)
+                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
+                        yield_percent = f.cleaned_data.get('yield_percentage')
+
+                        total_slab += slab
+                        total_c_s += cs
+                        total_kg += kg
+                        total_usd += usd
+                        total_inr += inr
+                        if yield_percent is not None:
+                            yield_percentages.append(yield_percent)
+
+                freezing_entry.total_slab = total_slab
+                freezing_entry.total_c_s = total_c_s
+                freezing_entry.total_kg = total_kg
+                freezing_entry.total_usd = total_usd
+                freezing_entry.total_inr = total_inr
+                freezing_entry.total_yield_percentage = (
+                    sum(yield_percentages) / len(yield_percentages)
+                    if yield_percentages else Decimal(0)
+                )
+
+                freezing_entry.save()
+                formset.instance = freezing_entry
+                formset.save()
+
+            return redirect('adminapp:freezing_entry_local_list')
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", formset.errors)
+    else:
+        form = FreezingEntryLocalForm()
+        formset = FreezingEntryLocalItemFormSet(prefix='form')
+
+    return render(request, 'adminapp/freezing_entry_local_create.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+def get_parties_by_date(request):
+    date = request.GET.get('date')
+    parties = LocalPurchase.objects.filter(date=date).values('id', 'party_name', 'voucher_number')
+    return JsonResponse({'parties': list(parties)})
+
+def get_party_details(request):
+    party_id = request.GET.get('party_id')
+    try:
+        purchase = LocalPurchase.objects.get(id=party_id)
+        data = {
+            'party_name': purchase.party_name,
+            'voucher_number': purchase.voucher_number,
+        }
+        return JsonResponse(data)
+    except LocalPurchase.DoesNotExist:
+        return JsonResponse({'error': 'LocalPurchase not found'}, status=404)
+
+def get_unit_details_local(request):
+    unit_id = request.GET.get('unit_id')
+    try:
+        unit = PackingUnit.objects.get(pk=unit_id)
+        return JsonResponse({
+            'precision': float(unit.precision),
+            'factor': float(unit.factor)
+        })
+    except PackingUnit.DoesNotExist:
+        return JsonResponse({'error': 'Unit not found'}, status=404)
+
+def get_dollar_rate_local(request):
+    settings_obj = Settings.objects.first()
+    if settings_obj:
+        return JsonResponse({
+            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
+        })
+    return JsonResponse({'error': 'Settings not found'}, status=404)
+
+
+def freezing_entry_local_list(request):
+    entries = FreezingEntryLocal.objects.all()
+    return render(request, 'adminapp/freezing_entry_local_list.html', {'entries': entries})
+
+def delete_freezing_entry_local(request, pk):
+    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+    if request.method == 'POST':
+        entry.delete()
+        return redirect('adminapp:freezing_entry_local_list')
+    return render(request, 'adminapp/freezing_entry_local_confirm_delete.html', {'entry': entry})
+
+
+
+
+
+
+
+
+
+
+

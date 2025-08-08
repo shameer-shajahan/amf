@@ -126,6 +126,11 @@ urlpatterns = [
     path('shipment-overhead/update/<str:pk>/', views.ShipmentOverheadUpdateView.as_view(), name='shipment_overhead_update'),
     path('shipment-overhead/delete/<str:pk>/', views.ShipmentOverheadDeleteView.as_view(), name='shipment_overhead_delete'),
 
+    path('list/', views.settings_list, name='settings_list'),
+    path('create/', views.settings_create, name='settings_create'),
+    path('update/<str:pk>/', views.settings_update, name='settings_update'),
+    path('delete/<str:pk>/', views.settings_delete, name='settings_delete'),
+
 # spot purchase urls.py
     path('spot-purchase/add/', views.create_spot_purchase, name='spot_purchase_add'),
     path('spot-purchases/', views.spot_purchase_list, name='spot_purchase_list'),
@@ -157,6 +162,17 @@ urlpatterns = [
     path('ajax/get-spots-by-date/', views.get_spots_by_date, name='get_spots_by_date'),
     path('ajax/get-spot-details/', views.get_spot_details, name='get_spot_details'),
     path('ajax/get-sheds-by-date/', views.get_sheds_by_date, name='get_sheds_by_date'),
+    path('ajax/get-unit-details/', views.get_unit_details, name='get_unit_details'),
+    path('ajax/get-dollar-rate/', views.get_dollar_rate, name='get_dollar_rate'),
+
+    #  create freezing entry spot
+    path('freezing-entry-local/create/', views.create_freezing_entry_local, name='freezing_entry_local_create'),
+    path('freezing-entry-local/', views.freezing_entry_local_list, name='freezing_entry_local_list'),
+    path('freezing-entry-local/delete/<str:pk>/', views.delete_freezing_entry_local, name='delete_freezing_entry_local'),
+    path('ajax/get-parties-by-date/', views.get_parties_by_date, name='get_parties_by_date'),
+    path('ajax/get-party-details/', views.get_party_details, name='get_party_details'),
+    path('ajax/get-unit-details/', views.get_unit_details_local, name='get_unit_details_local'),
+    path('ajax/get-dollar-rate/', views.get_dollar_rate_local, name='get_dollar_rate_local'),
 
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

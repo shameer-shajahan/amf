@@ -108,7 +108,6 @@ class ItemGradeForm(forms.ModelForm):
         else:
             self.fields['species'].queryset = Species.objects.none()
 
-
 class FreezingCategoryForm(forms.ModelForm):
     class Meta:
         model = FreezingCategory
@@ -145,9 +144,6 @@ class TenantForm(forms.ModelForm):
         model = Tenant
         fields = '__all__'
 
-from django import forms
-from .models import  Item, ItemType
-
 class PurchaseOverheadForm(forms.ModelForm):
     class Meta:
         model = PurchaseOverhead
@@ -168,12 +164,12 @@ class ShipmentOverheadForm(forms.ModelForm):
         model = ShipmentOverhead
         fields = '__all__'
 
+class SettingsForm(forms.ModelForm):
+    class Meta:
+        model = Settings
+        fields = ['dollar_rate_to_inr', 'vehicle_rent_km']
+
 # forms for create a Purchase Entry 
-
-from django import forms
-from django.forms import inlineformset_factory
-from .models import SpotPurchase, SpotPurchaseItem, SpotPurchaseExpense
-
 class SpotPurchaseForm(forms.ModelForm):
     class Meta:
         model = SpotPurchase
@@ -224,7 +220,6 @@ class SpotPurchaseExpenseForm(forms.ModelForm):
         }
 
 # local purchase forms
-
 class LocalPurchaseForm(forms.ModelForm):
     class Meta:
         model = LocalPurchase
@@ -254,9 +249,7 @@ LocalPurchaseItemFormSet = inlineformset_factory(
     can_delete=True
 )
 
-
 # Peeling Shed Supply Form
-
 class PeelingShedSupplyForm(forms.ModelForm):
     class Meta:
         model = PeelingShedSupply
@@ -284,38 +277,113 @@ class FreezingEntrySpotForm(forms.ModelForm):
         model = FreezingEntrySpot
         fields = '__all__'
         widgets = {
-            'freezing_date': forms.DateInput(attrs={'type': 'date'}),
-            'spot_purchase_date': forms.DateInput(attrs={'type': 'date'}),
-            'total_yield_percentage': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'freezing_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+
+            'spot_purchase_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'spot': forms.Select(attrs={'class': 'form-control'}),
+            'spot_agent': forms.Select(attrs={'class': 'form-control'}),
+            'spot_supervisor': forms.Select(attrs={'class': 'form-control'}),
             'total_usd': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_inr': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
-        }
+            'total_yield_percentage': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
 
+            'freezing_status': forms.Select(attrs={'class': 'form-control'}),
+        }
 
 class FreezingEntrySpotItemForm(forms.ModelForm):
     class Meta:
         model = FreezingEntrySpotItem
         fields = '__all__'
         widgets = {
-            # Example widgets for actual fields in FreezingEntrySpotItem
-            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'kg': forms.NumberInput(attrs={'class': 'form-control'}),
-            'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control'}),
-            'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control'}),
-            'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control'}),
+
+            'processing_center': forms.Select(attrs={'class': 'form-control'}),
+            'store': forms.Select(attrs={'class': 'form-control'}),
+            'shed': forms.Select(attrs={'class': 'form-control'}),
+            'item': forms.Select(attrs={'class': 'form-control'}),
+            'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
+            'glaze': forms.Select(attrs={'class': 'form-control'}),
+            'freezing_category': forms.Select(attrs={'class': 'form-control'}),
+            'brand': forms.Select(attrs={'class': 'form-control'}),
+            'species': forms.Select(attrs={'class': 'form-control'}),
+            'peeling_type': forms.Select(attrs={'class': 'form-control'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+
+            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control slab-quantity'}),
+            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control cs-quantity'}),
+            'kg': forms.NumberInput(attrs={'class': 'form-control kg'}),
+
+            'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control usd-rate-per-kg'}),
+            'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control usd-rate-item'}),
+            'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr'}),
             'yield_percentage': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-
-# Create the inline formset
 FreezingEntrySpotItemFormSet = inlineformset_factory(
     FreezingEntrySpot,
     FreezingEntrySpotItem,
     form=FreezingEntrySpotItemForm,
+    extra=1,
+    can_delete=True
+)
+
+
+
+# Freezing Entry local Form
+class FreezingEntryLocalForm(forms.ModelForm):
+    class Meta:
+        model = FreezingEntryLocal
+        fields = "__all__" 
+        widgets = {
+            'freezing_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'local_purchase_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'party': forms.Select(attrs={'class': 'form-control'}),
+            'total_usd': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_inr': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_yield_percentage': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+
+            'freezing_status': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class FreezingEntryLocalItemForm(forms.ModelForm):
+    class Meta:
+        model = FreezingEntryLocalItem
+        fields = '__all__'
+        widgets = {
+
+            'processing_center': forms.Select(attrs={'class': 'form-control'}),
+            'store': forms.Select(attrs={'class': 'form-control'}),
+            'item': forms.Select(attrs={'class': 'form-control'}),
+            'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
+            'glaze': forms.Select(attrs={'class': 'form-control'}),
+            'freezing_category': forms.Select(attrs={'class': 'form-control'}),
+            'brand': forms.Select(attrs={'class': 'form-control'}),
+            'species': forms.Select(attrs={'class': 'form-control'}),
+            'peeling_type': forms.Select(attrs={'class': 'form-control'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+
+            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control slab-quantity'}),
+            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control cs-quantity'}),
+            'kg': forms.NumberInput(attrs={'class': 'form-control kg'}),
+
+            'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control usd-rate-per-kg'}),
+            'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control usd-rate-item'}),
+            'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr'}),
+            'yield_percentage': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+# Inline formset to attach items to a main entry
+FreezingEntryLocalItemFormSet = inlineformset_factory(
+    FreezingEntryLocal,
+    FreezingEntryLocalItem,
+    form=FreezingEntryLocalItemForm,
     extra=1,
     can_delete=True
 )
