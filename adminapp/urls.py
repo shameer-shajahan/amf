@@ -174,5 +174,16 @@ urlpatterns = [
     path('ajax/get-unit-details/', views.get_unit_details_local, name='get_unit_details_local'),
     path('ajax/get-dollar-rate/', views.get_dollar_rate_local, name='get_dollar_rate_local'),
 
+    #  Freezing WorkOut View url
+    path('freezing-workout/', views.FreezingWorkOutView.as_view(), name='freezing_workout'),
+
+    # pre_shipment_workout_create
+    path('create_preshipment_workout/', views.PreShipmentWorkOutCreateAndSummaryView.as_view(), name='create_preshipment_workout'),
+    path("preshipment-workouts/", views.PreShipmentWorkOutListView.as_view(), name="preshipment_workout_list"),
+    path("preshipment-workout/delete/<int:pk>/", views.PreShipmentWorkOutDeleteView.as_view(), name="preshipment_workout_delete"),
+    path('get-species/', views.get_species_for_item, name='get_species_for_item'),
+    path("get-peeling/", views.get_peeling_for_item, name="get_peeling_for_item"),
+    path("ajax/get-grade-for-species/",views.get_grade_for_species,name="get_grade_for_species"),
+    path('get-dollar-rate-pre-workout/', views.get_dollar_rate_pre_workout, name='get_dollar_rate_pre_workout'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

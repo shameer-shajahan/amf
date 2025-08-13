@@ -8,12 +8,13 @@ from .forms import CustomUserCreationForm
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.urls import reverse_lazy
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic.edit import CreateView, UpdateView, DeleteView 
 from django.views.generic import ListView
 from django.shortcuts import render
 from .models import *
 from .forms import *
 from decimal import Decimal
+from django.views import View
 
 
 
@@ -1220,7 +1221,6 @@ def get_dollar_rate_local(request):
         })
     return JsonResponse({'error': 'Settings not found'}, status=404)
 
-
 def freezing_entry_local_list(request):
     entries = FreezingEntryLocal.objects.all()
     return render(request, 'adminapp/freezing_entry_local_list.html', {'entries': entries})
@@ -1233,12 +1233,392 @@ def delete_freezing_entry_local(request, pk):
     return render(request, 'adminapp/freezing_entry_local_confirm_delete.html', {'entry': entry})
 
 
+# Freezing WORK OUT 
+
+from django.views import View
+from django.shortcuts import render
+from django.db.models import Sum, F, Count, Value as V, DecimalField, IntegerField
+from django.db.models.functions import Coalesce
+from decimal import Decimal
+
+class FreezingWorkOutView(View):
+    template_name = "adminapp/freezing_workout.html"
+
+    def get_summary(self, queryset):
+        """Helper to build aggregated summary for a given queryset."""
+        return (
+            queryset
+            .select_related(
+                'item', 'grade', 'species', 'peeling_type', 'brand', 
+                'glaze', 'unit', 'freezing_category'
+            )
+            .values(
+                'item__name',
+                'grade__grade',  # ItemGrade has 'grade' field, not 'name'
+                'species__name',
+                'peeling_type__name',  # ItemType has 'name' field
+                'brand__name',
+                'glaze__percentage',  # GlazePercentage has 'percentage' field, not 'name'
+                'unit__unit_code',  # PackingUnit has 'unit_code' field
+                'freezing_category__name',
+            )
+            .annotate(
+                total_slab=Coalesce(Sum('slab_quantity'), V(0), output_field=DecimalField()),
+                total_c_s=Coalesce(Sum('c_s_quantity'), V(0), output_field=DecimalField()),
+                total_kg=Coalesce(Sum('kg'), V(0), output_field=DecimalField()),
+                total_yield_sum=Coalesce(Sum('yield_percentage'), V(0), output_field=DecimalField()),
+                count_yield=Count('id'),
+                total_usd=Coalesce(Sum('usd_rate_item'), V(0), output_field=DecimalField()),
+                total_inr=Coalesce(Sum('usd_rate_item_to_inr'), V(0), output_field=DecimalField()),
+            )
+            .order_by('item__name', 'grade__grade', 'species__name')
+        )
+
+    def get(self, request):
+        # Spot and Local summaries
+        spot_summary = self.get_summary(FreezingEntrySpotItem.objects)
+        local_summary = self.get_summary(FreezingEntryLocalItem.objects)
+
+        # Combine results
+        combined_data = {}
+        for dataset in [spot_summary, local_summary]:
+            for row in dataset:
+                key = (
+                    row['item__name'],
+                    row['grade__grade'],
+                    row['species__name'],
+                    row['peeling_type__name'],
+                    row['brand__name'],
+                    str(row['glaze__percentage']),  # Convert to string for consistency
+                    row['unit__unit_code'],
+                    row['freezing_category__name'],
+                )
+                if key not in combined_data:
+                    combined_data[key] = {
+                        'item_name': row['item__name'],
+                        'grade_name': row['grade__grade'],
+                        'species_name': row['species__name'],
+                        'peeling_type_name': row['peeling_type__name'],
+                        'brand_name': row['brand__name'],
+                        'glaze_percentage': row['glaze__percentage'],
+                        'unit_code': row['unit__unit_code'],
+                        'freezing_category_name': row['freezing_category__name'],
+                        'total_slab': Decimal(0),
+                        'total_c_s': Decimal(0),
+                        'total_kg': Decimal(0),
+                        'total_yield_sum': Decimal(0),
+                        'count_yield': 0,
+                        'total_usd': Decimal(0),
+                        'total_inr': Decimal(0),
+                    }
+                combined_data[key]['total_slab'] += row['total_slab']
+                combined_data[key]['total_c_s'] += row['total_c_s']
+                combined_data[key]['total_kg'] += row['total_kg']
+                combined_data[key]['total_usd'] += row['total_usd']
+                combined_data[key]['total_inr'] += row['total_inr']
+                combined_data[key]['total_yield_sum'] += row['total_yield_sum']
+                combined_data[key]['count_yield'] += row['count_yield']
+
+        # Calculate average yield
+        for val in combined_data.values():
+            if val['count_yield'] > 0:
+                val['avg_yield'] = val['total_yield_sum'] / val['count_yield']
+            else:
+                val['avg_yield'] = Decimal(0)
+
+        context = {
+            'spot_summary': spot_summary,
+            'local_summary': local_summary,
+            'combined_summary': list(combined_data.values()),
+        }
+        return render(request, self.template_name, context)
+
+
+# PRE SHIPMENT WORK OUT 
+
+from decimal import Decimal
+from django.db import transaction
+from django.db.models import Sum, Count, DecimalField, Value as V
+from django.db.models.functions import Coalesce
+from django.shortcuts import render, redirect
+from django.views import View
+from django.contrib import messages
+
+from .models import (
+    PreShipmentWorkOut, Item, PackingUnit, GlazePercentage,
+    FreezingCategory, ItemBrand, FreezingEntrySpotItem, FreezingEntryLocalItem
+)
+from .forms import PreShipmentWorkOutForm, PreShipmentWorkOutItemFormSet
+
+
+from django.views import View
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import Sum, Avg, Count, Value as V
+from django.db.models.functions import Coalesce
+from decimal import Decimal
+from .forms import PreShipmentWorkOutForm, PreShipmentWorkOutItemFormSet
+from .models import FreezingEntrySpotItem, FreezingEntryLocalItem, Item, PackingUnit, GlazePercentage, FreezingCategory, ItemBrand
+
+class PreShipmentWorkOutCreateAndSummaryView(View):
+    template_name = "adminapp/create_preshipment_workout.html"
+
+    def get_summary(self, queryset):
+        """Aggregate summary data for freezing items."""
+        return (
+            queryset
+            .select_related(
+                'item', 'grade', 'species', 'peeling_type', 'brand',
+                'glaze', 'unit', 'freezing_category'
+            )
+            .values(
+                'item__name',
+                'grade__grade',
+                'species__name',
+                'peeling_type__name',
+                'brand__name',
+                'glaze__percentage',
+                'unit__unit_code',
+                'freezing_category__name',
+            )
+            .annotate(
+                total_slab=Coalesce(Sum('slab_quantity'), V(0), output_field=DecimalField()),
+                total_c_s=Coalesce(Sum('c_s_quantity'), V(0), output_field=DecimalField()),
+                total_kg=Coalesce(Sum('kg'), V(0), output_field=DecimalField()),
+                total_yield_sum=Coalesce(Sum('yield_percentage'), V(0), output_field=DecimalField()),
+                count_yield=Count('id'),
+                total_usd=Coalesce(Sum('usd_rate_item'), V(0), output_field=DecimalField()),
+                total_inr=Coalesce(Sum('usd_rate_item_to_inr'), V(0), output_field=DecimalField()),
+                avg_usd_per_kg=Coalesce(Avg('usd_rate_per_kg'), V(0), output_field=DecimalField()),
+            )
+            .order_by('item__name', 'grade__grade', 'species__name')
+        )
+
+    def get_combined_summary(self, filters):
+        """Combine spot and local summaries."""
+        spot_summary = self.get_summary(FreezingEntrySpotItem.objects.filter(**filters))
+        local_summary = self.get_summary(FreezingEntryLocalItem.objects.filter(**filters))
+
+        combined_data = {}
+        for dataset in [spot_summary, local_summary]:
+            for row in dataset:
+                key = (
+                    row['item__name'],
+                    row['grade__grade'],
+                    row['species__name'],
+                    row['peeling_type__name'],
+                    row['brand__name'],
+                    str(row['glaze__percentage']),
+                    row['unit__unit_code'],
+                    row['freezing_category__name'],
+                )
+                if key not in combined_data:
+                    combined_data[key] = {
+                        'item_name': row['item__name'],
+                        'grade_name': row['grade__grade'],
+                        'species_name': row['species__name'],
+                        'peeling_type_name': row['peeling_type__name'],
+                        'brand_name': row['brand__name'],
+                        'glaze_percentage': row['glaze__percentage'],
+                        'unit_code': row['unit__unit_code'],
+                        'freezing_category_name': row['freezing_category__name'],
+                        'total_slab': Decimal(0),
+                        'total_c_s': Decimal(0),
+                        'total_kg': Decimal(0),
+                        'total_yield_sum': Decimal(0),
+                        'count_yield': 0,
+                        'total_usd': Decimal(0),
+                        'total_inr': Decimal(0),
+                        'avg_usd_per_kg_sum': Decimal(0),
+                        'avg_usd_per_kg_count': 0,
+                    }
+                combined_data[key]['avg_usd_per_kg_sum'] += row['avg_usd_per_kg']
+                combined_data[key]['avg_usd_per_kg_count'] += 1
+                combined_data[key]['total_slab'] += row['total_slab']
+                combined_data[key]['total_c_s'] += row['total_c_s']
+                combined_data[key]['total_kg'] += row['total_kg']
+                combined_data[key]['total_usd'] += row['total_usd']
+                combined_data[key]['total_inr'] += row['total_inr']
+                combined_data[key]['total_yield_sum'] += row['total_yield_sum']
+                combined_data[key]['count_yield'] += row['count_yield']
+
+        for val in combined_data.values():
+            if val['count_yield'] > 0:
+                val['avg_yield'] = val['total_yield_sum'] / val['count_yield']
+            else:
+                val['avg_yield'] = Decimal(0)
+
+            if val['avg_usd_per_kg_count'] > 0:
+                val['avg_usd_per_kg'] = val['avg_usd_per_kg_sum'] / val['avg_usd_per_kg_count']
+            else:
+                val['avg_usd_per_kg'] = Decimal(0)
+
+        return list(combined_data.values())
+    
+    def get(self, request):
+        filters = {}
+        if request.GET.get("item"):
+            filters["item_id"] = request.GET["item"]
+        if request.GET.get("unit"):
+            filters["unit_id"] = request.GET["unit"]
+        if request.GET.get("glaze"):
+            filters["glaze_id"] = request.GET["glaze"]
+        if request.GET.get("category"):
+            filters["freezing_category_id"] = request.GET["category"]
+        if request.GET.get("brand"):
+            filters["brand_id"] = request.GET["brand"]
+
+        workout_form = PreShipmentWorkOutForm()
+        formset = PreShipmentWorkOutItemFormSet(prefix="items", instance=PreShipmentWorkOut())
+
+        context = {
+            "workout_form": workout_form,
+            "formset": formset,
+            "combined_summary": self.get_combined_summary(filters),
+            "items": Item.objects.all(),
+            "units": PackingUnit.objects.all(),
+            "glazes": GlazePercentage.objects.all(),
+            "categories": FreezingCategory.objects.all(),
+            "brands": ItemBrand.objects.all(),
+            "request": request
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        filters = {}
+        if request.GET.get("item"):
+            filters["item_id"] = request.GET["item"]
+        if request.GET.get("unit"):
+            filters["unit_id"] = request.GET["unit"]
+        if request.GET.get("glaze"):
+            filters["glaze_id"] = request.GET["glaze"]
+        if request.GET.get("category"):
+            filters["freezing_category_id"] = request.GET["category"]
+        if request.GET.get("brand"):
+            filters["brand_id"] = request.GET["brand"]
+
+        workout_form = PreShipmentWorkOutForm(request.POST)
+
+        if workout_form.is_valid():
+            workout = workout_form.save(commit=False)
+
+            formset = PreShipmentWorkOutItemFormSet(request.POST, prefix="items", instance=workout)
+
+            # ✅ Dynamically adjust species & peeling_type choices for validation
+            selected_item = workout_form.cleaned_data.get("item")
+            if selected_item:
+                for f in formset.forms:
+                    f.fields["species"].queryset = Species.objects.filter(item=selected_item)
+                    f.fields["peeling_type"].queryset = ItemType.objects.filter(item=selected_item)
+
+            if formset.is_valid():
+                try:
+                    with transaction.atomic():
+                        workout.save()
+                        formset.save()
+                    messages.success(request, "Pre-Shipment WorkOut created successfully.")
+                    return redirect(request.path)
+                except Exception as e:
+                    messages.error(request, f"Error saving data: {e}")
+            else:
+                print("Formset errors:", formset.errors)  # DEBUG
+                messages.error(request, "Please correct the item form errors below.")
+        else:
+            print("Workout form errors:", workout_form.errors)  # DEBUG
+            formset = PreShipmentWorkOutItemFormSet(request.POST, prefix="items", instance=PreShipmentWorkOut())
+            messages.error(request, "Please correct the workout form errors below.")
+
+        context = {
+            "workout_form": workout_form,
+            "formset": formset,
+            "combined_summary": self.get_combined_summary(filters),
+            "items": Item.objects.all(),
+            "units": PackingUnit.objects.all(),
+            "glazes": GlazePercentage.objects.all(),
+            "categories": FreezingCategory.objects.all(),
+            "brands": ItemBrand.objects.all(),
+            "request": request
+        }
+        return render(request, self.template_name, context)
 
 
 
 
 
 
+
+
+
+# AJAX view for load_species
+def get_species_for_item(request):
+    item_id = request.GET.get("item_id")
+    species_list = []
+
+    if item_id:
+        species_qs = Species.objects.filter(item_id=item_id)
+        species_list = list(species_qs.values("id", "name"))
+
+    return JsonResponse({"species": species_list})
+
+# AJAX view for load_peeling_type
+def get_peeling_for_item(request):
+    item_id = request.GET.get("item_id")
+    peeling_list = []
+
+    if item_id:
+        peeling_qs = ItemType.objects.filter(item_id=item_id)
+        peeling_list = list(peeling_qs.values("id", "name"))
+
+    return JsonResponse({"peeling_types": peeling_list})
+
+def get_grade_for_species(request):
+    species_id = request.GET.get("species_id")
+    grade_list = []
+
+    if species_id:
+        grade_qs = ItemGrade.objects.filter(species_id=species_id)
+        grade_list = list(grade_qs.values("id", "grade"))
+
+    return JsonResponse({"grades": grade_list})
+
+def get_dollar_rate_pre_workout(request):
+    """Return the current dollar to INR rate for Pre-Shipment WorkOut."""
+    settings_obj = Settings.objects.first()
+    if settings_obj:
+        return JsonResponse({
+            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
+        })
+    return JsonResponse({'error': 'Settings not found'}, status=404)
+
+
+
+
+
+# LIST VIEW
+class PreShipmentWorkOutListView(ListView):
+    model = PreShipmentWorkOut
+    template_name = "adminapp/preshipment_workout_list.html"
+    context_object_name = "workouts"
+    paginate_by = 20  # Optional: pagination
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related()
+        # Optional filtering
+        if self.request.GET.get("item"):
+            queryset = queryset.filter(item_id=self.request.GET["item"])
+        return queryset.order_by("-id")  # Latest first
+
+# DELETE VIEW
+class PreShipmentWorkOutDeleteView(DeleteView):
+    model = PreShipmentWorkOut
+    template_name = "adminapp/confirm_delete.html"
+    success_url = reverse_lazy("adminapp:preshipment_workout_list")
+
+    def delete(self, request, *args, **kwargs):
+        obj = self.get_object()
+        messages.success(request, f"Pre-Shipment WorkOut '{obj}' deleted successfully.")
+        return super().delete(request, *args, **kwargs)
 
 
 

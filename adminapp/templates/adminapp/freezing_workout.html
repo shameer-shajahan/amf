@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freezing Workout Summary</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Freezing Workout Summary</h1>
+
+        <h2 class="mt-4">Spot Summary</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Grade</th>
+                    <th>Species</th>
+                    <th>Peeling Type</th>
+                    <th>Brand</th>
+                    <th>Glaze Percentage</th>
+                    <th>Unit Code</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Average Yield</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in spot_summary %}
+                <tr>
+                    <td>{{ row.item__name }}</td>
+                    <td>{{ row.grade__grade }}</td>
+                    <td>{{ row.species__name }}</td>
+                    <td>{{ row.peeling_type__name }}</td>
+                    <td>{{ row.brand__name }}</td>
+                    <td>{{ row.glaze__percentage }}</td>
+                    <td>{{ row.unit__unit_code }}</td>
+                    <td>{{ row.total_slab }}</td>
+                    <td>{{ row.total_c_s }}</td>
+                    <td>{{ row.total_kg }}</td>
+                    <td>{{ row.total_usd }}</td>
+                    <td>{{ row.total_inr }}</td>
+                    <td>{{ row.avg_yield }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 class="mt-4">Local Summary</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Grade</th>
+                    <th>Species</th>
+                    <th>Peeling Type</th>
+                    <th>Brand</th>
+                    <th>Glaze Percentage</th>
+                    <th>Unit Code</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Average Yield</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in local_summary %}
+                <tr>
+                    <td>{{ row.item__name }}</td>
+                    <td>{{ row.grade__grade }}</td>
+                    <td>{{ row.species__name }}</td>
+                    <td>{{ row.peeling_type__name }}</td>
+                    <td>{{ row.brand__name }}</td>
+                    <td>{{ row.glaze__percentage }}</td>
+                    <td>{{ row.unit__unit_code }}</td>
+                    <td>{{ row.total_slab }}</td>
+                    <td>{{ row.total_c_s }}</td>
+                    <td>{{ row.total_kg }}</td>
+                    <td>{{ row.total_usd }}</td>
+                    <td>{{ row.total_inr }}</td>
+                    <td>{{ row.avg_yield }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 class="mt-4">Combined Summary</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Grade</th>
+                    <th>Species</th>
+                    <th>Peeling Type</th>
+                    <th>Brand</th>
+                    <th>Glaze Percentage</th>
+                    <th>Unit Code</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Average Yield</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in combined_summary %}
+                <tr>
+                    <td>{{ row.item_name }}</td>
+                    <td>{{ row.grade_name }}</td>
+                    <td>{{ row.species_name }}</td>
+                    <td>{{ row.peeling_type_name }}</td>
+                    <td>{{ row.brand_name }}</td>
+                    <td>{{ row.glaze_percentage }}</td>
+                    <td>{{ row.unit_code }}</td>
+                    <td>{{ row.total_slab }}</td>
+                    <td>{{ row.total_c_s }}</td>
+                    <td>{{ row.total_kg }}</td>
+                    <td>{{ row.total_usd }}</td>
+                    <td>{{ row.total_inr }}</td>
+                    <td>{{ row.avg_yield }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

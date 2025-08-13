@@ -481,7 +481,6 @@ class FreezingEntryLocal(BaseModel):
     def __str__(self):
         return f"Freezing Entry Local - {self.freezing_date} - {self.voucher_number}"
 
-
 class FreezingEntryLocalItem(BaseModel):
     freezing_entry = models.ForeignKey(
         FreezingEntryLocal,
@@ -510,3 +509,54 @@ class FreezingEntryLocalItem(BaseModel):
 
     def __str__(self):
         return f"{self.item} - {self.kg} KG"
+
+
+# PRE SHIPMENT WORK OUT model
+
+from django.db import models
+
+class PreShipmentWorkOut(BaseModel):
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)
+    glaze = models.ForeignKey('GlazePercentage', on_delete=models.CASCADE)
+    category = models.ForeignKey('FreezingCategory', on_delete=models.CASCADE)
+    brand = models.ForeignKey('ItemBrand', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Workout for {self.item}"
+
+class PreShipmentWorkOutItem(BaseModel):
+    workout = models.ForeignKey(PreShipmentWorkOut, on_delete=models.CASCADE, related_name="items")
+    species = models.ForeignKey('Species', on_delete=models.CASCADE)
+    peeling_type = models.ForeignKey('ItemType', on_delete=models.CASCADE)
+    grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
+    cartons = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # we want rate
+    usd_rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_item_to_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # we get rate
+    usd_rate_per_kg_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_item_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_item_to_inr_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    profit = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
+    loss = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
+
+    @property
+    def profit_amount(self):
+        return max(self.usd_rate_item_get - self.usd_rate_item, 0)
+
+    @property
+    def loss_amount(self):
+        return max(self.usd_rate_item - self.usd_rate_item_get, 0)
+
+    def __str__(self):
+        return f"{self.species} - {self.grade} ({self.cartons} cartons)"
+
+
+
+

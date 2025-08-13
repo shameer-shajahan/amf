@@ -387,3 +387,71 @@ FreezingEntryLocalItemFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+
+
+
+# Main form for PreShipmentWorkOut
+class PreShipmentWorkOutForm(forms.ModelForm):
+    class Meta:
+        model = PreShipmentWorkOut
+        fields = "__all__"
+        exclude = ['remark']
+        widgets = {
+            'item': forms.Select(attrs={'class': 'form-control'}),
+            'unit': forms.Select(attrs={'class': 'form-control'}),
+            'glaze': forms.Select(attrs={'class': 'form-control'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'brand': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+# Inline form for PreShipmentWorkOutItem
+class PreShipmentWorkOutItemForm(forms.ModelForm):
+    class Meta:
+        model = PreShipmentWorkOutItem
+        fields = "__all__"
+        exclude = ['remark']  # Exclude remark field
+        widgets = {
+            'species': forms.Select(attrs={'class': 'form-control species'}),            
+            'peeling_type': forms.Select(attrs={'class': 'form-control'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+
+            'cartons': forms.NumberInput(attrs={'class': 'form-control cartons'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control quantity'}),
+
+            # "We want rate" fields
+            'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control usd-rate-per-kg'}),
+            'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control usd-rate-item'}),
+            'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr'}),
+
+            # "We get rate" fields
+            'usd_rate_per_kg_get': forms.NumberInput(attrs={'class': 'form-control usd-rate-per-kg-get'}),
+            'usd_rate_item_get': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-get'}),
+            'usd_rate_item_to_inr_get': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr-get'}),
+
+            'profit': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control profit'}),
+            'loss': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control loss'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        item_id = kwargs.pop('item_id', None)
+        super().__init__(*args, **kwargs)
+        if item_id:
+            self.fields['species'].queryset = Species.objects.filter(item_id=item_id)
+        else:
+            self.fields['species'].queryset = Species.objects.none()
+            
+# Inline formset to attach PreShipmentWorkOutItem to PreShipmentWorkOut
+PreShipmentWorkOutItemFormSet = inlineformset_factory(
+    PreShipmentWorkOut,
+    PreShipmentWorkOutItem,
+    form=PreShipmentWorkOutItemForm,
+    extra=1,
+    can_delete=True
+)
+
+
+
+
+
