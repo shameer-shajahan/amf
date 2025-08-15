@@ -1,6 +1,7 @@
 
 # Create your views here.
-
+from .models import *
+from .forms import *
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -9,13 +10,17 @@ from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.urls import reverse_lazy
 from django.views.generic.edit import CreateView, UpdateView, DeleteView 
-from django.views.generic import DetailView
-from django.views.generic import ListView
-from django.shortcuts import render
-from .models import *
-from .forms import *
+from django.views.generic import DetailView, ListView
 from decimal import Decimal
 from django.views import View
+from django.db.models import Sum, Count, Avg, DecimalField, Value as V
+from django.db.models.functions import Coalesce
+from django.http import JsonResponse
+
+
+
+
+
 
 
 
@@ -513,9 +518,6 @@ class TenantDeleteView(DeleteView):
 #         print("SAVING species:", form.cleaned_data.get("species"))
 #         return super().form_valid(form)
 
-from django.http import JsonResponse
-from .models import ItemGrade
-
 class PurchaseOverheadCreateView(CreateView):
     model = PurchaseOverhead
     form_class = PurchaseOverheadForm
@@ -844,34 +846,15 @@ def local_purchase_detail(request, pk):
 
 
 # views.py
-
-from django.views.generic import ListView, DeleteView
-from django.urls import reverse_lazy
-from .models import PeelingShedSupply
-
 class PeelingShedSupplyListView(ListView):
     model = PeelingShedSupply
     template_name = 'adminapp/purchases/peeling_shed_supply_list.html'
     context_object_name = 'supplies'
 
-# views.py
-
 class PeelingShedSupplyDeleteView(DeleteView):
     model = PeelingShedSupply
     template_name = 'adminapp/purchases/confirm_delete.html'
     success_url = reverse_lazy('adminapp:peeling_shed_supply_list')
-
-
-
-
-# views.py
-from django.shortcuts import render, redirect
-from .forms import PeelingShedSupplyForm, PeelingShedPeelingTypeFormSet
-
-from django.db import transaction
-from django.shortcuts import render, redirect
-from .models import PeelingShedSupply, PeelingShedPeelingType
-from .forms import PeelingShedSupplyForm, PeelingShedPeelingTypeFormSet
 
 def create_peeling_shed_supply(request):
     if request.method == 'POST':
@@ -906,8 +889,6 @@ def create_peeling_shed_supply(request):
         'form': form,
         'formset': formset,
     })
-
-
 
 def get_spot_purchases_by_date(request):
     date = request.GET.get('date')
@@ -1235,13 +1216,6 @@ def delete_freezing_entry_local(request, pk):
 
 
 # Freezing WORK OUT 
-
-from django.views import View
-from django.shortcuts import render
-from django.db.models import Sum, F, Count, Value as V, DecimalField, IntegerField
-from django.db.models.functions import Coalesce
-from decimal import Decimal
-
 class FreezingWorkOutView(View):
     template_name = "adminapp/freezing_workout.html"
 
@@ -1336,32 +1310,6 @@ class FreezingWorkOutView(View):
 
 
 # PRE SHIPMENT WORK OUT 
-
-from decimal import Decimal
-from django.db import transaction
-from django.db.models import Sum, Count, DecimalField, Value as V
-from django.db.models.functions import Coalesce
-from django.shortcuts import render, redirect
-from django.views import View
-from django.contrib import messages
-
-from .models import (
-    PreShipmentWorkOut, Item, PackingUnit, GlazePercentage,
-    FreezingCategory, ItemBrand, FreezingEntrySpotItem, FreezingEntryLocalItem
-)
-from .forms import PreShipmentWorkOutForm, PreShipmentWorkOutItemFormSet
-
-
-from django.views import View
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.db import transaction
-from django.db.models import Sum, Avg, Count, Value as V
-from django.db.models.functions import Coalesce
-from decimal import Decimal
-from .forms import PreShipmentWorkOutForm, PreShipmentWorkOutItemFormSet
-from .models import FreezingEntrySpotItem, FreezingEntryLocalItem, Item, PackingUnit, GlazePercentage, FreezingCategory, ItemBrand
-
 class PreShipmentWorkOutCreateAndSummaryView(View):
     template_name = "adminapp/create_preshipment_workout.html"
 
