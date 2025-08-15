@@ -448,8 +448,7 @@ class FreezingEntrySpotItem(BaseModel):
         return f"{self.item} - {self.kg} KG"
 
 
-from django.db import models
-
+# freezing entry by local purchase 
 class FreezingEntryLocal(BaseModel):
     freezing_date = models.DateField()
     voucher_number = models.CharField(max_length=50)
@@ -507,9 +506,6 @@ class FreezingEntryLocalItem(BaseModel):
 
 
 # PRE SHIPMENT WORK OUT model
-
-from django.db import models
-
 class PreShipmentWorkOut(BaseModel):
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
     unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)

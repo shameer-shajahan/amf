@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Freezing Entry Local - {{ entry.freezing_date }} - {{ entry.voucher_number }}</h1>
+
+<div>
+    <p><strong>Local Purchase Date:</strong> {{ entry.local_purchase_date }}</p>
+    <p><strong>Party:</strong> {{ entry.party }}</p>
+    <p><strong>Status:</strong> {{ entry.get_freezing_status_display }}</p>
+    <p><strong>Total Yield %:</strong> {{ entry.total_yield_percentage }}</p>
+    <p><strong>Total USD:</strong> {{ entry.total_usd }}</p>
+    <p><strong>Total INR:</strong> {{ entry.total_inr }}</p>
+    <p><strong>Total Slab:</strong> {{ entry.total_slab }}</p>
+    <p><strong>Total C/S:</strong> {{ entry.total_c_s }}</p>
+    <p><strong>Total KG:</strong> {{ entry.total_kg }}</p>
+</div>
+
+<hr>
+
+<h2>Items</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Processing Center</th>
+            <th>Store</th>
+            <th>Item</th>
+            <th>Unit</th>
+            <th>Glaze</th>
+            <th>Category</th>
+            <th>Brand</th>
+            <th>Species</th>
+            <th>Peeling Type</th>
+            <th>Grade</th>
+            <th>Slab Qty</th>
+            <th>C/S Qty</th>
+            <th>KG</th>
+            <th>USD/kg</th>
+            <th>USD Total</th>
+            <th>INR Total</th>
+            <th>Yield %</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.processing_center }}</td>
+            <td>{{ item.store }}</td>
+            <td>{{ item.item }}</td>
+            <td>{{ item.unit }}</td>
+            <td>{{ item.glaze }}</td>
+            <td>{{ item.freezing_category }}</td>
+            <td>{{ item.brand }}</td>
+            <td>{{ item.species }}</td>
+            <td>{{ item.peeling_type }}</td>
+            <td>{{ item.grade }}</td>
+            <td>{{ item.slab_quantity }}</td>
+            <td>{{ item.c_s_quantity }}</td>
+            <td>{{ item.kg }}</td>
+            <td>{{ item.usd_rate_per_kg }}</td>
+            <td>{{ item.usd_rate_item }}</td>
+            <td>{{ item.usd_rate_item_to_inr }}</td>
+            <td>{{ item.yield_percentage }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="17">No items found for this entry.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'adminapp:freezing_entry_local_list' %}">Back to List</a>
+</body>
+</html>

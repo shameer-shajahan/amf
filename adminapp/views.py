@@ -1106,7 +1106,6 @@ def delete_freezing_entry_spot(request, pk):
 
 
 # Create Freezing Entry Local
-
 def create_freezing_entry_local(request):
     if request.method == 'POST':
         form = FreezingEntryLocalForm(request.POST)
@@ -1213,6 +1212,64 @@ def delete_freezing_entry_local(request, pk):
         entry.delete()
         return redirect('adminapp:freezing_entry_local_list')
     return render(request, 'adminapp/freezing_entry_local_confirm_delete.html', {'entry': entry})
+
+def freezing_entry_local_detail(request, pk):
+    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+    items = entry.items.all().select_related(
+        'processing_center',
+        'store',
+        'item',
+        'unit',
+        'glaze',
+        'freezing_category',
+        'brand',
+        'species',
+        'peeling_type',
+        'grade'
+    )
+
+    context = {
+        'entry': entry,
+        'items': items
+    }
+    return render(request, 'adminapp/freezing_entry_local_detail.html', context)
+
+def freezing_entry_local_update(request, pk):
+    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+
+    ItemFormSet = inlineformset_factory(
+        FreezingEntryLocal,
+        FreezingEntryLocalItem,
+        form=FreezingEntryLocalItemForm,
+        extra=0,
+        can_delete=True
+    )
+
+    if request.method == "POST":
+        form = FreezingEntryLocalForm(request.POST, instance=entry)
+        formset = ItemFormSet(request.POST, instance=entry)
+
+        if form.is_valid() and formset.is_valid():
+            parent = form.save(commit=False)
+            parent.save()
+            formset.instance = parent  # ✅ Make sure formset links to the saved parent
+            formset.save()
+            return redirect("adminapp:freezing_entry_local_detail", pk=entry.pk)
+        else:
+            print("Form errors:", form.errors)
+            print("Formset errors:", formset.errors)  # ✅ Helps debug why it's not saving
+
+    else:
+        form = FreezingEntryLocalForm(instance=entry)
+        formset = ItemFormSet(instance=entry)
+
+    return render(request, "adminapp/freezing_entry_local_update.html", {
+        "form": form,
+        "formset": formset,
+        "entry": entry
+    })
+
+
 
 
 # Freezing WORK OUT 
