@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.urls import reverse_lazy
 from django.views.generic.edit import CreateView, UpdateView, DeleteView 
+from django.views.generic import DetailView
 from django.views.generic import ListView
 from django.shortcuts import render
 from .models import *
@@ -1502,7 +1503,6 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
 
         if workout_form.is_valid():
             workout = workout_form.save(commit=False)
-
             formset = PreShipmentWorkOutItemFormSet(request.POST, prefix="items", instance=workout)
 
             # ✅ Dynamically adjust species & peeling_type choices for validation
@@ -1516,7 +1516,19 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
                 try:
                     with transaction.atomic():
                         workout.save()
-                        formset.save()
+                        # ✅ Backend profit/loss calculation
+                        for f in formset:
+                            obj = f.save(commit=False)
+                            buy_inr = obj.usd_rate_item_to_inr or Decimal(0)
+                            sell_inr = obj.usd_rate_item_to_inr_get or Decimal(0)
+                            diff = sell_inr - buy_inr
+                            if diff >= 0:
+                                obj.profit = diff
+                                obj.loss = Decimal(0)
+                            else:
+                                obj.profit = Decimal(0)
+                                obj.loss = abs(diff)
+                            obj.save()
                     messages.success(request, "Pre-Shipment WorkOut created successfully.")
                     return redirect(request.path)
                 except Exception as e:
@@ -1542,15 +1554,6 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
         }
         return render(request, self.template_name, context)
 
-
-
-
-
-
-
-
-
-# AJAX view for load_species
 def get_species_for_item(request):
     item_id = request.GET.get("item_id")
     species_list = []
@@ -1561,7 +1564,6 @@ def get_species_for_item(request):
 
     return JsonResponse({"species": species_list})
 
-# AJAX view for load_peeling_type
 def get_peeling_for_item(request):
     item_id = request.GET.get("item_id")
     peeling_list = []
@@ -1591,10 +1593,6 @@ def get_dollar_rate_pre_workout(request):
         })
     return JsonResponse({'error': 'Settings not found'}, status=404)
 
-
-
-
-
 # LIST VIEW
 class PreShipmentWorkOutListView(ListView):
     model = PreShipmentWorkOut
@@ -1620,5 +1618,35 @@ class PreShipmentWorkOutDeleteView(DeleteView):
         messages.success(request, f"Pre-Shipment WorkOut '{obj}' deleted successfully.")
         return super().delete(request, *args, **kwargs)
 
+# DETAIL View
+class PreShipmentWorkOutDetailView(DetailView):
+    model = PreShipmentWorkOut
+    template_name = "adminapp/detail_preshipment_workout.html"
+    context_object_name = "workout"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
+        # All related items
+        items_qs = PreShipmentWorkOutItem.objects.filter(workout=self.object)
+
+        # Summary calculation
+        summary = items_qs.aggregate(
+            total_cartons=Coalesce(Sum("cartons"), Decimal(0), output_field=DecimalField()),
+            total_quantity=Coalesce(Sum("quantity"), Decimal(0), output_field=DecimalField()),
+            total_usd_rate_item=Coalesce(Sum("usd_rate_item"), Decimal(0), output_field=DecimalField()),
+            total_usd_rate_item_get=Coalesce(Sum("usd_rate_item_get"), Decimal(0), output_field=DecimalField()),
+            total_usd_inr=Coalesce(Sum("usd_rate_item_to_inr"), Decimal(0), output_field=DecimalField()),
+            total_usd_inr_get=Coalesce(Sum("usd_rate_item_to_inr_get"), Decimal(0), output_field=DecimalField()),
+            avg_usd_per_kg=Coalesce(Avg("usd_rate_per_kg"), Decimal(0), output_field=DecimalField()),
+            avg_usd_per_kg_get=Coalesce(Avg("usd_rate_per_kg_get"), Decimal(0), output_field=DecimalField()),
+            total_profit=Coalesce(Sum("profit"), Decimal(0), output_field=DecimalField()),
+            total_loss=Coalesce(Sum("loss"), Decimal(0), output_field=DecimalField()),
+            item_count=Count("id")
+        )
+
+        context.update({
+            "items": items_qs,
+            "summary": summary
+        })
+        return context

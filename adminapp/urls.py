@@ -185,5 +185,9 @@ urlpatterns = [
     path("get-peeling/", views.get_peeling_for_item, name="get_peeling_for_item"),
     path("ajax/get-grade-for-species/",views.get_grade_for_species,name="get_grade_for_species"),
     path('get-dollar-rate-pre-workout/', views.get_dollar_rate_pre_workout, name='get_dollar_rate_pre_workout'),
+    path("preshipment-workout/<str:pk>/detail/",views.PreShipmentWorkOutDetailView.as_view(),name="preshipment_workout_detail"),
+
+
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

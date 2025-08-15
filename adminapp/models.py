@@ -22,7 +22,6 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, full_name, mobile, password, **extra_fields)
 
-
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     full_name = models.CharField(max_length=150)
@@ -48,8 +47,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-
-
 import uuid
 from django.db import models
 
@@ -96,8 +93,6 @@ class Store(BaseModel):
 
     def __str__(self):
         return f"{self.name} - {self.code}"
-
-
 
 class PurchasingSpot(BaseModel):
     location_name = models.CharField(max_length=150)
