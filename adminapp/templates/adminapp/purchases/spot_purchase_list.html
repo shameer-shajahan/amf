@@ -26,6 +26,7 @@
             <td>
                 <a href="{% url 'adminapp:spot_purchase_detail' purchase.pk %}">View</a> |
                 <a href="{% url 'adminapp:spot_purchase_edit' purchase.pk %}">Edit</a>
+                <a href="{% url 'adminapp:spot_purchase_delete' purchase.pk %}">Delete</a>
             </td>
         </tr>
         {% empty %}

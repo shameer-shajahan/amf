@@ -16,9 +16,8 @@ from django.views import View
 from django.db.models import Sum, Count, Avg, DecimalField, Value as V
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
-
-
-
+from django.utils.timezone import now
+from datetime import timedelta, datetime
 
 
 
@@ -662,7 +661,7 @@ def create_spot_purchase(request):
             expense.save()
 
             purchase.update_totals()
-            return redirect('adminapp:spot_purchase_list')
+            return redirect('adminapp:create_peeling_shed_supply')
 
     else:
         purchase_form = SpotPurchaseForm()
@@ -732,7 +731,6 @@ def spot_purchase_list(request):
     purchases = SpotPurchase.objects.all().order_by('-date')
     return render(request, 'adminapp/purchases/spot_purchase_list.html', {'purchases': purchases})
 
-# Delete View
 def spot_purchase_delete(request, pk):
     purchase = get_object_or_404(SpotPurchase, pk=pk)
     if request.method == 'POST':
@@ -820,7 +818,7 @@ def local_purchase_update(request, pk):
         form = LocalPurchaseForm(instance=purchase)
         formset = LocalPurchaseItemFormSet(instance=purchase, prefix='form')
 
-    return render(request, 'adminapp/purchases/local_purchase_form.html', {
+    return render(request, 'adminapp/purchases/local_purchase_edit.html', {
         'form': form,
         'formset': formset
     })
@@ -843,7 +841,172 @@ def local_purchase_detail(request, pk):
         'title': f"Local Purchase Details - Voucher #{purchase.voucher_number}"
     })
 
+def spot_purchase_workout_summary(request):
+    items = Item.objects.all()
+    spots = PurchasingSpot.objects.all()
+    agents = PurchasingAgent.objects.all()
+    categories = ItemCategory.objects.all()
 
+    queryset = SpotPurchaseItem.objects.select_related(
+        "purchase", "item", "purchase__spot", "purchase__agent"
+    )
+
+    # ✅ Multi-select filters
+    selected_items = request.GET.getlist("items")
+    selected_spots = request.GET.getlist("spots")
+    selected_agents = request.GET.getlist("agents")
+    selected_categories = request.GET.getlist("categories")
+    date_filter = request.GET.get("date_filter")
+
+    # ✅ Date range filter
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+    if selected_spots:
+        queryset = queryset.filter(purchase__spot__id__in=selected_spots)
+    if selected_agents:
+        queryset = queryset.filter(purchase__agent__id__in=selected_agents)
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+
+    # ✅ Quick date filter
+    if date_filter == "week":
+        queryset = queryset.filter(purchase__date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(purchase__date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(purchase__date__year=now().year)
+
+    # ✅ Custom date range
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(purchase__date__range=[start, end])
+        except:
+            pass
+
+    # ✅ Group & summary
+    summary = (
+        queryset.values(
+            "item__name",
+            "item__category__name",
+            "purchase__spot__location_name",
+            "purchase__agent__name",
+            "purchase__date",
+        )
+        .annotate(
+            total_quantity=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum("amount") / Sum("quantity"),
+        )
+        .order_by("purchase__date")
+    )
+
+    return render(
+        request,
+        "adminapp/purchases/spot_purchase_workout_summary.html",
+        {
+            "summary": summary,
+            "items": items,
+            "spots": spots,
+            "agents": agents,
+            "categories": categories,
+            "selected_items": selected_items,
+            "selected_spots": selected_spots,
+            "selected_agents": selected_agents,
+            "selected_categories": selected_categories,
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
+
+def local_purchase_workout_summary(request):
+    items = Item.objects.all()
+    categories = ItemCategory.objects.all()
+    species_list = Species.objects.all()
+    parties = LocalPurchase.objects.values_list("party_name", flat=True).distinct()
+
+    queryset = LocalPurchaseItem.objects.select_related(
+        "purchase", "item", "item__category", "item__species"
+    )
+
+    # ✅ Multi-select filters
+    selected_items = request.GET.getlist("items")
+    selected_categories = request.GET.getlist("categories")
+    selected_parties = request.GET.getlist("parties")
+    selected_species = request.GET.getlist("species")
+
+    # ✅ Date range filter
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    # ✅ Quick filters (week, month, year)
+    period = request.GET.get("period")
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+
+    if selected_parties:
+        queryset = queryset.filter(purchase__party_name__in=selected_parties)
+
+    if selected_species:
+        queryset = queryset.filter(item__species__id__in=selected_species)
+
+    # 📅 Date filters
+    today = now().date()
+    if start_date:
+        queryset = queryset.filter(purchase__date__gte=start_date)
+    if end_date:
+        queryset = queryset.filter(purchase__date__lte=end_date)
+
+    if period == "week":
+        week_start = today - timedelta(days=today.weekday())  # Monday
+        queryset = queryset.filter(purchase__date__gte=week_start)
+    elif period == "month":
+        queryset = queryset.filter(
+            purchase__date__year=today.year, purchase__date__month=today.month
+        )
+    elif period == "year":
+        queryset = queryset.filter(purchase__date__year=today.year)
+
+    # ✅ Group & summary
+    summary = (
+        queryset.values(
+            "purchase__date",
+            "item__name",
+            "item__category__name",
+            "item__species__name",
+            "purchase__party_name",
+        )
+        .annotate(
+            total_qty=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum("amount") / Sum("quantity"),
+        )
+        .order_by("purchase__date", "item__name")
+    )
+
+    return render(request, "adminapp/purchases/local_purchase_workout_summary.html", {
+        "summary": summary,
+        "items": items,
+        "categories": categories,
+        "species_list": species_list,
+        "parties": parties,
+        "selected_items": selected_items,
+        "selected_categories": selected_categories,
+        "selected_parties": selected_parties,
+        "selected_species": selected_species,
+        "start_date": start_date,
+        "end_date": end_date,
+        "period": period,
+    })
 
 # views.py
 class PeelingShedSupplyListView(ListView):
@@ -877,7 +1040,7 @@ def create_peeling_shed_supply(request):
                 # Example: supply.total_amount = total_amount
                 # supply.save()
 
-                return redirect('adminapp:peeling_shed_supply_list')
+                return redirect('adminapp:create_peeling_shed_supply')
         else:
             print("Form Errors:", form.errors)
             print("Formset Errors:", formset.errors)
@@ -910,8 +1073,8 @@ def get_spot_purchase_items(request):
     data = [
         {
             'id': item.id,
-            'name': item.item.name
-        }
+            'name': item.item.name,
+            'quantity': float(item.quantity),          }
         for item in items
     ]
     return JsonResponse(data, safe=False)
@@ -952,16 +1115,50 @@ def get_peeling_charge_by_shed(request):
             })
     return JsonResponse({'peeling_types': data})
 
+class PeelingShedSupplyDetailView(DetailView):
+    model = PeelingShedSupply
+    template_name = 'adminapp/purchases/peeling_shed_supply_detail.html'
+    context_object_name = 'supply'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['peeling_types'] = self.object.peeling_types.all()
+        return context
+
+def update_peeling_shed_supply(request, pk):
+    supply = get_object_or_404(PeelingShedSupply, pk=pk)
+
+    if request.method == 'POST':
+        form = PeelingShedSupplyForm(request.POST, instance=supply)
+        formset = PeelingShedPeelingTypeFormSet(request.POST, instance=supply, prefix='form')
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                supply = form.save()
+                formset.save()  # saves peeling types linked to supply
+            return redirect('adminapp:peeling_shed_supply_detail', pk=supply.pk)
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", formset.errors)
+    else:
+        form = PeelingShedSupplyForm(instance=supply)
+        formset = PeelingShedPeelingTypeFormSet(instance=supply, prefix='form')
+
+    return render(request, 'adminapp/purchases/update_peeling_shed_supply_form.html', {
+        'form': form,
+        'formset': formset,
+        'is_update': True,
+        'supply': supply,
+    })
 
 
 # create freezing entry spot
-
 def create_freezing_entry_spot(request):
     if request.method == 'POST':
         form = FreezingEntrySpotForm(request.POST)
         formset = FreezingEntrySpotItemFormSet(request.POST, prefix='form')
 
-        # Set shed queryset for each inline form
+        # Ensure shed queryset is set for each form in formset
         for f in formset.forms:
             f.fields['shed'].queryset = Shed.objects.all()
 
@@ -993,16 +1190,17 @@ def create_freezing_entry_spot(request):
                         if yield_percent is not None:
                             yield_percentages.append(yield_percent)
 
+                # Assign totals
                 freezing_entry.total_slab = total_slab
                 freezing_entry.total_c_s = total_c_s
                 freezing_entry.total_kg = total_kg
                 freezing_entry.total_usd = total_usd
                 freezing_entry.total_inr = total_inr
                 freezing_entry.total_yield_percentage = (
-                    sum(yield_percentages) / len(yield_percentages)
-                    if yield_percentages else Decimal(0)
+                    sum(yield_percentages) if yield_percentages else Decimal(0)
                 )
 
+                # Save main form and formset
                 freezing_entry.save()
                 formset.instance = freezing_entry
                 formset.save()
@@ -1017,7 +1215,7 @@ def create_freezing_entry_spot(request):
         form.fields['spot_supervisor'].queryset = PurchasingSupervisor.objects.none()
         formset = FreezingEntrySpotItemFormSet(prefix='form')
 
-    return render(request, 'adminapp/freezing_entry_spot_create.html', {
+    return render(request, 'adminapp/freezing/freezing_entry_spot_create.html', {
         'form': form,
         'formset': formset,
     })
@@ -1032,25 +1230,51 @@ def get_spot_details(request):
 
     try:
         spot = SpotPurchase.objects.select_related('agent', 'supervisor').get(id=spot_id)
+
+        # ✅ Fetch all related items for this spot purchase
+        items = SpotPurchaseItem.objects.filter(purchase=spot).select_related("item")
+
+        items_data = [
+            {
+                "id": item.item.id,
+                "name": item.item.name,
+                "quantity": str(item.quantity),  # ensure JSON serializable
+            }
+            for item in items
+        ]
+
         data = {
-            'agent_id': spot.agent.id,
-            'agent_name': str(spot.agent),  # e.g. "John - AG001"
-            'supervisor_id': spot.supervisor.id,
-            'supervisor_name': str(spot.supervisor),  # e.g. "Anita - 9876543210"
+            "agent_id": spot.agent.id,
+            "agent_name": str(spot.agent),  # e.g. "John - AG001"
+            "supervisor_id": spot.supervisor.id,
+            "supervisor_name": str(spot.supervisor),  # e.g. "Anita - 9876543210"
+            "items": items_data,  # ✅ added items list
         }
+
+        # Debug print for terminal
+        print("Spot Purchase Details:", data)
+
         return JsonResponse(data)
+
     except SpotPurchase.DoesNotExist:
-        return JsonResponse({'error': 'SpotPurchase not found'}, status=404)
+        return JsonResponse({"error": "SpotPurchase not found"}, status=404)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 def get_sheds_by_date(request):
-    date = request.GET.get('date')
-    if not date:
+    date_str = request.GET.get('date')  # Spot Purchase Date
+    if not date_str:
         return JsonResponse({'error': 'Missing date'}, status=400)
 
+    # Convert string to Python date
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+    # Fetch supplies for that spot purchase date
     supplies = PeelingShedSupply.objects.filter(
-        spot_purchase__date=date
+        spot_purchase__date=date_obj
     ).select_related('shed', 'spot_purchase_item__item')
 
     seen_pairs = set()
@@ -1063,6 +1287,15 @@ def get_sheds_by_date(request):
 
         if key not in seen_pairs:
             seen_pairs.add(key)
+
+            # Yield calculation example
+            try:
+                total_qty = supply.spot_purchase_item.quantity  # adjust field name
+                qty_received = supply.quantity_received_shed
+                yield_percent = (qty_received / total_qty) * 100 if total_qty else 0
+            except:
+                yield_percent = 0
+
             result.append({
                 'shed_id': shed.id,
                 'shed_name': str(shed),
@@ -1070,6 +1303,7 @@ def get_sheds_by_date(request):
                 'item_name': str(item),
                 'boxes_received_shed': supply.boxes_received_shed,
                 'quantity_received_shed': str(supply.quantity_received_shed),
+                'yield_percent': round(yield_percent, 2)
             })
 
     return JsonResponse({'sheds': result})
@@ -1095,7 +1329,29 @@ def get_dollar_rate(request):
 
 def freezing_entry_spot_list(request):
     entries = FreezingEntrySpot.objects.all()
-    return render(request, 'adminapp/freezing_entry_spot_list.html', {'entries': entries})
+    return render(request, 'adminapp/freezing/freezing_entry_spot_list.html', {'entries': entries})
+
+def get_spot_purchase_items_by_date(request):
+    date = request.GET.get("date")
+    if not date:
+        return JsonResponse({"error": "Missing date"}, status=400)
+
+    items = SpotPurchaseItem.objects.filter(
+        purchase__date=date
+    ).select_related("item")
+
+    data = []
+    for item in items:
+        # ✅ print to terminal
+        print(f"Item: {item.item.name}, Quantity: {item.quantity}")
+
+        data.append({
+            "id": item.id,
+            "name": str(item.item),
+            "quantity": str(item.quantity),
+        })
+
+    return JsonResponse({"items": data})
 
 def delete_freezing_entry_spot(request, pk):
     entry = get_object_or_404(FreezingEntrySpot, pk=pk)
@@ -1103,6 +1359,135 @@ def delete_freezing_entry_spot(request, pk):
         entry.delete()
         return redirect('adminapp:freezing_entry_spot_list')
     return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+class FreezingEntrySpotDetailView(View):
+    template_name = "adminapp/freezing/freezing_entry_spot_detail.html"
+
+    def get(self, request, pk):
+        entry = get_object_or_404(FreezingEntrySpot, pk=pk)
+        items = entry.items.select_related(
+            "shed", "item", "unit", "glaze",
+            "freezing_category", "brand", "species",
+            "peeling_type", "grade"
+        )
+
+        context = {
+            "entry": entry,
+            "items": items,
+        }
+        return render(request, self.template_name, context)
+
+
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+from decimal import Decimal
+from .models import FreezingEntrySpot, SpotPurchase, Shed, PurchasingAgent, PurchasingSupervisor
+from .forms import FreezingEntrySpotForm, FreezingEntrySpotItemFormSet
+
+
+def freezing_entry_spot_update(request, pk):
+    freezing_entry = get_object_or_404(FreezingEntrySpot, pk=pk)
+
+    if request.method == "POST":
+        form = FreezingEntrySpotForm(request.POST, instance=freezing_entry)
+        formset = FreezingEntrySpotItemFormSet(request.POST, instance=freezing_entry, prefix="form")
+
+        # ✅ Ensure spot list loads with all available spots
+        form.fields["spot"].queryset = SpotPurchase.objects.all()
+        
+        # ✅ Set agent and supervisor querysets based on existing data or all available
+        if freezing_entry.spot:
+            form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
+            form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
+        else:
+            form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
+            form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
+
+        # ✅ Ensure shed list loads for each child form
+        for f in formset.forms:
+            if "shed" in f.fields:
+                f.fields["shed"].queryset = Shed.objects.all()
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                entry = form.save(commit=False)
+
+                # ---- Aggregate totals ----
+                total_slab = Decimal(0)
+                total_cs = Decimal(0)
+                total_kg = Decimal(0)
+                total_usd = Decimal(0)
+                total_inr = Decimal(0)
+                yield_percentages = []
+
+                # Process formset items
+                for f in formset:
+                    if f.cleaned_data and not f.cleaned_data.get("DELETE", False):
+                        # Get values with proper defaults
+                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
+                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
+                        kg = f.cleaned_data.get('kg') or Decimal(0)
+                        usd = f.cleaned_data.get('usd_rate_item') or Decimal(0)
+                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
+                        yield_percent = f.cleaned_data.get('yield_percentage')
+
+                        # Add to totals
+                        total_slab += slab
+                        total_cs += cs
+                        total_kg += kg
+                        total_usd += usd
+                        total_inr += inr
+                        if yield_percent is not None:
+                            yield_percentages.append(yield_percent)
+
+                # ---- Save totals back to entry ----
+                entry.total_slab = total_slab
+                entry.total_c_s = total_cs
+                entry.total_kg = total_kg
+                entry.total_usd = total_usd
+                entry.total_inr = total_inr
+                entry.total_yield_percentage = (
+                    sum(yield_percentages) if yield_percentages else Decimal(0)
+                )
+                entry.save()
+
+                # Save the formset
+                formset.instance = entry
+                formset.save()
+
+            return redirect("adminapp:freezing_entry_spot_list")
+
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", formset.errors)
+            print("Formset Non-Form Errors:", formset.non_form_errors())
+
+    else:
+        # GET request - initialize form and formset
+        form = FreezingEntrySpotForm(instance=freezing_entry)
+        formset = FreezingEntrySpotItemFormSet(instance=freezing_entry, prefix="form")
+
+        # ✅ Preload querysets for the form
+        form.fields["spot"].queryset = SpotPurchase.objects.all()
+        form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
+        form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
+
+        # ✅ Preload querysets for formset
+        for f in formset.forms:
+            if "shed" in f.fields:
+                f.fields["shed"].queryset = Shed.objects.all()
+
+    context = {
+        "form": form,
+        "formset": formset,
+        "freezing_entry": freezing_entry,
+    }
+
+    return render(
+        request,
+        "adminapp/freezing/freezing_entry_spot_update.html",
+        context
+    )
 
 
 # Create Freezing Entry Local

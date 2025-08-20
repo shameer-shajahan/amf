@@ -1,23 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spot Purchase</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        nav {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end; /* Aligns items to the right */
+        }
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        nav ul li {
+            display: inline-block;
+        }
+        nav ul li a {
+            display: inline-block;
+            padding: 10px 15px; /* Button-like padding */
+            background-color: #007bff; /* Button color */
+            color: white; /* Text color */
+            text-decoration: none; /* Remove underline */
+            border-radius: 4px; /* Rounded corners */
+            transition: background-color 0.2s, box-shadow 0.2s; /* Smooth transition */
+        }
+        nav ul li a:hover {
+            background-color: #0056b3; /* Darker shade on hover */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Shadow effect */
+        }
+        h2, h3 {
+            color: #333;
+        }
         .formset-row {
             margin-bottom: 10px;
             padding: 10px;
             border: 1px solid #ccc;
-            position: relative;
+            background: #fff;
         }
         .delete-row {
-            background-color: #dc3545;
+            background-color: #eb0d23;
             color: white;
             border: none;
             padding: 5px 10px;
             cursor: pointer;
-            position: absolute;
-            top: 10px;
-            right: 10px;
+            border-radius: 4px;
         }
         .totals-box {
             margin-top: 20px;
@@ -34,13 +68,76 @@
             border: 1px solid #999;
             background: #f4f4f4;
         }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: #fff;
+        }
+        .items-table th, .items-table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        .items-table th {
+            background: #f2f2f2;
+            font-weight: bold;
+        }
+        input[type="text"], 
+        input[type="number"],
+        input[type="date"],
+        select {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 14px;
+        }
+        input[type="text"]:focus, 
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        select:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+        }
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        button:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        button:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
 
 <nav>
     <ul>
-        <li><a href="{% url 'adminapp:spot_purchase_list' %}">List</a></li>
+        <li><a href="{% url 'adminapp:spot_purchase_list' %}">View List</a></li>
     </ul>
 </nav>
 
@@ -50,46 +147,83 @@
     {% csrf_token %}
     {{ item_formset.management_form }}
 
+<div class="form-section">
+    <h3>Purchase Details</h3>
 
-{{ purchase_form.non_field_errors }}
-{% for field in purchase_form %}
-  {{ field.errors }}
-{% endfor %}
-
-{{ expense_form.non_field_errors }}
-{% for field in expense_form %}
-  {{ field.errors }}
-{% endfor %}
-
-{% for form in item_formset %}
-  {{ form.non_field_errors }}
-  {% for field in form %}
-    {{ field.errors }}
-  {% endfor %}
-{% endfor %}
-
-    <div class="form-section">
-        <h3>Purchase Details</h3>
-        {{ purchase_form.as_p }}
+    <div class="form-group">
+        {{ purchase_form.date.label_tag }}
+        {{ purchase_form.date }}
     </div>
+
+    <div class="form-group">
+        {{ purchase_form.voucher_number.label_tag }}
+        {{ purchase_form.voucher_number }}
+    </div>
+
+    <div class="form-group">
+        {{ purchase_form.spot.label_tag }}
+        {{ purchase_form.spot }}
+    </div>
+
+    <div class="form-group">
+        {{ purchase_form.supervisor.label_tag }}
+        {{ purchase_form.supervisor }}
+    </div>
+
+    <div class="form-group">
+        {{ purchase_form.agent.label_tag }}
+        {{ purchase_form.agent }}
+    </div>
+</div>
+
 
     <div class="form-section">
         <h3>Purchase Items</h3>
         <div id="formset-container">
             {{ item_formset.management_form }}
-            {% for form in item_formset %}
-                <div class="formset-row">
-                    {% for field in form.visible_fields %}
-                        <div>
-                            {{ field.label_tag }} {{ field }}
-                            {% if field.errors %}
-                                <div class="text-danger">{{ field.errors }}</div>
-                            {% endif %}
-                        </div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Rate</th>
+                        <th>Boxes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in item_formset %}
+                        <tr class="formset-row">
+                            <td>
+                                {{ form.item.as_widget }}  <!-- Removed label -->
+                                {% if form.item.errors %}
+                                    <div class="text-danger">{{ form.item.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.quantity.as_widget }}  <!-- Removed label -->
+                                {% if form.quantity.errors %}
+                                    <div class="text-danger">{{ form.quantity.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.rate.as_widget }}  <!-- Removed label -->
+                                {% if form.rate.errors %}
+                                    <div class="text-danger">{{ form.rate.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.boxes.as_widget }}  <!-- Removed label -->
+                                {% if form.boxes.errors %}
+                                    <div class="text-danger">{{ form.boxes.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="delete-row">DELETE</button>
+                            </td>
+                        </tr>
                     {% endfor %}
-                    <button type="button" class="delete-row">Delete</button>
-                </div>
-            {% endfor %}
+                </tbody>
+            </table>
         </div>
         <button type="button" id="add-more">+ Add More</button>
     </div>
@@ -112,16 +246,25 @@
 
 <!-- Hidden empty form template -->
 <template id="empty-form-template">
-    <div class="formset-row">
+    <tr class="formset-row">
         {% with item_formset.empty_form as form %}
-            {% for field in form.visible_fields %}
-                <div>
-                    {{ field.label_tag }} {{ field.as_widget }}
-                </div>
-            {% endfor %}
+            <td>
+                {{ form.item.as_widget }}  <!-- Removed label -->
+            </td>
+            <td>
+                {{ form.quantity.as_widget }}  <!-- Removed label -->
+            </td>
+            <td>
+                {{ form.rate.as_widget }}  <!-- Removed label -->
+            </td>
+            <td>
+                {{ form.boxes.as_widget }}  <!-- Removed label -->
+            </td>
         {% endwith %}
-        <button type="button" class="delete-row">Delete</button>
-    </div>
+        <td>
+            <button type="button" class="delete-row">Delete</button>
+        </td>
+    </tr>
 </template>
 
 <script>
@@ -212,11 +355,8 @@ document.getElementById('add-more').addEventListener('click', function () {
     const template = document.getElementById('empty-form-template').innerHTML;
     const newFormHtml = template.replace(/__prefix__/g, formCount);
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = newFormHtml;
-    const newForm = tempDiv.firstElementChild;
-
-    container.appendChild(newForm);
+    const tbody = document.querySelector('#formset-container tbody');
+    tbody.insertAdjacentHTML('beforeend', newFormHtml);
     totalFormsInput.value = formCount + 1;
 
     calculateTotals();
@@ -234,6 +374,20 @@ function updateTotalForms(change) {
 calculateTotals();
 calculateExpenseTotal();
 </script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    flatpickr(".datepicker", {
+        dateFormat: "d/m/Y", // display dd/mm/yyyy
+        defaultDate: "today"
+    });
+});
+</script>
+
+
+
 
 </body>
 </html>

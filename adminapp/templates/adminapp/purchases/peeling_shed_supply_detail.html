@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Peeling Shed Supply - {{ supply.voucher_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h2, h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .supply-details {
+            margin-bottom: 20px;
+        }
+        .supply-details p {
+            margin: 4px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f4f4f4;
+        }
+        .actions {
+            margin-top: 20px;
+        }
+        .actions a {
+            display: inline-block;
+            padding: 6px 12px;
+            margin-right: 8px;
+            background: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .actions a.delete {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Peeling Shed Supply - {{ supply.voucher_number }}</h2>
+
+    <div class="supply-details">
+        <p><strong>Date:</strong> {{ supply.date }}</p>
+        <p><strong>Shed:</strong> {{ supply.shed.name }}</p>
+        <p><strong>Vehicle Number:</strong> {{ supply.vehicle_number }}</p>
+        <p><strong>Spot Purchase Date:</strong> {{ supply.spot_purchase_date }}</p>
+        <p><strong>Spot Purchase:</strong> {{ supply.spot_purchase.voucher_number }}</p>
+        <p><strong>Spot Purchase Item:</strong> {{ supply.spot_purchase_item.item.name }}</p>
+        <p><strong>Total Boxes (Spot Purchase):</strong> {{ supply.SpotPurchase_total_boxes }}</p>
+        <p><strong>Total Quantity (Spot Purchase):</strong> {{ supply.SpotPurchase_quantity }}</p>
+        <p><strong>Average Box Weight:</strong> {{ supply.SpotPurchase_average_box_weight }}</p>
+        <p><strong>Boxes Received in Shed:</strong> {{ supply.boxes_received_shed }}</p>
+        <p><strong>Quantity Received in Shed:</strong> {{ supply.quantity_received_shed }}</p>
+    </div>
+
+
+    <div class="actions">
+        <a href="{% url 'adminapp:peeling_shed_supply_list' %}">Back to List</a>
+        <a href="{% url 'adminapp:peeling_shed_supply_update' supply.pk %}">Edit</a>
+        <a href="{% url 'adminapp:peeling_shed_supply_delete' supply.pk %}" class="delete">Delete</a>
+    </div>
+
+</body>
+</html>

@@ -174,20 +174,25 @@
                 </thead>
                 <tbody id="formset-body">
                     {% for form in formset %}
-                        <tr class="formset-row">
-                            {% for field in form.visible_fields %}
-                                <td>
-                                    {{ field }}
-                                    {% if field.errors %}
-                                        <div class="text-danger">{{ field.errors }}</div>
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
+                    <tr class="formset-row">
+                        {% for field in form.visible_fields %}
                             <td>
-                                <button type="button" class="delete-row">Delete</button> <!-- Added delete button -->
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger">{{ field.errors }}</div>
+                                {% endif %}
                             </td>
-                        </tr>
+                        {% endfor %}
+                        <!-- Render hidden fields like DELETE -->
+                        {% for hidden in form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        <td>
+                            <button type="button" class="delete-row">Delete</button>
+                        </td>
+                    </tr>
                     {% endfor %}
+
                 </tbody>
             </table>
         </div>
@@ -279,15 +284,24 @@
         if (e.target.classList.contains('delete-row')) {
             const row = e.target.closest('.formset-row');
             if (row) {
-                row.remove();
+                const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (deleteInput) {
+                    deleteInput.checked = true;   // mark for deletion
+                    row.style.display = "none";  // just hide it
+                } else {
+                    // For new unsaved rows, just remove
+                    row.remove();
+                }
                 calculateTotals();
             }
         }
     });
 
+
     // Initial total calculation
     calculateTotals();
     </script>
+
 
 <!-- date -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -300,7 +314,6 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 </script>
-
 
 
 </body>

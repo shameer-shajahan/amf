@@ -29,12 +29,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     address = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
-    ROLE_CHOICES = [
-        ('admin', 'Admin'),
-        ('user', 'User'),
-        ('owner','Owner')
-    ]
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=10 )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -87,7 +82,7 @@ class Store(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
     contact_number = models.CharField(max_length=15, blank=True)
-    code=models.CharField(null=True,blank=True,unique=True)
+    code=models.CharField(null=True,blank=True,unique=True,max_length=100)
     store_type = models.CharField(max_length=100, choices=[('Retail', 'Retail'), ('Warehouse', 'Warehouse')])
     is_active = models.BooleanField(default=True)
 
@@ -98,7 +93,7 @@ class PurchasingSpot(BaseModel):
     location_name = models.CharField(max_length=150)
     district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    code = models.CharField(null=True,blank=True,unique=True)
+    code = models.CharField(null=True,blank=True,unique=True,max_length=100)
 
     def __str__(self):
         return f"{self.location_name} - {self.code}"
@@ -119,7 +114,7 @@ class PurchasingAgent(BaseModel):
     purchasingSpot = models.ForeignKey(PurchasingSpot, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
     mobile = models.CharField(max_length=15, unique=True)
-    code = models.CharField(null=True,blank=True,unique=True)
+    code = models.CharField(null=True,blank=True,unique=True,max_length=100)
 
     def __str__(self):
         return f"{self.name} - {self.code}"
@@ -129,7 +124,7 @@ class PurchasingAgent(BaseModel):
 class ItemCategory(BaseModel):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    code = models.CharField(null=True,blank=True, unique=True)
+    code = models.CharField(null=True,blank=True, unique=True,max_length=100)
 
     def __str__(self):
         return f"{self.name}"
@@ -147,7 +142,7 @@ class Item(BaseModel):
 class Species(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
-    code = models.CharField(null=True, blank=True, unique=True)
+    code = models.CharField(null=True, blank=True, unique=True,max_length=100)
 
     def __str__(self):
         return f"{self.name}"
@@ -163,7 +158,7 @@ class ItemGrade(BaseModel):
     
 class FreezingCategory(BaseModel):
     name = models.CharField(max_length=100)
-    code = models.CharField(null=True,blank=True,unique=True)
+    code = models.CharField(null=True,blank=True,unique=True,max_length=100)
     tariff = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):

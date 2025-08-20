@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spot Purchase Workout Summary</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        fieldset {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        legend {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+            padding: 0 10px;
+        }
+        
+        .filter-section {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        
+        .filter-section label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .options-container {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .option-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        
+        .option-item:last-child {
+            border-bottom: none;
+        }
+        
+        .option-item:hover {
+            background-color: #f0f8ff;
+        }
+        
+        .option-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .selected-count {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .date-section {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .date-section label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        
+        select, input[type="date"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        button[type="submit"] {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button[type="submit"]:hover {
+            background: #0056b3;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        tr:hover {
+            background: #f0f8ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Spot Purchase Workout Summary</h2>
+
+        <form method="get">
+            <fieldset>
+                <legend>Filters</legend>
+
+                <div class="filter-section">
+                    <label>Items: <span id="itemsCount" class="selected-count" style="display: none;">0</span></label>
+                    <input type="text" class="search-box" placeholder="Search items..." id="itemsSearch">
+                    <div class="options-container" id="itemsContainer">
+                        {% for i in items %}
+                            <div class="option-item">
+                                <input type="checkbox" name="items" value="{{ i.id }}" id="item_{{ i.id }}" {% if i.id|stringformat:"s" in selected_items %}checked{% endif %}>
+                                <label for="item_{{ i.id }}">{{ i.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Categories: <span id="categoriesCount" class="selected-count" style="display: none;">0</span></label>
+                    <input type="text" class="search-box" placeholder="Search categories..." id="categoriesSearch">
+                    <div class="options-container" id="categoriesContainer">
+                        {% for c in categories %}
+                            <div class="option-item">
+                                <input type="checkbox" name="categories" value="{{ c.id }}" id="category_{{ c.id }}" {% if c.id|stringformat:"s" in selected_categories %}checked{% endif %}>
+                                <label for="category_{{ c.id }}">{{ c.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Spots: <span id="spotsCount" class="selected-count" style="display: none;">0</span></label>
+                    <input type="text" class="search-box" placeholder="Search spots..." id="spotsSearch">
+                    <div class="options-container" id="spotsContainer">
+                        {% for s in spots %}
+                            <div class="option-item">
+                                <input type="checkbox" name="spots" value="{{ s.id }}" id="spot_{{ s.id }}" {% if s.id|stringformat:"s" in selected_spots %}checked{% endif %}>
+                                <label for="spot_{{ s.id }}">{{ s.location_name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Agents: <span id="agentsCount" class="selected-count" style="display: none;">0</span></label>
+                    <input type="text" class="search-box" placeholder="Search agents..." id="agentsSearch">
+                    <div class="options-container" id="agentsContainer">
+                        {% for a in agents %}
+                            <div class="option-item">
+                                <input type="checkbox" name="agents" value="{{ a.id }}" id="agent_{{ a.id }}" {% if a.id|stringformat:"s" in selected_agents %}checked{% endif %}>
+                                <label for="agent_{{ a.id }}">{{ a.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <br>
+                <div class="date-section">
+                    <div>
+                        <label>Quick Date:</label>
+                        <select name="date_filter">
+                            <option value="">All</option>
+                            <option value="week" {% if date_filter == "week" %}selected{% endif %}>This Week</option>
+                            <option value="month" {% if date_filter == "month" %}selected{% endif %}>This Month</option>
+                            <option value="year" {% if date_filter == "year" %}selected{% endif %}>This Year</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Date Range:</label>
+                        <input type="date" name="start_date" value="{{ start_date }}">
+                        to
+                        <input type="date" name="end_date" value="{{ end_date }}">
+                    </div>
+                </div>
+
+                <br><br>
+                <button type="submit">Apply Filters</button>
+            </fieldset>
+        </form>
+
+        <br><br>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Spot</th>
+                <th>Agent</th>
+                <th>Total Quantity</th>
+                <th>Total Amount</th>
+                <th>Average Rate</th>
+            </tr>
+            {% for row in summary %}
+            <tr>
+                <td>{{ row.purchase__date }}</td>
+                <td>{{ row.item__name }}</td>
+                <td>{{ row.item__category__name }}</td>
+                <td>{{ row.purchase__spot__location_name }}</td>
+                <td>{{ row.purchase__agent__name }}</td>
+                <td>{{ row.total_quantity }}</td>
+                <td>{{ row.total_amount }}</td>
+                <td>{{ row.avg_rate|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8">No records found.</td></tr>
+            {% endfor %}
+        </table>
+
+        <script>
+            // Search functionality for each filter section
+            function setupSearch(searchId, containerId, countId) {
+                const searchInput = document.getElementById(searchId);
+                const container = document.getElementById(containerId);
+                const countSpan = document.getElementById(countId);
+                
+                if (!searchInput || !container || !countSpan) return;
+                
+                const options = container.querySelectorAll('.option-item');
+
+                // Search functionality
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    options.forEach(option => {
+                        const label = option.querySelector('label').textContent.toLowerCase();
+                        if (label.includes(searchTerm)) {
+                            option.style.display = 'block';
+                        } else {
+                            option.style.display = 'none';
+                        }
+                    });
+                });
+
+                // Count selected items
+                function updateCount() {
+                    const checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+                    const count = checkedBoxes.length;
+                    if (count > 0) {
+                        countSpan.textContent = count;
+                        countSpan.style.display = 'inline';
+                    } else {
+                        countSpan.style.display = 'none';
+                    }
+                }
+
+                // Add event listeners to checkboxes
+                options.forEach(option => {
+                    const checkbox = option.querySelector('input[type="checkbox"]');
+                    if (checkbox) {
+                        checkbox.addEventListener('change', updateCount);
+                    }
+                });
+
+                // Click anywhere on option item to toggle checkbox
+                options.forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        if (e.target.type !== 'checkbox') {
+                            const checkbox = this.querySelector('input[type="checkbox"]');
+                            if (checkbox) {
+                                checkbox.checked = !checkbox.checked;
+                                checkbox.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    });
+                });
+
+                // Initial count update
+                updateCount();
+            }
+
+            // Setup search for all filter sections when page loads
+            document.addEventListener('DOMContentLoaded', function() {
+                setupSearch('itemsSearch', 'itemsContainer', 'itemsCount');
+                setupSearch('categoriesSearch', 'categoriesContainer', 'categoriesCount');
+                setupSearch('spotsSearch', 'spotsContainer', 'spotsCount');
+                setupSearch('agentsSearch', 'agentsContainer', 'agentsCount');
+            });
+        </script>
+    </div>
+</body>
+</html>

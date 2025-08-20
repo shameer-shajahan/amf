@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Update Peeling Shed Supply</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+
+    <a href="{% url 'adminapp:peeling_shed_supply_list' %}">Back to List</a>
+    <h2>Update Peeling Shed Supply</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {{ form.date.label_tag }} {{ form.date }}<br>
+        {{ form.voucher_number.label_tag }} {{ form.voucher_number }}<br>
+        {{ form.shed.label_tag }} {{ form.shed }}<br>
+        {{ form.vehicle_number.label_tag }} {{ form.vehicle_number }}<br>
+
+        {{ form.spot_purchase_date.label_tag }} {{ form.spot_purchase_date }}<br>
+
+        {{ form.spot_purchase.label_tag }}
+        <select id="id_spot_purchase" name="spot_purchase">
+            {% if form.spot_purchase.value %}
+                <option value="{{ form.spot_purchase.value }}" selected>
+                    {{ form.spot_purchase.instance }}
+                </option>
+            {% else %}
+                <option value="">---------</option>
+            {% endif %}
+        </select><br>
+
+        {{ form.spot_purchase_item.label_tag }}
+        <select id="id_spot_purchase_item" name="spot_purchase_item">
+            {% if form.spot_purchase_item.value %}
+                <option value="{{ form.spot_purchase_item.value }}" selected>
+                    {{ form.spot_purchase_item.instance }}
+                </option>
+            {% else %}
+                <option value="">---------</option>
+            {% endif %}
+        </select><br>
+
+        {{ form.SpotPurchase_total_boxes.label_tag }} {{ form.SpotPurchase_total_boxes }}<br>
+        {{ form.SpotPurchase_quantity.label_tag }} {{ form.SpotPurchase_quantity }}<br>
+        {{ form.SpotPurchase_average_box_weight.label_tag }} {{ form.SpotPurchase_average_box_weight }}<br>
+
+        <label for="id_boxes_received_shed">Boxes Received Shed</label>
+        {{ form.boxes_received_shed }}<br>
+
+        <label for="id_quantity_received_shed">Quantity Received Shed</label>
+        {{ form.quantity_received_shed }}<br>
+
+        <h4>Peeling Charges</h4>
+        <div id="formset-container">
+            {{ formset.management_form }}
+            {% for form in formset %}
+            <div class="formset-row">
+                {{ form.id }}
+                {{ form.item.label_tag }} {{ form.item }}
+                {{ form.item_type.label_tag }} {{ form.item_type }}
+                {{ form.amount.label_tag }} {{ form.amount }}
+                {{ form.unit.label_tag }} {{ form.unit }}
+            </div>
+            {% endfor %}
+        </div>
+
+        <button type="submit">Update</button>
+    </form>
+
+    {# --- Your existing scripts remain unchanged --- #}
+
+    <script>
+        // Spot Purchase Date -> Spot Purchases
+        $('#id_spot_purchase_date').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchases_by_date' %}", {
+                'date': $(this).val()
+            }, function (data) {
+                const select = $('#id_spot_purchase');
+                select.empty().append('<option value="">---------</option>');
+                data.forEach(p => select.append(`<option value="${p.id}">${p.name}</option>`));
+                $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+            });
+        });
+
+        // Spot Purchase -> Items
+        $('#id_spot_purchase').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchase_items' %}", {
+                'spot_purchase_id': $(this).val()
+            }, function (data) {
+                const select = $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+                data.forEach(i => select.append(`<option value="${i.id}">${i.name}</option>`));
+            });
+        });
+
+        // Item -> Auto-fill details
+        $('#id_spot_purchase_item').on('change', function () {
+            $.get("{% url 'adminapp:get_spot_purchase_item_details' %}", {
+                'item_id': $(this).val()
+            }, function (data) {
+                $('#id_SpotPurchase_total_boxes').val(data.total_boxes);
+                $('#id_SpotPurchase_quantity').val(data.quantity);
+                $('#id_SpotPurchase_average_box_weight').val(data.average_weight);
+            });
+        });
+
+        // Shed box Received quantity calculation
+        function calculateQuantityReceivedShed() {
+            let boxesReceived = parseFloat($("#id_boxes_received_shed").val()) || 0;
+            let avgWeight = parseFloat($("#id_SpotPurchase_average_box_weight").val()) || 0;
+            let quantity = boxesReceived * avgWeight;
+            $("#id_quantity_received_shed").val(quantity.toFixed(2));
+        }
+
+        $(document).ready(function () {
+            $("#id_boxes_received_shed").on('input', function () {
+                calculateQuantityReceivedShed();
+            });
+            $("#id_SpotPurchase_average_box_weight").on('input', function () {
+                calculateQuantityReceivedShed();
+            });
+        });
+
+        // Load Peeling charges dynamically
+        function updatePeelingCharges(peelingTypes) {
+            const container = $('#formset-container');
+            const totalForms = $('#id_form-TOTAL_FORMS');
+            let newCount = 0;
+
+            container.find('.formset-row:gt(0)').remove();
+
+            peelingTypes.forEach((pt, i) => {
+                const newForm = $(`
+                    <div class="formset-row">
+                        <input type="hidden" name="form-${i}-id" id="id_form-${i}-id">
+                        <label for="id_form-${i}-item">Item:</label>
+                        <select name="form-${i}-item" id="id_form-${i}-item">
+                            <option value="${pt.item_id}" selected>${pt.item_name}</option>
+                        </select>
+
+                        <label for="id_form-${i}-item_type">Type:</label>
+                        <select name="form-${i}-item_type" id="id_form-${i}-item_type">
+                            ${pt.item_type_id ? `<option value="${pt.item_type_id}" selected>${pt.item_type_name}</option>` : `<option value="">------</option>`}
+                        </select>
+
+                        <label for="id_form-${i}-amount">Amount:</label>
+                        <input type="text" name="form-${i}-amount" id="id_form-${i}-amount" value="${pt.amount}">
+
+                        <label for="id_form-${i}-unit">Unit:</label>
+                        <input type="text" name="form-${i}-unit" id="id_form-${i}-unit" value="${pt.unit}">
+                    </div>
+                `);
+                container.append(newForm);
+                newCount++;
+            });
+
+            totalForms.val(newCount);
+        }
+
+        $(document).ready(function () {
+            $('#id_shed').change(function () {
+                const shedId = $(this).val();
+                if (shedId) {
+                    $.ajax({
+                        url: "{% url 'adminapp:get_peeling_charge_by_shed' %}",
+                        data: { 'shed_id': shedId },
+                        success: function (response) {
+                            updatePeelingCharges(response.peeling_types);
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>

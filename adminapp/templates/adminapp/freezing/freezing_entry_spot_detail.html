@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Freezing Entry Spot Detail</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h2 { margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table, th, td { border: 1px solid #ccc; }
+        th, td { padding: 8px; text-align: left; }
+        .summary { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'adminapp:freezing_entry_spot_list' %}">⬅ Back to List</a>
+    <h2>Freezing Entry - {{ entry.freezing_date }}</h2>
+
+    <div class="summary">
+        <p><strong>Voucher:</strong> {{ entry.voucher_number }}</p>
+        <p><strong>Spot:</strong> {{ entry.spot }}</p>
+        <p><strong>Agent:</strong> {{ entry.spot_agent }}</p>
+        <p><strong>Supervisor:</strong> {{ entry.spot_supervisor }}</p>
+        <p><strong>Status:</strong> {{ entry.get_freezing_status_display }}</p>
+        <p><strong>Total Slab:</strong> {{ entry.total_slab }}</p>
+        <p><strong>Total C/S:</strong> {{ entry.total_c_s }}</p>
+        <p><strong>Total KG:</strong> {{ entry.total_kg }}</p>
+        <p><strong>Total USD:</strong> {{ entry.total_usd }}</p>
+        <p><strong>Total INR:</strong> {{ entry.total_inr }}</p>
+        <p><strong>Avg Yield %:</strong> {{ entry.total_yield_percentage }}</p>
+    </div>
+
+    <h3>Freezing Items</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Shed</th>
+                <th>Item</th>
+                <th>Species</th>
+                <th>Grade</th>
+                <th>Peeling Type</th>
+                <th>Unit</th>
+                <th>Slab Qty</th>
+                <th>C/S Qty</th>
+                <th>KG</th>
+                <th>USD/kg</th>
+                <th>USD Item</th>
+                <th>INR</th>
+                <th>Yield %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.shed }}</td>
+                <td>{{ item.item }}</td>
+                <td>{{ item.species }}</td>
+                <td>{{ item.grade }}</td>
+                <td>{{ item.peeling_type }}</td>
+                <td>{{ item.unit }}</td>
+                <td>{{ item.slab_quantity }}</td>
+                <td>{{ item.c_s_quantity }}</td>
+                <td>{{ item.kg }}</td>
+                <td>{{ item.usd_rate_per_kg }}</td>
+                <td>{{ item.usd_rate_item }}</td>
+                <td>{{ item.usd_rate_item_to_inr }}</td>
+                <td>{{ item.yield_percentage }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="13">No items added.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

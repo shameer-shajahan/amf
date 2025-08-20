@@ -145,12 +145,16 @@ urlpatterns = [
     path('local-purchase/<str:pk>/delete/', views.local_purchase_delete, name='local_purchase_delete'),
     path('local-purchase/<str:pk>/detail/', views.local_purchase_detail, name='local_purchase_detail'),
 
-
+    path("spot/purchase/workout/summary/", views.spot_purchase_workout_summary, name="spot_purchase_workout_summary"),
+    # Local Purchase Workout
+    path("local-purchase-workout/",views.local_purchase_workout_summary ,name="local_purchase_workout_summary"),
 
     # Peeling Shed Supply
     path('peeling-shed-supply/create/', views.create_peeling_shed_supply, name='create_peeling_shed_supply'),
     path('peeling-shed-supply/', views.PeelingShedSupplyListView.as_view(), name='peeling_shed_supply_list'),
     path('peeling-shed-supply/<int:pk>/delete/', views.PeelingShedSupplyDeleteView.as_view(), name='peeling_shed_supply_delete'),
+    path("peeling-shed-supplies/<int:pk>/", views.PeelingShedSupplyDetailView.as_view(),name="peeling_shed_supply_detail"),
+    path("peeling-shed-supplies/<int:pk>/update/",views.update_peeling_shed_supply, name="peeling_shed_supply_update"),
     path('ajax/get-spot-purchases/', views.get_spot_purchases_by_date, name='get_spot_purchases_by_date'),
     path('ajax/get-spot-purchase-items/', views.get_spot_purchase_items, name='get_spot_purchase_items'),    path('ajax/get-spot-purchase-item-details/', views.get_spot_purchase_item_details, name='get_spot_purchase_item_details'),
     path('ajax/get-peeling-types/', views.get_peeling_charge_by_shed, name='get_peeling_charge_by_shed'),
@@ -158,12 +162,15 @@ urlpatterns = [
     #  create freezing entry spot
     path('freezing-entry/create/', views.create_freezing_entry_spot, name='freezing_entry_spot_create'),
     path('freezing-entry/list/', views.freezing_entry_spot_list, name='freezing_entry_spot_list'),
+    path('freezing-entry-spot/<str:pk>/', views.FreezingEntrySpotDetailView.as_view(), name='freezing_entry_spot_detail'),
+    path("freezing-entry-spot/<str:pk>/update/", views.freezing_entry_spot_update, name="freezing_entry_spot_update"),    
     path('freezing-entry/<str:pk>/delete/', views.delete_freezing_entry_spot, name='freezing_entry_spot_delete'),
     path('ajax/get-spots-by-date/', views.get_spots_by_date, name='get_spots_by_date'),
     path('ajax/get-spot-details/', views.get_spot_details, name='get_spot_details'),
     path('ajax/get-sheds-by-date/', views.get_sheds_by_date, name='get_sheds_by_date'),
     path('ajax/get-unit-details/', views.get_unit_details, name='get_unit_details'),
     path('ajax/get-dollar-rate/', views.get_dollar_rate, name='get_dollar_rate'),
+    path("get_spot_purchase_items_by_date/", views.get_spot_purchase_items_by_date, name="get_spot_purchase_items_by_date"),
 
     #  create freezing entry spot
     path('freezing-entry-local/create/', views.create_freezing_entry_local, name='freezing_entry_local_create'),

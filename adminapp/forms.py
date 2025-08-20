@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from adminapp.models import CustomUser  # adjust if CustomUser is elsewhere
 from django.forms import inlineformset_factory
+from django.utils.timezone import now
 from .models import *
 
 
@@ -10,7 +11,7 @@ class CustomUserCreationForm(forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        fields = ['full_name', 'mobile', 'email', 'address', 'profile_picture', 'password']
+        fields = [ 'role','full_name', 'mobile', 'email', 'address', 'profile_picture', 'password']
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -171,11 +172,19 @@ class SettingsForm(forms.ModelForm):
 
 # forms for create a Purchase Entry 
 class SpotPurchaseForm(forms.ModelForm):
+    date = forms.DateField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control datepicker',
+            'placeholder': 'dd/mm/yyyy'
+        }),
+        input_formats=['%d/%m/%Y'],  # ✅ Accept dd/mm/yyyy
+        initial=now
+    )
+
     class Meta:
         model = SpotPurchase
         fields = ['date', 'voucher_number', 'spot', 'supervisor', 'agent']
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
             'spot': forms.Select(attrs={'class': 'form-control'}),
             'supervisor': forms.Select(attrs={'class': 'form-control'}),
@@ -221,11 +230,19 @@ class SpotPurchaseExpenseForm(forms.ModelForm):
 
 # local purchase forms
 class LocalPurchaseForm(forms.ModelForm):
+    date = forms.DateField(
+        widget=forms.TextInput(attrs={
+            'class': 'form-control datepicker',
+            'placeholder': 'dd/mm/yyyy'
+        }),
+        input_formats=['%d/%m/%Y'],  # ✅ Accept dd/mm/yyyy
+        initial=now
+    )
+
     class Meta:
         model = LocalPurchase
         fields = ['date', 'voucher_number', 'party_name']
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
             'party_name': forms.TextInput(attrs={'class': 'form-control'}),
         }
@@ -299,17 +316,22 @@ class FreezingEntrySpotItemForm(forms.ModelForm):
         model = FreezingEntrySpotItem
         fields = '__all__'
         widgets = {
-
             'processing_center': forms.Select(attrs={'class': 'form-control'}),
             'store': forms.Select(attrs={'class': 'form-control'}),
             'shed': forms.Select(attrs={'class': 'form-control'}),
-            'item': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 Add "item-select" for AJAX binding
+            'item': forms.Select(attrs={'class': 'form-control item-select'}),
+
             'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
             'glaze': forms.Select(attrs={'class': 'form-control'}),
             'freezing_category': forms.Select(attrs={'class': 'form-control'}),
             'brand': forms.Select(attrs={'class': 'form-control'}),
-            'species': forms.Select(attrs={'class': 'form-control'}),
-            'peeling_type': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 Add "species-select" + "peeling-select" for AJAX population
+            'species': forms.Select(attrs={'class': 'form-control species-select'}),
+            'peeling_type': forms.Select(attrs={'class': 'form-control peeling-select'}),
+
             'grade': forms.Select(attrs={'class': 'form-control'}),
 
             'slab_quantity': forms.NumberInput(attrs={'class': 'form-control slab-quantity'}),
