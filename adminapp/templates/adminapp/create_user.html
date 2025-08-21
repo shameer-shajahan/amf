@@ -1,19 +1,424 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create User</title>
-</head>
-<body>
-    <h2>Create New User</h2>
-    {% if messages %}
-        {% for message in messages %}
-            <p style="color: red;">{{ message }}</p>
-        {% endfor %}
-    {% endif %}
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Create User</button>
-    </form>
-</body>
-</html>
+{%extends 'adminapp/admin_base.html'%}
+
+
+{%block content%}
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header fade-in">
+                <h1 class="page-title">
+                    <div class="page-title-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    Create New User
+                </h1>
+                <p class="page-subtitle">Add a new user to the admin system with appropriate permissions and access levels</p>
+                
+                <!-- Breadcrumb -->
+                <nav class="breadcrumb">
+                    <a class="breadcrumb-item" href="#dashboard">Dashboard</a>
+                    <a class="breadcrumb-item" href="#users">User Management</a>
+                    <span class="breadcrumb-item active">Create User</span>
+                </nav>
+            </div>
+
+            <!-- Form Container -->
+            <div class="form-container fade-in stagger-1">
+                <!-- Messages Display -->
+                <div id="messagesContainer">
+                    <!-- Django messages will be displayed here -->
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- User Creation Form -->
+                <form method="post" enctype="multipart/form-data" class="django-form">
+                    {% csrf_token %}
+                    
+                    <!-- Basic Information Section -->
+                    <h4 class="form-section-header">
+                        <i class="fas fa-user-circle"></i>
+                        Basic Information
+                    </h4>
+
+                    <!-- Role Field -->
+                    <div class="form-row">
+                        <div>
+                            {% for field in form %}
+                                {% if field.name == 'role' %}
+                                    <p>
+                                        <label for="{{ field.id_for_label }}" data-icon="&#xf505;">
+                                            {{ field.label }}{% if field.field.required %} *{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                            <ul class="errorlist">
+                                                {% for error in field.errors %}
+                                                    <li>{{ error }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                            <div class="helptext">{{ field.help_text }}</div>
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <div>
+                            {% for field in form %}
+                                {% if field.name == 'full_name' %}
+                                    <p>
+                                        <label for="{{ field.id_for_label }}" data-icon="&#xf007;">
+                                            {{ field.label }}{% if field.field.required %} *{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                            <ul class="errorlist">
+                                                {% for error in field.errors %}
+                                                    <li>{{ error }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                            <div class="helptext">{{ field.help_text }}</div>
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Contact Information Section -->
+                    <h4 class="form-section-header">
+                        <i class="fas fa-address-card"></i>
+                        Contact Information
+                    </h4>
+
+                    <div class="form-row">
+                        <div>
+                            {% for field in form %}
+                                {% if field.name == 'mobile' %}
+                                    <p>
+                                        <label for="{{ field.id_for_label }}" data-icon="&#xf3cd;">
+                                            {{ field.label }}{% if field.field.required %} *{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                            <ul class="errorlist">
+                                                {% for error in field.errors %}
+                                                    <li>{{ error }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                            <div class="helptext">{{ field.help_text }}</div>
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <div>
+                            {% for field in form %}
+                                {% if field.name == 'email' %}
+                                    <p>
+                                        <label for="{{ field.id_for_label }}" data-icon="&#xf0e0;">
+                                            {{ field.label }}{% if field.field.required %} *{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                            <ul class="errorlist">
+                                                {% for error in field.errors %}
+                                                    <li>{{ error }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                            <div class="helptext">{{ field.help_text }}</div>
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Address Field -->
+                    {% for field in form %}
+                        {% if field.name == 'address' %}
+                            <p>
+                                <label for="{{ field.id_for_label }}" data-icon="&#xf015;">
+                                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                                </label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in field.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="helptext">{{ field.help_text }}</div>
+                                {% endif %}
+                            </p>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Security Section -->
+                    <h4 class="form-section-header">
+                        <i class="fas fa-lock"></i>
+                        Security Information
+                    </h4>
+
+                    {% for field in form %}
+                        {% if field.name == 'password' %}
+                            <p>
+                                <label for="{{ field.id_for_label }}" data-icon="&#xf084;">
+                                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                                </label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in field.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="helptext">{{ field.help_text }}</div>
+                                {% endif %}
+                            </p>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Profile Picture Section -->
+                    <h4 class="form-section-header">
+                        <i class="fas fa-camera"></i>
+                        Profile Picture
+                    </h4>
+
+                    {% for field in form %}
+                        {% if field.name == 'profile_picture' %}
+                            <p>
+                                <label for="{{ field.id_for_label }}" data-icon="&#xf03e;">
+                                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                                </label>
+                                <div class="file-input-wrapper" onclick="document.getElementById('{{ field.id_for_label }}').click()">
+                                    <div class="file-input-content">
+                                        <i class="fas fa-cloud-upload-alt file-input-icon"></i>
+                                        <div class="file-input-text">Click to upload profile picture</div>
+                                        <div class="file-input-subtext">or drag and drop your image here</div>
+                                    </div>
+                                </div>
+                                {{ field }}
+                                <div id="file-name-display" style="margin-top: 10px; color: var(--success-color); font-weight: 500; display: none;">
+                                    <i class="fas fa-file-image"></i>
+                                    <span id="selected-file-name"></span>
+                                </div>
+                                {% if field.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in field.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="helptext">{{ field.help_text }}</div>
+                                {% endif %}
+                            </p>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Form Actions -->
+                    <div class="mt-4 pt-3" style="border-top: 1px solid var(--border-color);">
+                        <div class="d-flex gap-3 flex-wrap">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus me-2"></i>
+                                Create User
+                            </button>
+                            <a href="#user-list" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.getElementById('adminNavbar');
+            if (window.scrollY > 10) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // File input handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.querySelector('input[type="file"]');
+            const fileWrapper = document.querySelector('.file-input-wrapper');
+            const fileDisplay = document.getElementById('file-name-display');
+            const fileName = document.getElementById('selected-file-name');
+
+            if (fileInput) {
+                // File selection handling
+                fileInput.addEventListener('change', function(e) {
+                    if (e.target.files.length > 0) {
+                        const file = e.target.files[0];
+                        fileName.textContent = file.name;
+                        fileDisplay.style.display = 'block';
+                        fileWrapper.style.borderColor = 'var(--success-color)';
+                        fileWrapper.style.background = 'rgba(39, 174, 96, 0.05)';
+                    } else {
+                        fileDisplay.style.display = 'none';
+                        fileWrapper.style.borderColor = 'var(--border-color)';
+                        fileWrapper.style.background = 'var(--light-bg)';
+                    }
+                });
+
+                // Drag and drop handling
+                fileWrapper.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    fileWrapper.classList.add('dragover');
+                });
+
+                fileWrapper.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    fileWrapper.classList.remove('dragover');
+                });
+
+                fileWrapper.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    fileWrapper.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        fileInput.files = files;
+                        const event = new Event('change', { bubbles: true });
+                        fileInput.dispatchEvent(event);
+                    }
+                });
+            }
+        });
+
+        // Form validation enhancement
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const requiredFields = document.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+
+            requiredFields.forEach(function(field) {
+                if (!field.value.trim()) {
+                    field.style.borderColor = 'var(--danger-color)';
+                    isValid = false;
+                } else {
+                    field.style.borderColor = 'var(--border-color)';
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                // Scroll to first error
+                const firstError = document.querySelector('input[style*="--danger-color"]');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstError.focus();
+                }
+            }
+        });
+
+        // Auto-dismiss alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                setTimeout(() => bsAlert.close(), 5000);
+            });
+        }, 1000);
+
+        // Phone number formatting (Indian format)
+        const phoneInput = document.querySelector('input[type="tel"], input[name="mobile"]');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                // Handle +91 prefix
+                if (value.startsWith('91') && value.length > 2) {
+                    value = value.substring(2); // Remove country code for formatting
+                }
+                
+                // Limit to 10 digits for Indian mobile numbers
+                if (value.length > 10) {
+                    value = value.substring(0, 10);
+                }
+                
+                // Format Indian mobile number: XXXXX-XXXXX
+                if (value.length >= 5) {
+                    value = value.replace(/(\d{5})(\d{1,5})/, '$1-$2');
+                }
+                
+                // Add +91 prefix if number is complete
+                if (value.replace('-', '').length === 10) {
+                    e.target.value = '+91-' + value;
+                } else {
+                    e.target.value = value;
+                }
+            });
+            
+            // Add placeholder for Indian format
+            phoneInput.setAttribute('placeholder', '+91-XXXXX-XXXXX');
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Redirect to logout URL or call logout endpoint
+                window.location.href = '/logout/';
+            }
+        }
+
+        // Add loading state to submit button
+        document.querySelector('form').addEventListener('submit', function() {
+            const submitBtn = document.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating User...';
+            
+            // Re-enable button after 10 seconds as fallback
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }, 10000);
+        });
+
+        // Input focus animations
+        document.querySelectorAll('input, select, textarea').forEach(function(input) {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'translateY(-2px)';
+                this.parentElement.style.transition = 'transform 0.3s ease';
+            });
+
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+{%endblock%}

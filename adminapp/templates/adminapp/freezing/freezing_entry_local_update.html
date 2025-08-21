@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Update Freezing Entry Local</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h2 {
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+
+        a {
+            text-decoration: none;
+            color: #007BFF;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input, select, textarea {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            border-color: #007BFF;
+            outline: none;
+        }
+
+        .error {
+            color: red;
+            font-size: 0.9em;
+        }
+
+        fieldset {
+            border: 1px solid #007BFF;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            background: #f9f9f9;
+        }
+
+        legend {
+            font-weight: bold;
+            color: #007BFF;
+        }
+
+        .formset-form {
+            border: 1px solid #eee;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
+            background: #007BFF;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .button:hover {
+            background: #0056b3;
+        }
+
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .remove-btn:hover {
+            background: #a71d2a;
+        }
+
+        .total-table {
+            margin-top: 20px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .total-table th, .total-table td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        .total-table th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        /* Hide specified fields */
+        .hidden {
+            display: none;
+        }
+
+        /* Make calculated fields readonly */
+        .calculated-field {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        /* Style for forms marked for deletion */
+        .marked-for-deletion {
+            opacity: 0.5;
+            background-color: #f8d7da !important;
+            border-color: #f5c6cb !important;
+        }
+
+        .marked-for-deletion .remove-btn {
+            background: #28a745;
+        }
+
+        .marked-for-deletion .remove-btn:hover {
+            background: #218838;
+        }
+
+        .marked-for-deletion .remove-btn::before {
+            content: "Undo ";
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Update Freezing Entry Local - {{ entry.voucher_number }}</h2>
+    <a href="{% url 'adminapp:freezing_entry_local_list' %}">Back to List</a>
+
+    <form method="post" id="freezing-form">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-column">
+                <label for="id_freezing_date">Freezing Date</label>
+                {{ form.freezing_date }} {{ form.freezing_date.errors }}
+            </div>
+            <div class="form-column">
+                <label for="id_local_purchase_date">Local Purchase Date</label>
+                {{ form.local_purchase_date }} {{ form.local_purchase_date.errors }}
+            </div>
+            <div class="form-column">
+                <label for="id_voucher_number">Voucher Number</label>
+                {{ form.voucher_number }} {{ form.voucher_number.errors }}
+            </div>
+            <div class="form-column">
+                <label for="id_party">Party</label>
+                {{ form.party }} {{ form.party.errors }}
+            </div>
+        </div>
+
+        <fieldset>
+            <legend>Items</legend>
+            {{ formset.management_form }}
+            <div id="formset-container">
+                {% for form in formset %}
+                <div class="formset-form">
+                    {{ form.id }}  {# ✅ hidden id field so Django knows which object to update #}
+                    {% for hidden in form.hidden_fields %}
+                        {{ hidden }}
+                    {% endfor %}
+
+                    <div class="form-grid">
+                        <div class="form-column">
+                            <label for="id_processing_center">Processing Centre</label>
+                            {{ form.processing_center }} {{ form.processing_center.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_store">Store</label>
+                            {{ form.store }} {{ form.store.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_item">Item Name</label>
+                            {{ form.item }} {{ form.item.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_unit">Unit</label>
+                            {{ form.unit }} {{ form.unit.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_glaze">Glaze</label>
+                            {{ form.glaze }} {{ form.glaze.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_freezing_category">Freezing Category</label>
+                            {{ form.freezing_category }} {{ form.freezing_category.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_brand">Brand</label>
+                            {{ form.brand }} {{ form.brand.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="{{ form.species.id_for_label }}">Species</label>
+                            {{ form.species }}
+                            {{ form.species.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="{{ form.peeling_type.id_for_label }}">Peeling Type</label>
+                            {{ form.peeling_type }}
+                            {{ form.peeling_type.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_grade">Grade</label>
+                            {{ form.grade }} {{ form.grade.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_slab_quantity">Slab Quantity</label>
+                            {{ form.slab_quantity }} {{ form.slab_quantity.errors }}
+                        </div>
+                        <div class="form-column hidden">
+                            <label for="id_c_s_quantity">C/S Quantity</label>
+                            {{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}
+                        </div>
+                        <div class="form-column hidden">
+                            <label for="id_kg">Kg</label>
+                            {{ form.kg }} {{ form.kg.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_usd_rate_per_kg">USD Rate per Kg</label>
+                            {{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}
+                        </div>
+                        <div class="form-column hidden">
+                            <label for="id_usd_rate_item">USD Rate Item (Calculated)</label>
+                            {{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}
+                        </div>
+                        <div class="form-column hidden">
+                            <label for="id_usd_rate_item_to_inr">USD Rate Item to INR (Calculated)</label>
+                            {{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}
+                        </div>
+                        <div class="form-column">
+                            <label for="id_yield_percentage">Yield Percentage</label>
+                            {{ form.yield_percentage }} {{ form.yield_percentage.errors }}
+                        </div>
+                    </div>
+                    
+                    <!-- Delete checkbox and Remove button -->
+                    <div class="form-grid" style="margin-top: 15px;">
+                        <div class="form-column">
+                            <button type="button" class="remove-btn">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" id="add-more-btn" class="button">+ Add More Item</button>
+        </fieldset>
+
+        <table class="total-table">
+            <tr>
+                <th>Total Yield %</th>
+                <td>{{ form.total_yield_percentage }} {{ form.total_yield_percentage.errors }}</td>
+                <th>Total USD</th>
+                <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
+                <th>Total INR</th>
+                <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
+                <th>Freezing Status</th>
+                <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
+            </tr>
+            <tr>
+                <th>Total Slab</th>
+                <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
+                <th>Total C/S</th>
+                <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
+                <th>Total KG</th>
+                <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </table>
+
+        <br>
+        <button type="submit" class="button">Update</button>
+    </form>
+
+    <!-- Clone & Add More Formset -->
+    <script>
+        $(document).ready(function () {
+            const formsetContainer = $('#formset-container');
+            const totalForms = $('#id_form-TOTAL_FORMS');
+
+            $('#add-more-btn').click(function () {
+                let formIndex = parseInt(totalForms.val());
+                let newForm = $('.formset-form:first').clone(false);
+
+                newForm.find(':input').each(function () {
+                    let name = $(this).attr('name').replace(/-\d+-/, `-${formIndex}-`);
+                    let id = 'id_' + name;
+                    $(this).attr({ name: name, id: id }).val('');
+                    if ($(this).is(':checkbox') || $(this).is(':radio')) {
+                        $(this).prop('checked', false);
+                    }
+                });
+
+                formsetContainer.append(newForm);
+                totalForms.val(formIndex + 1);
+            });
+        });
+    </script>
+
+    <!-- Remove Form Script -->
+    <script>
+        $(document).ready(function () {
+            const formsetContainer = $("#formset-container");
+            const totalForms = $("#id_form-TOTAL_FORMS");
+
+            $(document).on("click", ".remove-btn", function () {
+                let $form = $(this).closest(".formset-form");
+                
+                // Check if this form is already marked for deletion
+                if ($form.hasClass('marked-for-deletion')) {
+                    // Undo deletion
+                    $form.find('input[name*="-DELETE"]').prop('checked', false);
+                    $form.removeClass('marked-for-deletion');
+                    $form.show();
+                    calculateTotals();
+                    return;
+                }
+
+                if ($(".formset-form:visible").not('.marked-for-deletion').length > 1) {
+                    // Check if this form has an ID (existing record)
+                    let hasId = $form.find('input[name*="-id"]').val();
+                    
+                    if (hasId) {
+                        // For existing records: Mark for deletion and add visual indication
+                        $form.find('input[name*="-DELETE"]').prop('checked', true);
+                        $form.addClass('marked-for-deletion');
+                    } else {
+                        // For new records: Actually remove from DOM
+                        $form.remove();
+                        
+                        // Re-number remaining forms
+                        let forms = $(".formset-form");
+                        totalForms.val(forms.length);
+                        forms.each(function (index) {
+                            $(this).find("input, select, label").each(function () {
+                                if ($(this).attr("name")) {
+                                    let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("name", name);
+                                    $(this).attr("id", "id_" + name);
+                                }
+                                if ($(this).attr("for")) {
+                                    let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("for", newFor);
+                                }
+                            });
+                        });
+                    }
+
+                    // Recalculate totals
+                    calculateTotals();
+                } else {
+                    alert("At least one form is required.");
+                }
+            });
+        });
+    </script>
+
+    <!-- AJAX to get parties by date -->
+    <script>
+        $('#id_local_purchase_date').on('change', function () {
+            const date = $(this).val();
+            $.get("{% url 'adminapp:get_parties_by_date' %}", { date: date }, function (data) {
+                const partySelect = $('#id_party').empty().append('<option value="">---------</option>');
+                data.parties.forEach(party => {
+                    partySelect.append(`<option value="${party.id}">${party.party_name} </option>`);
+                });
+            });
+        });
+    </script>
+
+    <!-- Unit calculation -->
+    <script>
+        $(document).ready(function () {
+            let dollarRate = 0;
+
+            // 1️⃣ Fetch dollar rate on page load
+            $.getJSON("{% url 'adminapp:get_dollar_rate_local' %}", function (data) {
+                if (data.dollar_rate_to_inr) {
+                    dollarRate = parseFloat(data.dollar_rate_to_inr);
+                }
+            });
+
+            // Helper to recalc a single formset row
+            function recalcRow($row) {
+                let slabQty = parseFloat($row.find('.slab-quantity').val()) || 0;
+                let usdPerKg = parseFloat($row.find('.usd-rate-per-kg').val()) || 0;
+                let precision = parseFloat($row.data('precision')) || 0;
+                let factor = parseFloat($row.data('factor')) || 0;
+
+                // cs_quantity = slab / precision
+                if (slabQty && precision) {
+                    $row.find('.cs-quantity').val((slabQty / precision).toFixed(2));
+                }
+
+                // kg = slab × factor
+                if (slabQty && factor) {
+                    $row.find('.kg').val((slabQty * factor).toFixed(2));
+                }
+
+                // usd_rate_item = usd_per_kg × kg
+                let kg = parseFloat($row.find('.kg').val()) || 0;
+                $row.find('.usd-rate-item').val((usdPerKg * kg).toFixed(2));
+
+                // usd_rate_item_to_inr = usd_rate_item × dollar_rate
+                let usdItem = parseFloat($row.find('.usd-rate-item').val()) || 0;
+                $row.find('.usd-rate-item-inr').val((usdItem * dollarRate).toFixed(2));
+            }
+
+            // 2️⃣ When unit changes → fetch precision/factor and recalc
+            $(document).on('change', '.unit-select', function () {
+                let $row = $(this).closest('.formset-form');
+                let unitId = $(this).val();
+
+                if (!unitId) return;
+
+                $.getJSON("{% url 'adminapp:get_unit_details_local' %}", { unit_id: unitId }, function (data) {
+                    $row.data('precision', data.precision);
+                    $row.data('factor', data.factor);
+                    recalcRow($row);
+                });
+            });
+
+            // 3️⃣ Trigger recalculation on input changes
+            $(document).on('input', '.slab-quantity, .usd-rate-per-kg', function () {
+                let $row = $(this).closest('.formset-form');
+                recalcRow($row);
+            });
+        });
+    </script>
+
+    <!-- Function to calculate totals -->
+    <script>
+        function calculateTotals() {
+            let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0, count = 0;
+
+            $('.formset-form:visible').each(function () {
+                // Skip forms marked for deletion
+                if ($(this).find('input[name*="-DELETE"]').is(':checked')) {
+                    return; // Skip this iteration
+                }
+
+                const getVal = (name) => parseFloat($(this).find(`[name$="${name}"]`).val()) || 0;
+
+                const yieldVal = getVal('yield_percentage');
+                if (yieldVal > 0) {
+                    totalYield += yieldVal;
+                    count++;
+                }
+
+                totalUSD += getVal('usd_rate_item');
+                totalINR += getVal('usd_rate_item_to_inr');
+                totalSlab += getVal('slab_quantity');
+                totalCS += getVal('c_s_quantity');
+                totalKG += getVal('kg');
+            });
+
+            $('#id_total_yield_percentage').val(count ? (totalYield / count).toFixed(2) : 0);
+            $('#id_total_usd').val(totalUSD.toFixed(2));
+            $('#id_total_inr').val(totalINR.toFixed(2));
+            $('#id_total_slab').val(totalSlab.toFixed(2));
+            $('#id_total_c_s').val(totalCS.toFixed(2));
+            $('#id_total_kg').val(totalKG.toFixed(2));
+        }
+
+        $(document).on('input', '.formset-form :input', calculateTotals);
+        $(document).ready(calculateTotals);
+    </script>
+
+    <!-- Load Species and Peeling Types when Item changes -->
+    <script>
+        $(document).ready(function () {
+            console.log("Freezing Entry Update AJAX ready");
+
+            // Listen for item change inside each formset row
+            $(document).on("change", ".item-select", function () {
+                let itemId = $(this).val();
+                let row = $(this).closest(".formset-form");
+
+                if (!itemId) {
+                    // Clear dependent fields
+                    row.find(".species-select").empty().append('<option value="">---------</option>');
+                    row.find(".peeling-select").empty().append('<option value="">---------</option>');
+                    row.find(".grade-select").empty().append('<option value="">---------</option>');
+                    return;
+                }
+
+                // 1. Fetch Species for this item
+                $.ajax({
+                    url: "{% url 'adminapp:get_species_for_item' %}",
+                    data: { item_id: itemId },
+                    success: function (response) {
+                        let speciesSelect = row.find(".species-select");
+                        let currentSpecies = speciesSelect.val();
+                        speciesSelect.empty().append('<option value="">---------</option>');
+                        $.each(response.species, function (i, species) {
+                            speciesSelect.append('<option value="' + species.id + '">' + species.name + '</option>');
+                        });
+                        // Restore selection if it still exists
+                        if (currentSpecies) {
+                            speciesSelect.val(currentSpecies);
+                        }
+                    },
+                    error: function() {
+                        console.log("Error loading species for item " + itemId);
+                    }
+                });
+
+                // 2. Fetch Peeling Types for this item
+                $.ajax({
+                    url: "{% url 'adminapp:get_peeling_for_item' %}",
+                    data: { item_id: itemId },
+                    success: function (response) {
+                        let peelingSelect = row.find(".peeling-select");
+                        let currentPeeling = peelingSelect.val();
+                        peelingSelect.empty().append('<option value="">---------</option>');
+                        $.each(response.peeling_types, function (i, peeling) {
+                            peelingSelect.append('<option value="' + peeling.id + '">' + peeling.name + '</option>');
+                        });
+                        // Restore selection if it still exists
+                        if (currentPeeling) {
+                            peelingSelect.val(currentPeeling);
+                        }
+                    },
+                    error: function() {
+                        console.log("Error loading peeling types for item " + itemId);
+                    }
+                });
+            });
+        });
+    </script>
+
+    <!-- Load Grades when Species changes -->
+    <script>
+        $(document).on("change", ".species-select", function () {
+            var speciesId = $(this).val();
+            var $gradeSelect = $(this).closest(".formset-form").find(".grade-select");
+
+            if (speciesId) {
+                $.ajax({
+                    url: "{% url 'adminapp:get_grade_for_species' %}",
+                    data: { "species_id": speciesId },
+                    dataType: "json",
+                    success: function (data) {
+                        $gradeSelect.empty();
+                        $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+
+                        $.each(data.grades, function (index, grade) {
+                            $gradeSelect.append($("<option>", {
+                                value: grade.id,
+                                text: grade.grade
+                            }));
+                        });
+                    },
+                    error: function() {
+                        console.log("Error loading grades for species " + speciesId);
+                    }
+                });
+            } else {
+                $gradeSelect.empty();
+                $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+            }
+        });
+    </script>
+
+</body>
+</html>

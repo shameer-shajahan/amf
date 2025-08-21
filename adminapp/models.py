@@ -450,7 +450,6 @@ class FreezingEntryLocal(BaseModel):
 
     local_purchase_date = models.DateField(null=True, blank=True)
     party = models.ForeignKey('LocalPurchase', on_delete=models.CASCADE)
-    total_yield_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_slab = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -494,7 +493,6 @@ class FreezingEntryLocalItem(BaseModel):
     usd_rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     usd_rate_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     usd_rate_item_to_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    yield_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
         return f"{self.item} - {self.kg} KG"

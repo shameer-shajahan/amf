@@ -369,7 +369,6 @@ class FreezingEntryLocalForm(forms.ModelForm):
             'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
             'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
-            'total_yield_percentage': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
 
             'freezing_status': forms.Select(attrs={'class': 'form-control'}),
         }
@@ -398,7 +397,6 @@ class FreezingEntryLocalItemForm(forms.ModelForm):
             'usd_rate_per_kg': forms.NumberInput(attrs={'class': 'form-control usd-rate-per-kg'}),
             'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control usd-rate-item'}),
             'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr'}),
-            'yield_percentage': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 # Inline formset to attach items to a main entry

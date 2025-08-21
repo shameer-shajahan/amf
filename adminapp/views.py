@@ -1377,14 +1377,6 @@ class FreezingEntrySpotDetailView(View):
         }
         return render(request, self.template_name, context)
 
-
-from django.shortcuts import get_object_or_404, redirect, render
-from django.db import transaction
-from decimal import Decimal
-from .models import FreezingEntrySpot, SpotPurchase, Shed, PurchasingAgent, PurchasingSupervisor
-from .forms import FreezingEntrySpotForm, FreezingEntrySpotItemFormSet
-
-
 def freezing_entry_spot_update(request, pk):
     freezing_entry = get_object_or_404(FreezingEntrySpot, pk=pk)
 
@@ -1499,72 +1491,82 @@ def create_freezing_entry_local(request):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 freezing_entry = form.save(commit=False)
-
-                total_kg = Decimal(0)
-                total_slab = Decimal(0)
-                total_c_s = Decimal(0)
-                total_usd = Decimal(0)
-                total_inr = Decimal(0)
-                yield_percentages = []
-
-                for f in formset:
-                    if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
-                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
-                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
-                        kg = f.cleaned_data.get('kg') or Decimal(0)
-                        usd = f.cleaned_data.get('usd_rate_item') or Decimal(0)
-                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
-                        yield_percent = f.cleaned_data.get('yield_percentage')
-
-                        total_slab += slab
-                        total_c_s += cs
-                        total_kg += kg
-                        total_usd += usd
-                        total_inr += inr
-                        if yield_percent is not None:
-                            yield_percentages.append(yield_percent)
-
-                freezing_entry.total_slab = total_slab
-                freezing_entry.total_c_s = total_c_s
-                freezing_entry.total_kg = total_kg
-                freezing_entry.total_usd = total_usd
-                freezing_entry.total_inr = total_inr
-                freezing_entry.total_yield_percentage = (
-                    sum(yield_percentages) / len(yield_percentages)
-                    if yield_percentages else Decimal(0)
-                )
-
+                freezing_entry.created_by = request.user
                 freezing_entry.save()
-                formset.instance = freezing_entry
-                formset.save()
 
-            return redirect('adminapp:freezing_entry_local_list')
+                dollar_rate_to_inr = Decimal(0)
+
+                # Fetch Dollar Rate from Settings or latest table
+                try:
+                    from .models import DollarRate
+                    dollar_obj = DollarRate.objects.latest("id")
+                    dollar_rate_to_inr = dollar_obj.rate
+                except:
+                    pass
+
+                for f in formset.forms:
+                    if not f.cleaned_data or f.cleaned_data.get("DELETE"):
+                        continue
+
+                    item = f.save(commit=False)
+                    item.freezing_entry = freezing_entry
+
+                    # Auto-calc fields
+                    kg = f.cleaned_data.get("kg") or Decimal(0)
+                    usd_rate_per_kg = f.cleaned_data.get("usd_rate_per_kg") or Decimal(0)
+
+                    usd_item = kg * usd_rate_per_kg
+                    inr_item = usd_item * dollar_rate_to_inr
+
+                    item.usd_rate_item = usd_item
+                    item.usd_rate_item_to_inr = inr_item
+
+                    item.save()
+
+                messages.success(request, "Freezing Entry created successfully ✅")
+                return redirect("adminapp:freezing_entry_local_list")
+
         else:
             print("Form Errors:", form.errors)
-            print("Formset Errors:", formset.errors)
+            print("Formset Errors:", [f.errors for f in formset.forms])
     else:
         form = FreezingEntryLocalForm()
         formset = FreezingEntryLocalItemFormSet(prefix='form')
 
-    return render(request, 'adminapp/freezing_entry_local_create.html', {
-        'form': form,
-        'formset': formset,
+    return render(request, "adminapp/freezing/freezing_entry_local_create.html", {
+        "form": form,
+        "formset": formset,
     })
 
 def get_parties_by_date(request):
     date = request.GET.get('date')
-    parties = LocalPurchase.objects.filter(date=date).values('id', 'party_name', 'voucher_number')
+    parties = LocalPurchase.objects.filter(date=date).values(
+        'id', 'party_name', 'voucher_number'
+    )
     return JsonResponse({'parties': list(parties)})
 
 def get_party_details(request):
     party_id = request.GET.get('party_id')
     try:
         purchase = LocalPurchase.objects.get(id=party_id)
+
+        # ✅ assuming LocalPurchaseItem has related_name = "items"
+        items = purchase.items.all().values(
+            'id',
+            'item__id',
+            'item__name',
+            'quantity',
+            'rate',
+            'amount'
+        )
+
         data = {
             'party_name': purchase.party_name,
             'voucher_number': purchase.voucher_number,
+            'items': list(items),
         }
         return JsonResponse(data)
+
     except LocalPurchase.DoesNotExist:
         return JsonResponse({'error': 'LocalPurchase not found'}, status=404)
 
@@ -1589,14 +1591,14 @@ def get_dollar_rate_local(request):
 
 def freezing_entry_local_list(request):
     entries = FreezingEntryLocal.objects.all()
-    return render(request, 'adminapp/freezing_entry_local_list.html', {'entries': entries})
+    return render(request, 'adminapp/freezing/freezing_entry_local_list.html', {'entries': entries})
 
 def delete_freezing_entry_local(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
     if request.method == 'POST':
         entry.delete()
         return redirect('adminapp:freezing_entry_local_list')
-    return render(request, 'adminapp/freezing_entry_local_confirm_delete.html', {'entry': entry})
+    return render(request, 'adminapp/freezing/freezing_entry_local_confirm_delete.html', {'entry': entry})
 
 def freezing_entry_local_detail(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
@@ -1617,7 +1619,7 @@ def freezing_entry_local_detail(request, pk):
         'entry': entry,
         'items': items
     }
-    return render(request, 'adminapp/freezing_entry_local_detail.html', context)
+    return render(request, 'adminapp/freezing/freezing_entry_local_detail.html', context)
 
 def freezing_entry_local_update(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
@@ -1648,57 +1650,65 @@ def freezing_entry_local_update(request, pk):
         form = FreezingEntryLocalForm(instance=entry)
         formset = ItemFormSet(instance=entry)
 
-    return render(request, "adminapp/freezing_entry_local_update.html", {
+    return render(request, "adminapp/freezing/freezing_entry_local_update.html", {
         "form": form,
         "formset": formset,
         "entry": entry
     })
 
-
-
-
-# Freezing WORK OUT 
 class FreezingWorkOutView(View):
-    template_name = "adminapp/freezing_workout.html"
+    template_name = "adminapp/freezing/freezing_workout.html"
 
-    def get_summary(self, queryset):
-        """Helper to build aggregated summary for a given queryset."""
-        return (
+    def get_summary(self, queryset, has_yield=True):
+        """
+        Build aggregated summary for a given queryset.
+        `has_yield` flag is used because Spot has yield_percentage but Local does not.
+        """
+        qs = (
             queryset
             .select_related(
-                'item', 'grade', 'species', 'peeling_type', 'brand', 
+                'item', 'grade', 'species', 'peeling_type', 'brand',
                 'glaze', 'unit', 'freezing_category'
             )
             .values(
                 'item__name',
-                'grade__grade',  # ItemGrade has 'grade' field, not 'name'
+                'grade__grade',
                 'species__name',
-                'peeling_type__name',  # ItemType has 'name' field
+                'peeling_type__name',
                 'brand__name',
-                'glaze__percentage',  # GlazePercentage has 'percentage' field, not 'name'
-                'unit__unit_code',  # PackingUnit has 'unit_code' field
+                'glaze__percentage',
+                'unit__unit_code',
                 'freezing_category__name',
             )
-            .annotate(
-                total_slab=Coalesce(Sum('slab_quantity'), V(0), output_field=DecimalField()),
-                total_c_s=Coalesce(Sum('c_s_quantity'), V(0), output_field=DecimalField()),
-                total_kg=Coalesce(Sum('kg'), V(0), output_field=DecimalField()),
-                total_yield_sum=Coalesce(Sum('yield_percentage'), V(0), output_field=DecimalField()),
-                count_yield=Count('id'),
-                total_usd=Coalesce(Sum('usd_rate_item'), V(0), output_field=DecimalField()),
-                total_inr=Coalesce(Sum('usd_rate_item_to_inr'), V(0), output_field=DecimalField()),
-            )
-            .order_by('item__name', 'grade__grade', 'species__name')
+        )
+
+        annotations = {
+            'total_slab': Coalesce(Sum('slab_quantity'), V(0), output_field=DecimalField()),
+            'total_c_s': Coalesce(Sum('c_s_quantity'), V(0), output_field=DecimalField()),
+            'total_kg': Coalesce(Sum('kg'), V(0), output_field=DecimalField()),
+            'total_usd': Coalesce(Sum('usd_rate_item'), V(0), output_field=DecimalField()),
+            'total_inr': Coalesce(Sum('usd_rate_item_to_inr'), V(0), output_field=DecimalField()),
+        }
+
+        if has_yield:
+            annotations.update({
+                'total_yield_sum': Coalesce(Sum('yield_percentage'), V(0), output_field=DecimalField()),
+                'count_yield': Count('id'),
+            })
+
+        return qs.annotate(**annotations).order_by(
+            'item__name', 'grade__grade', 'species__name',
+            'peeling_type__name', 'brand__name'
         )
 
     def get(self, request):
-        # Spot and Local summaries
-        spot_summary = self.get_summary(FreezingEntrySpotItem.objects)
-        local_summary = self.get_summary(FreezingEntryLocalItem.objects)
+        # Spot has yield, Local does not
+        spot_summary = self.get_summary(FreezingEntrySpotItem.objects.all(), has_yield=True)
+        local_summary = self.get_summary(FreezingEntryLocalItem.objects.all(), has_yield=False)
 
-        # Combine results
+        # Merge spot + local summaries
         combined_data = {}
-        for dataset in [spot_summary, local_summary]:
+        for dataset, has_yield in [(spot_summary, True), (local_summary, False)]:
             for row in dataset:
                 key = (
                     row['item__name'],
@@ -1706,10 +1716,11 @@ class FreezingWorkOutView(View):
                     row['species__name'],
                     row['peeling_type__name'],
                     row['brand__name'],
-                    str(row['glaze__percentage']),  # Convert to string for consistency
+                    str(row['glaze__percentage']),
                     row['unit__unit_code'],
                     row['freezing_category__name'],
                 )
+
                 if key not in combined_data:
                     combined_data[key] = {
                         'item_name': row['item__name'],
@@ -1723,20 +1734,24 @@ class FreezingWorkOutView(View):
                         'total_slab': Decimal(0),
                         'total_c_s': Decimal(0),
                         'total_kg': Decimal(0),
-                        'total_yield_sum': Decimal(0),
-                        'count_yield': 0,
                         'total_usd': Decimal(0),
                         'total_inr': Decimal(0),
+                        'total_yield_sum': Decimal(0),
+                        'count_yield': 0,
                     }
+
                 combined_data[key]['total_slab'] += row['total_slab']
                 combined_data[key]['total_c_s'] += row['total_c_s']
                 combined_data[key]['total_kg'] += row['total_kg']
                 combined_data[key]['total_usd'] += row['total_usd']
                 combined_data[key]['total_inr'] += row['total_inr']
-                combined_data[key]['total_yield_sum'] += row['total_yield_sum']
-                combined_data[key]['count_yield'] += row['count_yield']
 
-        # Calculate average yield
+                # Only Spot rows have yield
+                if has_yield:
+                    combined_data[key]['total_yield_sum'] += row['total_yield_sum']
+                    combined_data[key]['count_yield'] += row['count_yield']
+
+        # Compute avg yield %
         for val in combined_data.values():
             if val['count_yield'] > 0:
                 val['avg_yield'] = val['total_yield_sum'] / val['count_yield']
@@ -1777,8 +1792,8 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
                 total_slab=Coalesce(Sum('slab_quantity'), V(0), output_field=DecimalField()),
                 total_c_s=Coalesce(Sum('c_s_quantity'), V(0), output_field=DecimalField()),
                 total_kg=Coalesce(Sum('kg'), V(0), output_field=DecimalField()),
-                total_yield_sum=Coalesce(Sum('yield_percentage'), V(0), output_field=DecimalField()),
-                count_yield=Count('id'),
+                # Removed yield_percentage related calculations as the field doesn't exist
+                count_records=Count('id'),
                 total_usd=Coalesce(Sum('usd_rate_item'), V(0), output_field=DecimalField()),
                 total_inr=Coalesce(Sum('usd_rate_item_to_inr'), V(0), output_field=DecimalField()),
                 avg_usd_per_kg=Coalesce(Avg('usd_rate_per_kg'), V(0), output_field=DecimalField()),
@@ -1817,8 +1832,7 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
                         'total_slab': Decimal(0),
                         'total_c_s': Decimal(0),
                         'total_kg': Decimal(0),
-                        'total_yield_sum': Decimal(0),
-                        'count_yield': 0,
+                        'count_records': 0,
                         'total_usd': Decimal(0),
                         'total_inr': Decimal(0),
                         'avg_usd_per_kg_sum': Decimal(0),
@@ -1831,15 +1845,11 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
                 combined_data[key]['total_kg'] += row['total_kg']
                 combined_data[key]['total_usd'] += row['total_usd']
                 combined_data[key]['total_inr'] += row['total_inr']
-                combined_data[key]['total_yield_sum'] += row['total_yield_sum']
-                combined_data[key]['count_yield'] += row['count_yield']
+                combined_data[key]['count_records'] += row['count_records']
 
         for val in combined_data.values():
-            if val['count_yield'] > 0:
-                val['avg_yield'] = val['total_yield_sum'] / val['count_yield']
-            else:
-                val['avg_yield'] = Decimal(0)
-
+            # Removed avg_yield calculation as yield_percentage field doesn't exist
+            
             if val['avg_usd_per_kg_count'] > 0:
                 val['avg_usd_per_kg'] = val['avg_usd_per_kg_sum'] / val['avg_usd_per_kg_count']
             else:
