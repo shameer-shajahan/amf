@@ -18,6 +18,15 @@ from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.utils.timezone import now
 from datetime import timedelta, datetime
+import xlsxwriter
+from django.shortcuts import render
+from django.db.models import Sum, F, FloatField
+from django.utils.timezone import now
+from django.http import HttpResponse
+from datetime import datetime, timedelta
+import csv
+import io
+
 
 
 
@@ -1993,7 +2002,6 @@ def get_dollar_rate_pre_workout(request):
         })
     return JsonResponse({'error': 'Settings not found'}, status=404)
 
-# LIST VIEW
 class PreShipmentWorkOutListView(ListView):
     model = PreShipmentWorkOut
     template_name = "adminapp/preshipment_workout_list.html"
@@ -2007,7 +2015,6 @@ class PreShipmentWorkOutListView(ListView):
             queryset = queryset.filter(item_id=self.request.GET["item"])
         return queryset.order_by("-id")  # Latest first
 
-# DELETE VIEW
 class PreShipmentWorkOutDeleteView(DeleteView):
     model = PreShipmentWorkOut
     template_name = "adminapp/confirm_delete.html"
@@ -2018,7 +2025,6 @@ class PreShipmentWorkOutDeleteView(DeleteView):
         messages.success(request, f"Pre-Shipment WorkOut '{obj}' deleted successfully.")
         return super().delete(request, *args, **kwargs)
 
-# DETAIL View
 class PreShipmentWorkOutDetailView(DetailView):
     model = PreShipmentWorkOut
     template_name = "adminapp/detail_preshipment_workout.html"
@@ -2050,3 +2056,465 @@ class PreShipmentWorkOutDetailView(DetailView):
             "summary": summary
         })
         return context
+
+
+def spot_purchase_report(request):
+    items = Item.objects.all()
+    spots = PurchasingSpot.objects.all()
+    agents = PurchasingAgent.objects.all()
+    categories = ItemCategory.objects.all()
+
+    queryset = SpotPurchaseItem.objects.select_related(
+        "purchase", "item", "purchase__spot", "purchase__agent"
+    )
+
+    # ✅ Multi-select filters
+    selected_items = request.GET.getlist("items")
+    selected_spots = request.GET.getlist("spots")
+    selected_agents = request.GET.getlist("agents")
+    selected_categories = request.GET.getlist("categories")
+    date_filter = request.GET.get("date_filter")
+
+    # ✅ Date range filter
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+    if selected_spots:
+        queryset = queryset.filter(purchase__spot__id__in=selected_spots)
+    if selected_agents:
+        queryset = queryset.filter(purchase__agent__id__in=selected_agents)
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+
+    # ✅ Quick date filter
+    if date_filter == "week":
+        queryset = queryset.filter(purchase__date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(purchase__date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(purchase__date__year=now().year)
+
+    # ✅ Custom date range
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(purchase__date__range=[start, end])
+        except:
+            pass
+
+    # ✅ Group & summary
+    summary = (
+        queryset.values(
+            "item__name",
+            "item__category__name",
+            "purchase__spot__location_name",
+            "purchase__agent__name",
+            "purchase__date",
+        )
+        .annotate(
+            total_quantity=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum(F("amount"), output_field=FloatField()) / Sum(F("quantity"), output_field=FloatField()),
+        )
+        .order_by("purchase__date")
+    )
+
+    # ✅ Check if print/export requested
+    action = request.GET.get("action")
+    print_mode = request.GET.get("print")  # Check for print parameter
+
+    # Handle print request
+    if action == "print" or print_mode == "1":
+        return render(
+            request,
+            "adminapp/report/spot_purchase_report_print.html",
+            {"summary": summary, "start_date": start_date, "end_date": end_date},
+        )
+
+    if action == "csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="spot_purchase_report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Date", "Item", "Category", "Spot", "Agent", "Quantity", "Amount", "Avg Rate"])
+        for row in summary:
+            writer.writerow([
+                row["purchase__date"],
+                row["item__name"],
+                row["item__category__name"],
+                row["purchase__spot__location_name"],
+                row["purchase__agent__name"],
+                row["total_quantity"],
+                row["total_amount"],
+                round(row["avg_rate"], 2) if row["avg_rate"] else 0,
+            ])
+        return response
+
+    if action == "excel":
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        worksheet = workbook.add_worksheet("Report")
+
+        headers = ["Date", "Item", "Category", "Spot", "Agent", "Quantity", "Amount", "Avg Rate"]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+
+        for row_idx, row in enumerate(summary, start=1):
+            worksheet.write(row_idx, 0, str(row["purchase__date"]))
+            worksheet.write(row_idx, 1, row["item__name"])
+            worksheet.write(row_idx, 2, row["item__category__name"])
+            worksheet.write(row_idx, 3, row["purchase__spot__location_name"])
+            worksheet.write(row_idx, 4, row["purchase__agent__name"])
+            worksheet.write(row_idx, 5, row["total_quantity"])
+            worksheet.write(row_idx, 6, row["total_amount"])
+            worksheet.write(row_idx, 7, round(row["avg_rate"], 2) if row["avg_rate"] else 0)
+
+        workbook.close()
+        output.seek(0)
+
+        response = HttpResponse(output.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = 'attachment; filename="spot_purchase_report.xlsx"'
+        return response
+
+    return render(
+        request,
+        "adminapp/report/spot_purchase_report.html",
+        {
+            "summary": summary,
+            "items": items,
+            "spots": spots,
+            "agents": agents,
+            "categories": categories,
+            "selected_items": selected_items,
+            "selected_spots": selected_spots,
+            "selected_agents": selected_agents,
+            "selected_categories": selected_categories,
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
+
+# Alternative: Separate view for print (recommended approach)
+def spot_purchase_report_print(request):
+    """Separate view specifically for print format"""
+    items = Item.objects.all()
+    spots = PurchasingSpot.objects.all()
+    agents = PurchasingAgent.objects.all()
+    categories = ItemCategory.objects.all()
+
+    queryset = SpotPurchaseItem.objects.select_related(
+        "purchase", "item", "purchase__spot", "purchase__agent"
+    )
+
+    # Apply the same filters as main view
+    selected_items = request.GET.getlist("items")
+    selected_spots = request.GET.getlist("spots")
+    selected_agents = request.GET.getlist("agents")
+    selected_categories = request.GET.getlist("categories")
+    date_filter = request.GET.get("date_filter")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+    if selected_spots:
+        queryset = queryset.filter(purchase__spot__id__in=selected_spots)
+    if selected_agents:
+        queryset = queryset.filter(purchase__agent__id__in=selected_agents)
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+
+    if date_filter == "week":
+        queryset = queryset.filter(purchase__date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(purchase__date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(purchase__date__year=now().year)
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(purchase__date__range=[start, end])
+        except:
+            pass
+
+    summary = (
+        queryset.values(
+            "item__name",
+            "item__category__name",
+            "purchase__spot__location_name",
+            "purchase__agent__name",
+            "purchase__date",
+        )
+        .annotate(
+            total_quantity=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum(F("amount"), output_field=FloatField()) / Sum(F("quantity"), output_field=FloatField()),
+        )
+        .order_by("purchase__date")
+    )
+
+    return render(
+        request,
+        "adminapp/report/spot_purchase_report_print.html",
+        {
+            "summary": summary,
+            "start_date": start_date,
+            "end_date": end_date,
+            "selected_items": selected_items,
+            "selected_spots": selected_spots,
+            "selected_agents": selected_agents,
+            "selected_categories": selected_categories,
+        },
+    )
+
+
+# LOCAL PURCHASE REPORT 
+def local_purchase_report(request):
+    items = Item.objects.all()
+    grades = ItemGrade.objects.all()
+    categories = ItemCategory.objects.all()
+    # Add species filter
+    species = Species.objects.all()
+
+    queryset = LocalPurchaseItem.objects.select_related(
+        "purchase", "item", "grade", "item__category", "item__species"
+    )
+
+    # ✅ Multi-select filters
+    selected_items = request.GET.getlist("items")
+    selected_grades = request.GET.getlist("grades")
+    selected_categories = request.GET.getlist("categories")
+    selected_parties = request.GET.getlist("parties")
+    selected_species = request.GET.getlist("species")  # Add species filter
+    date_filter = request.GET.get("date_filter")
+
+    # ✅ Date range filter
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    # ✅ Party name filter (text search)
+    party_search = request.GET.get("party_search", "").strip()
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+    if selected_grades:
+        queryset = queryset.filter(grade__id__in=selected_grades)
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+    if selected_species:
+        queryset = queryset.filter(item__species__id__in=selected_species)
+    if party_search:
+        queryset = queryset.filter(purchase__party_name__icontains=party_search)
+
+    # ✅ Quick date filter
+    if date_filter == "week":
+        queryset = queryset.filter(purchase__date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(purchase__date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(purchase__date__year=now().year)
+
+    # ✅ Custom date range
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(purchase__date__range=[start, end])
+        except:
+            pass
+
+    # ✅ Group & summary
+    summary = (
+        queryset.values(
+            "item__name",
+            "item__category__name",
+            "item__species__name",  # Add species name
+            "grade__grade",  # Changed from grade__name to grade__grade
+            "purchase__party_name",
+            "purchase__voucher_number",
+            "purchase__date",
+        )
+        .annotate(
+            total_quantity=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum(F("amount"), output_field=FloatField()) / Sum(F("quantity"), output_field=FloatField()),
+        )
+        .order_by("purchase__date")
+    )
+
+    # Get unique parties for filter dropdown
+    parties = LocalPurchase.objects.values_list('party_name', flat=True).distinct().order_by('party_name')
+
+    # ✅ Check if print/export requested
+    action = request.GET.get("action")
+    print_mode = request.GET.get("print")  # Check for print parameter
+
+    # Handle print request
+    if action == "print" or print_mode == "1":
+        return render(
+            request,
+            "adminapp/report/local_purchase_report_print.html",
+            {
+                "summary": summary, 
+                "start_date": start_date, 
+                "end_date": end_date
+            },
+        )
+
+    if action == "csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="local_purchase_report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Date", "Voucher No", "Party", "Item", "Grade", "Category", "Species", "Quantity", "Amount", "Avg Rate"])
+        for row in summary:
+            writer.writerow([
+                row["purchase__date"],
+                row["purchase__voucher_number"],
+                row["purchase__party_name"],
+                row["item__name"],
+                row["grade__grade"] or "N/A",  # Changed from grade__name
+                row["item__category__name"],
+                row["item__species__name"] or "N/A",  # Add species
+                row["total_quantity"],
+                row["total_amount"],
+                round(row["avg_rate"], 2) if row["avg_rate"] else 0,
+            ])
+        return response
+
+    if action == "excel":
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        worksheet = workbook.add_worksheet("Report")
+
+        headers = ["Date", "Voucher No", "Party", "Item", "Grade", "Category", "Species", "Quantity", "Amount", "Avg Rate"]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+
+        for row_idx, row in enumerate(summary, start=1):
+            worksheet.write(row_idx, 0, str(row["purchase__date"]))
+            worksheet.write(row_idx, 1, row["purchase__voucher_number"])
+            worksheet.write(row_idx, 2, row["purchase__party_name"])
+            worksheet.write(row_idx, 3, row["item__name"])
+            worksheet.write(row_idx, 4, row["grade__grade"] or "N/A")  # Changed from grade__name
+            worksheet.write(row_idx, 5, row["item__category__name"])
+            worksheet.write(row_idx, 6, row["item__species__name"] or "N/A")  # Add species
+            worksheet.write(row_idx, 7, row["total_quantity"])
+            worksheet.write(row_idx, 8, row["total_amount"])
+            worksheet.write(row_idx, 9, round(row["avg_rate"], 2) if row["avg_rate"] else 0)
+
+        workbook.close()
+        output.seek(0)
+
+        response = HttpResponse(output.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = 'attachment; filename="local_purchase_report.xlsx"'
+        return response
+
+    return render(
+        request,
+        "adminapp/report/local_purchase_report.html",
+        {
+            "summary": summary,
+            "items": items,
+            "grades": grades,
+            "categories": categories,
+            "species": species,  # Add species to context
+            "parties": parties,
+            "selected_items": selected_items,
+            "selected_grades": selected_grades,
+            "selected_categories": selected_categories,
+            "selected_species": selected_species,  # Add to context
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "party_search": party_search,
+        },
+    )
+
+# Alternative: Separate view for print (recommended approach)
+def local_purchase_report_print(request):
+    """Separate view specifically for print format"""
+    items = Item.objects.all()
+    grades = ItemGrade.objects.all()
+    categories = ItemCategory.objects.all()
+    species = Species.objects.all()
+
+    queryset = LocalPurchaseItem.objects.select_related(
+        "purchase", "item", "grade", "item__category", "item__species"
+    )
+
+    # Apply the same filters as main view
+    selected_items = request.GET.getlist("items")
+    selected_grades = request.GET.getlist("grades")
+    selected_categories = request.GET.getlist("categories")
+    selected_species = request.GET.getlist("species")
+    date_filter = request.GET.get("date_filter")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    party_search = request.GET.get("party_search", "").strip()
+
+    if selected_items:
+        queryset = queryset.filter(item__id__in=selected_items)
+    if selected_grades:
+        queryset = queryset.filter(grade__id__in=selected_grades)
+    if selected_categories:
+        queryset = queryset.filter(item__category__id__in=selected_categories)
+    if selected_species:
+        queryset = queryset.filter(item__species__id__in=selected_species)
+    if party_search:
+        queryset = queryset.filter(purchase__party_name__icontains=party_search)
+
+    if date_filter == "week":
+        queryset = queryset.filter(purchase__date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(purchase__date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(purchase__date__year=now().year)
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(purchase__date__range=[start, end])
+        except:
+            pass
+
+    summary = (
+        queryset.values(
+            "item__name",
+            "item__category__name",
+            "item__species__name",
+            "grade__grade",  # Changed from grade__name to grade__grade
+            "purchase__party_name",
+            "purchase__voucher_number",
+            "purchase__date",
+        )
+        .annotate(
+            total_quantity=Sum("quantity"),
+            total_amount=Sum("amount"),
+            avg_rate=Sum(F("amount"), output_field=FloatField()) / Sum(F("quantity"), output_field=FloatField()),
+        )
+        .order_by("purchase__date")
+    )
+
+    return render(
+        request,
+        "adminapp/report/local_purchase_report_print.html",
+        {
+            "summary": summary,
+            "start_date": start_date,
+            "end_date": end_date,
+            "selected_items": selected_items,
+            "selected_grades": selected_grades,
+            "selected_categories": selected_categories,
+            "selected_species": selected_species,
+            "party_search": party_search,
+        },
+    )
+
+
+

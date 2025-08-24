@@ -198,5 +198,14 @@ urlpatterns = [
 
 
 
+    path("spot/purchase/report/", views.spot_purchase_report, name="spot_purchase_report"),
+    
+    # Print version - separate URL (recommended approach)
+    path('spot/purchase/report/print/', views.spot_purchase_report_print, name='spot_purchase_report_print'),
+
+
+    # local purchase report
+    path('local-purchase-report/', views.local_purchase_report, name='local_purchase_report'),
+    path('local-purchase-report/print/', views.local_purchase_report_print, name='local_purchase_report_print'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
