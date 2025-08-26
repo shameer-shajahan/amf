@@ -199,7 +199,6 @@ urlpatterns = [
 
 
     path("spot/purchase/report/", views.spot_purchase_report, name="spot_purchase_report"),
-    
     # Print version - separate URL (recommended approach)
     path('spot/purchase/report/print/', views.spot_purchase_report_print, name='spot_purchase_report_print'),
 
@@ -207,5 +206,23 @@ urlpatterns = [
     # local purchase report
     path('local-purchase-report/', views.local_purchase_report, name='local_purchase_report'),
     path('local-purchase-report/print/', views.local_purchase_report_print, name='local_purchase_report_print'),
+
+
+
+    path('reports/peeling-shed-supply/', views.peeling_shed_supply_report, name='peeling_shed_supply_report'),
+    # Dedicated print view (alternative approach)
+    path('reports/peeling-shed-supply/print/', views.peeling_shed_supply_report_print, name='peeling_shed_supply_report_print'),
+    
+
+
+
+
+    path('reports/freezing/', views.freezing_report, name='freezing_report'),
+    
+    # Separate print view
+    path('reports/freezing/print/', views.freezing_report_print, name='freezing_report_print'),
+    
+
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

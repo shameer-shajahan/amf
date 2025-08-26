@@ -19,15 +19,12 @@ from django.http import JsonResponse
 from django.utils.timezone import now
 from datetime import timedelta, datetime
 import xlsxwriter
-from django.shortcuts import render
 from django.db.models import Sum, F, FloatField
-from django.utils.timezone import now
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 import csv
 import io
-
-
+from django.db.models import Sum, Avg, F, Value, CharField, DecimalField, FloatField
 
 
 
@@ -513,18 +510,6 @@ class TenantDeleteView(DeleteView):
     model = Tenant
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:tenant_list')
-
-# class PeelingChargeCreateView(CreateView):
-#     model = PeelingCharge
-#     form_class = PeelingChargeForm
-#     template_name = 'adminapp/forms/peelingcharge_form.html'
-#     success_url = reverse_lazy('adminapp:peeling_charge_create')
-
-#     def form_valid(self, form):
-#         # Optional: Debug what’s being submitted
-#         print("SAVING ITEM:", form.cleaned_data.get("item"))
-#         print("SAVING species:", form.cleaned_data.get("species"))
-#         return super().form_valid(form)
 
 class PurchaseOverheadCreateView(CreateView):
     model = PurchaseOverhead
@@ -2058,6 +2043,9 @@ class PreShipmentWorkOutDetailView(DetailView):
         return context
 
 
+# purchase Report 
+
+
 def spot_purchase_report(request):
     items = Item.objects.all()
     spots = PurchasingSpot.objects.all()
@@ -2515,6 +2503,942 @@ def local_purchase_report_print(request):
             "party_search": party_search,
         },
     )
+
+
+
+# PEELING SHED SUPPLY REPORT
+def peeling_shed_supply_report(request):
+    items = Item.objects.all()
+    item_types = ItemType.objects.all()
+    sheds = Shed.objects.all()
+    spot_purchases = SpotPurchase.objects.all()
+
+    queryset = PeelingShedSupply.objects.select_related(
+        "shed", "spot_purchase", "spot_purchase_item", "spot_purchase_item__item"
+    ).prefetch_related("peeling_types", "peeling_types__item", "peeling_types__item_type")
+
+    # ✅ Multi-select filters
+    selected_items = request.GET.getlist("items")
+    selected_item_types = request.GET.getlist("item_types")
+    selected_sheds = request.GET.getlist("sheds")
+    selected_spot_purchases = request.GET.getlist("spot_purchases")
+    date_filter = request.GET.get("date_filter")
+
+    # ✅ Date range filter
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    # ✅ Voucher number search
+    voucher_search = request.GET.get("voucher_search", "").strip()
+
+    # ✅ Vehicle number search
+    vehicle_search = request.GET.get("vehicle_search", "").strip()
+
+    # Apply filters
+    if selected_items:
+        queryset = queryset.filter(spot_purchase_item__item__id__in=selected_items)
+    if selected_item_types:
+        queryset = queryset.filter(peeling_types__item_type__id__in=selected_item_types)
+    if selected_sheds:
+        queryset = queryset.filter(shed__id__in=selected_sheds)
+    if selected_spot_purchases:
+        queryset = queryset.filter(spot_purchase__id__in=selected_spot_purchases)
+    if voucher_search:
+        queryset = queryset.filter(voucher_number__icontains=voucher_search)
+    if vehicle_search:
+        queryset = queryset.filter(vehicle_number__icontains=vehicle_search)
+
+    # ✅ Quick date filter
+    if date_filter == "week":
+        queryset = queryset.filter(date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(date__year=now().year)
+
+    # ✅ Custom date range
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(date__range=[start, end])
+        except:
+            pass
+
+    # ✅ Group & summary
+    summary = (
+        queryset.values(
+            "voucher_number",
+            "date",
+            "shed__name",
+            "vehicle_number",
+            "spot_purchase_date",
+            "spot_purchase__voucher_number",
+            "spot_purchase_item__item__name",
+            "spot_purchase_item__item__category__name",
+            "spot_purchase_item__item__species__name",
+        )
+        .annotate(
+            total_boxes_purchase=Sum("SpotPurchase_total_boxes"),
+            total_quantity_purchase=Sum("SpotPurchase_quantity"),
+            avg_box_weight=Avg("SpotPurchase_average_box_weight"),
+            boxes_received=Sum("boxes_received_shed"),
+            quantity_received=Sum("quantity_received_shed"),
+            total_peeling_amount=Sum("peeling_types__amount"),
+        )
+        .order_by("date")
+    )
+
+    # Get unique voucher numbers and vehicles for search suggestions
+    vouchers = PeelingShedSupply.objects.values_list('voucher_number', flat=True).distinct().order_by('voucher_number')
+    vehicles = PeelingShedSupply.objects.values_list('vehicle_number', flat=True).distinct().order_by('vehicle_number')
+
+    # ✅ Check if print/export requested
+    action = request.GET.get("action")
+    print_mode = request.GET.get("print")  # Check for print parameter
+
+    # Handle print request
+    if action == "print" or print_mode == "1":
+        return render(
+            request,
+            "adminapp/report/peeling_shed_supply_report_print.html",
+            {
+                "summary": summary, 
+                "start_date": start_date, 
+                "end_date": end_date
+            },
+        )
+
+    if action == "csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="peeling_shed_supply_report.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            "Date", "Voucher No", "Shed", "Vehicle", "Spot Purchase Date", 
+            "Spot Voucher", "Item", "Category", "Species", "Purchase Boxes", 
+            "Purchase Quantity", "Avg Box Weight", "Boxes Received", 
+            "Quantity Received", "Total Peeling Amount"
+        ])
+        for row in summary:
+            writer.writerow([
+                row["date"],
+                row["voucher_number"],
+                row["shed__name"],
+                row["vehicle_number"],
+                row["spot_purchase_date"],
+                row["spot_purchase__voucher_number"],
+                row["spot_purchase_item__item__name"],
+                row["spot_purchase_item__item__category__name"] or "N/A",
+                row["spot_purchase_item__item__species__name"] or "N/A",
+                row["total_boxes_purchase"],
+                row["total_quantity_purchase"],
+                round(row["avg_box_weight"], 2) if row["avg_box_weight"] else 0,
+                row["boxes_received"],
+                row["quantity_received"],
+                row["total_peeling_amount"],
+            ])
+        return response
+
+    if action == "excel":
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        worksheet = workbook.add_worksheet("Report")
+
+        headers = [
+            "Date", "Voucher No", "Shed", "Vehicle", "Spot Purchase Date", 
+            "Spot Voucher", "Item", "Category", "Species", "Purchase Boxes", 
+            "Purchase Quantity", "Avg Box Weight", "Boxes Received", 
+            "Quantity Received", "Total Peeling Amount"
+        ]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+
+        for row_idx, row in enumerate(summary, start=1):
+            worksheet.write(row_idx, 0, str(row["date"]))
+            worksheet.write(row_idx, 1, row["voucher_number"])
+            worksheet.write(row_idx, 2, row["shed__name"])
+            worksheet.write(row_idx, 3, row["vehicle_number"])
+            worksheet.write(row_idx, 4, str(row["spot_purchase_date"]) if row["spot_purchase_date"] else "N/A")
+            worksheet.write(row_idx, 5, row["spot_purchase__voucher_number"])
+            worksheet.write(row_idx, 6, row["spot_purchase_item__item__name"])
+            worksheet.write(row_idx, 7, row["spot_purchase_item__item__category__name"] or "N/A")
+            worksheet.write(row_idx, 8, row["spot_purchase_item__item__species__name"] or "N/A")
+            worksheet.write(row_idx, 9, row["total_boxes_purchase"])
+            worksheet.write(row_idx, 10, row["total_quantity_purchase"])
+            worksheet.write(row_idx, 11, round(row["avg_box_weight"], 2) if row["avg_box_weight"] else 0)
+            worksheet.write(row_idx, 12, row["boxes_received"])
+            worksheet.write(row_idx, 13, row["quantity_received"])
+            worksheet.write(row_idx, 14, row["total_peeling_amount"])
+
+        workbook.close()
+        output.seek(0)
+
+        response = HttpResponse(output.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = 'attachment; filename="peeling_shed_supply_report.xlsx"'
+        return response
+
+    return render(
+        request,
+        "adminapp/report/peeling_shed_supply_report.html",
+        {
+            "summary": summary,
+            "items": items,
+            "item_types": item_types,
+            "sheds": sheds,
+            "spot_purchases": spot_purchases,
+            "vouchers": vouchers,
+            "vehicles": vehicles,
+            "selected_items": selected_items,
+            "selected_item_types": selected_item_types,
+            "selected_sheds": selected_sheds,
+            "selected_spot_purchases": selected_spot_purchases,
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "voucher_search": voucher_search,
+            "vehicle_search": vehicle_search,
+        },
+    )
+
+def peeling_shed_supply_report_print(request):
+    """Separate view specifically for print format"""
+    items = Item.objects.all()
+    item_types = ItemType.objects.all()
+    sheds = Shed.objects.all()
+    spot_purchases = SpotPurchase.objects.all()
+
+    queryset = PeelingShedSupply.objects.select_related(
+        "shed", 
+        "spot_purchase", 
+        "spot_purchase_item", 
+        "spot_purchase_item__item",
+        "spot_purchase_item__item__species",
+        "spot_purchase_item__item__itemgrade",  # Add ForeignKey relationship
+        "spot_purchase_item__item__itemtype"    # Add ForeignKey relationship
+    ).prefetch_related("peeling_types", "peeling_types__item", "peeling_types__item_type")
+
+    # Apply the same filters as main view
+    selected_items = request.GET.getlist("items")
+    selected_item_types = request.GET.getlist("item_types")
+    selected_sheds = request.GET.getlist("sheds")
+    selected_spot_purchases = request.GET.getlist("spot_purchases")
+    date_filter = request.GET.get("date_filter")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    voucher_search = request.GET.get("voucher_search", "").strip()
+    vehicle_search = request.GET.get("vehicle_search", "").strip()
+
+    # Apply filters
+    if selected_items:
+        queryset = queryset.filter(spot_purchase_item__item__id__in=selected_items)
+    if selected_item_types:
+        queryset = queryset.filter(peeling_types__item_type__id__in=selected_item_types)
+    if selected_sheds:
+        queryset = queryset.filter(shed__id__in=selected_sheds)
+    if selected_spot_purchases:
+        queryset = queryset.filter(spot_purchase__id__in=selected_spot_purchases)
+    if voucher_search:
+        queryset = queryset.filter(voucher_number__icontains=voucher_search)
+    if vehicle_search:
+        queryset = queryset.filter(vehicle_number__icontains=vehicle_search)
+
+    # Date filters
+    if date_filter == "week":
+        queryset = queryset.filter(date__gte=now().date() - timedelta(days=7))
+    elif date_filter == "month":
+        queryset = queryset.filter(date__month=now().month)
+    elif date_filter == "year":
+        queryset = queryset.filter(date__year=now().year)
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            queryset = queryset.filter(date__range=[start, end])
+        except ValueError:
+            pass
+
+    # Generate summary - Access ForeignKey relationships properly
+    summary = (
+        queryset.values(
+            "voucher_number",
+            "date",
+            "shed__name",
+            "vehicle_number",
+            "spot_purchase_date",
+            "spot_purchase__voucher_number",
+            "spot_purchase_item__item__name",
+            "spot_purchase_item__item__category__name",
+            "spot_purchase_item__item__species__name",           # Species (ForeignKey -> name)
+            "spot_purchase_item__item__itemgrade__grade",        # Grade (ForeignKey -> grade field)
+            "spot_purchase_item__item__itemtype__name",          # ItemType (ForeignKey -> name field)
+        )
+        .annotate(
+            total_boxes_purchase=Sum("SpotPurchase_total_boxes"),
+            total_quantity_purchase=Sum("SpotPurchase_quantity"),
+            avg_box_weight=Avg("SpotPurchase_average_box_weight"),
+            boxes_received=Sum("boxes_received_shed"),
+            quantity_received=Sum("quantity_received_shed"),
+            total_peeling_amount=Sum("peeling_types__amount"),
+        )
+        .order_by("date", "voucher_number")
+    )
+
+    return render(
+        request,
+        "adminapp/report/peeling_shed_supply_report_print.html",
+        {
+            "summary": summary,
+            "start_date": start_date,
+            "end_date": end_date,
+            "selected_items": selected_items,
+            "selected_item_types": selected_item_types,
+            "selected_sheds": selected_sheds,
+            "selected_spot_purchases": selected_spot_purchases,
+            "voucher_search": voucher_search,
+            "vehicle_search": vehicle_search,
+        },
+    )
+
+
+
+
+# FREEZING REPORT
+def freezing_report(request):
+    items = Item.objects.all()
+    grades = ItemGrade.objects.all()
+    categories = ItemCategory.objects.all()
+    species = Species.objects.all()
+    brands = ItemBrand.objects.all()
+    freezing_categories = FreezingCategory.objects.all()
+    processing_centers = ProcessingCenter.objects.all()
+    stores = Store.objects.all()
+    
+    # Check if models exist and get units/glazes
+    try:
+        units = PackingUnit.objects.all()
+    except NameError:
+        units = []
+    
+    try:
+        glazes = GlazePercentage.objects.all()
+    except NameError:
+        glazes = []
+
+    # Get filter parameters
+    selected_items = request.GET.getlist("items")
+    selected_grades = request.GET.getlist("grades")
+    selected_categories = request.GET.getlist("categories")
+    selected_species = request.GET.getlist("species")
+    selected_brands = request.GET.getlist("brands")
+    selected_freezing_categories = request.GET.getlist("freezing_categories")
+    selected_processing_centers = request.GET.getlist("processing_centers")
+    selected_stores = request.GET.getlist("stores")
+    selected_units = request.GET.getlist("units")
+    selected_glazes = request.GET.getlist("glazes")
+    
+    date_filter = request.GET.get("date_filter")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    freezing_status = request.GET.get("freezing_status")
+    voucher_search = request.GET.get("voucher_search", "").strip()
+    entry_type = request.GET.get("entry_type", "all")  # all, spot, local
+    section_by = request.GET.get("section_by", "category")  # category, brand, month, processing_center, etc.
+
+    # Base querysets for both spot and local entries
+    spot_queryset = FreezingEntrySpotItem.objects.select_related(
+        "freezing_entry", "item", "grade", "item__category", "item__species",
+        "brand", "freezing_category", "processing_center", "store"
+    )
+    
+    local_queryset = FreezingEntryLocalItem.objects.select_related(
+        "freezing_entry", "item", "grade", "item__category", "item__species", 
+        "brand", "freezing_category", "processing_center", "store"
+    )
+
+    # Add unit and glaze relationships if they exist
+    if units and hasattr(FreezingEntrySpotItem, 'unit'):
+        spot_queryset = spot_queryset.select_related("unit")
+    if glazes and hasattr(FreezingEntrySpotItem, 'glaze'):
+        spot_queryset = spot_queryset.select_related("glaze")
+    if units and hasattr(FreezingEntryLocalItem, 'unit'):
+        local_queryset = local_queryset.select_related("unit")
+    if glazes and hasattr(FreezingEntryLocalItem, 'glaze'):
+        local_queryset = local_queryset.select_related("glaze")
+
+    # Apply filters to both querysets
+    def apply_filters(queryset, is_spot=True):
+        if selected_items:
+            queryset = queryset.filter(item__id__in=selected_items)
+        if selected_grades:
+            queryset = queryset.filter(grade__id__in=selected_grades)
+        if selected_categories:
+            queryset = queryset.filter(item__category__id__in=selected_categories)
+        if selected_species:
+            queryset = queryset.filter(item__species__id__in=selected_species)
+        if selected_brands:
+            # Only filter by the brand field that exists on the FreezingEntry models
+            queryset = queryset.filter(brand__id__in=selected_brands)
+        if selected_freezing_categories:
+            queryset = queryset.filter(freezing_category__id__in=selected_freezing_categories)
+        if selected_processing_centers:
+            queryset = queryset.filter(processing_center__id__in=selected_processing_centers)
+        if selected_stores:
+            queryset = queryset.filter(store__id__in=selected_stores)
+        if selected_units and hasattr(queryset.model, 'unit'):
+            queryset = queryset.filter(unit__id__in=selected_units)
+        if selected_glazes and hasattr(queryset.model, 'glaze'):
+            queryset = queryset.filter(glaze__id__in=selected_glazes)
+        if freezing_status:
+            queryset = queryset.filter(freezing_entry__freezing_status=freezing_status)
+        if voucher_search:
+            queryset = queryset.filter(freezing_entry__voucher_number__icontains=voucher_search)
+
+        # Enhanced date filters
+        today = now().date()
+        if date_filter == "today":
+            queryset = queryset.filter(freezing_entry__freezing_date=today)
+        elif date_filter == "week":
+            queryset = queryset.filter(freezing_entry__freezing_date__gte=today - timedelta(days=7))
+        elif date_filter == "month":
+            queryset = queryset.filter(
+                freezing_entry__freezing_date__year=today.year,
+                freezing_entry__freezing_date__month=today.month
+            )
+        elif date_filter == "quarter":
+            quarter_start_month = ((today.month - 1) // 3) * 3 + 1
+            quarter_start = today.replace(month=quarter_start_month, day=1)
+            queryset = queryset.filter(freezing_entry__freezing_date__gte=quarter_start)
+        elif date_filter == "year":
+            queryset = queryset.filter(freezing_entry__freezing_date__year=today.year)
+
+        if start_date and end_date:
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(freezing_entry__freezing_date__range=[start, end])
+            except ValueError:
+                pass
+
+        return queryset
+
+    # Apply filters
+    spot_queryset = apply_filters(spot_queryset, True)
+    local_queryset = apply_filters(local_queryset, False)
+
+    # Combine and process data for sectioning
+    all_data = []
+
+    # Process spot entries with correct field names
+    if entry_type in ['all', 'spot']:
+        spot_data_fields = [
+            "item__name", "item__category__name", "item__species__name",
+            "grade__grade", "brand__name", 
+            "freezing_category__name", "processing_center__name", "store__name",
+            "freezing_entry__voucher_number", "freezing_entry__freezing_date",
+            "freezing_entry__freezing_status"
+        ]
+        
+        # Add unit and glaze fields with proper names
+        if units and hasattr(FreezingEntrySpotItem, 'unit'):
+            spot_data_fields.extend(["unit__description", "unit__unit_code"])
+        if glazes and hasattr(FreezingEntrySpotItem, 'glaze'):
+            spot_data_fields.extend(["glaze__percentage"])
+            
+        spot_data = spot_queryset.values(*spot_data_fields).annotate(
+            total_kg=Sum("kg"),
+            total_slab_quantity=Sum("slab_quantity"),
+            total_c_s_quantity=Sum("c_s_quantity"),
+            total_usd_amount=Sum("usd_rate_item"),
+            total_inr_amount=Sum("usd_rate_item_to_inr"),
+            avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
+            avg_yield_percentage=Avg("yield_percentage"),
+            entry_type=Value('spot', output_field=CharField()),
+        ).order_by("freezing_entry__freezing_date")
+        
+        all_data.extend(list(spot_data))
+
+    # Process local entries with correct field names
+    if entry_type in ['all', 'local']:
+        local_data_fields = [
+            "item__name", "item__category__name", "item__species__name",
+            "grade__grade", "brand__name",
+            "freezing_category__name", "processing_center__name", "store__name",
+            "freezing_entry__voucher_number", "freezing_entry__freezing_date",
+            "freezing_entry__freezing_status"
+        ]
+        
+        # Add unit and glaze fields with proper names
+        if units and hasattr(FreezingEntryLocalItem, 'unit'):
+            local_data_fields.extend(["unit__description", "unit__unit_code"])
+        if glazes and hasattr(FreezingEntryLocalItem, 'glaze'):
+            local_data_fields.extend(["glaze__percentage"])
+            
+        local_data = local_queryset.values(*local_data_fields).annotate(
+            total_kg=Sum("kg"),
+            total_slab_quantity=Sum("slab_quantity"),
+            total_c_s_quantity=Sum("c_s_quantity"),
+            total_usd_amount=Sum("usd_rate_item"),
+            total_inr_amount=Sum("usd_rate_item_to_inr"),
+            avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
+            avg_yield_percentage=Value(None, output_field=DecimalField()),
+            entry_type=Value('local', output_field=CharField()),
+        ).order_by("freezing_entry__freezing_date")
+        
+        all_data.extend(list(local_data))
+
+    # Group data into sections based on section_by parameter
+    sectioned_data = {}
+    
+    for item in all_data:
+        # Determine section key based on section_by parameter
+        if section_by == "category":
+            section_key = item.get("item__category__name") or "Uncategorized"
+        elif section_by == "brand":
+            section_key = item.get("brand__name") or "No Brand"
+        elif section_by == "processing_center":
+            section_key = item.get("processing_center__name") or "No Processing Center"
+        elif section_by == "month":
+            date_obj = item.get("freezing_entry__freezing_date")
+            section_key = f"{date_obj.strftime('%B %Y')}" if date_obj else "No Date"
+        elif section_by == "species":
+            section_key = item.get("item__species__name") or "No Species"
+        elif section_by == "grade":
+            section_key = item.get("grade__grade") or "No Grade"
+        elif section_by == "item":
+            section_key = item.get("item__name") or "No Item"
+        elif section_by == "store":
+            section_key = item.get("store__name") or "No Store"
+        elif section_by == "unit" and units:
+            section_key = item.get("unit__description") or "No Unit"
+        elif section_by == "glaze" and glazes:
+            section_key = f"{item.get('glaze__percentage', 0)}%" or "No Glaze"
+        else:
+            section_key = "All Items"
+            
+        if section_key not in sectioned_data:
+            sectioned_data[section_key] = {
+                'items': [],
+                'totals': {
+                    'total_kg': 0,
+                    'total_slab_quantity': 0,
+                    'total_c_s_quantity': 0,
+                    'total_usd_amount': 0,
+                    'total_inr_amount': 0,
+                    'count': 0
+                }
+            }
+        
+        sectioned_data[section_key]['items'].append(item)
+        
+        # Calculate section totals
+        totals = sectioned_data[section_key]['totals']
+        totals['total_kg'] += float(item.get('total_kg') or 0)
+        totals['total_slab_quantity'] += float(item.get('total_slab_quantity') or 0)
+        totals['total_c_s_quantity'] += float(item.get('total_c_s_quantity') or 0)
+        totals['total_usd_amount'] += float(item.get('total_usd_amount') or 0)
+        totals['total_inr_amount'] += float(item.get('total_inr_amount') or 0)
+        totals['count'] += 1
+
+    # Sort sections by key
+    sectioned_data = dict(sorted(sectioned_data.items()))
+
+    # Calculate grand totals
+    grand_totals = {
+        'total_kg': 0,
+        'total_slab_quantity': 0,
+        'total_c_s_quantity': 0,
+        'total_usd_amount': 0,
+        'total_inr_amount': 0,
+        'count': 0
+    }
+    
+    for section in sectioned_data.values():
+        for key in grand_totals:
+            grand_totals[key] += section['totals'][key]
+
+    # Calculate averages for grand totals
+    if grand_totals['count'] > 0:
+        grand_totals['avg_kg'] = grand_totals['total_kg'] / grand_totals['count']
+        grand_totals['avg_usd_amount'] = grand_totals['total_usd_amount'] / grand_totals['count']
+
+    # Get unique vouchers for filter dropdown
+    try:
+        spot_vouchers = FreezingEntrySpot.objects.values_list('voucher_number', flat=True).distinct()
+        local_vouchers = FreezingEntryLocal.objects.values_list('voucher_number', flat=True).distinct()
+        all_vouchers = sorted(set(list(spot_vouchers) + list(local_vouchers)))
+    except:
+        all_vouchers = []
+
+    # Check if export/print requested
+    action = request.GET.get("action")
+    print_mode = request.GET.get("print")
+
+    # Handle print request
+    if action == "print" or print_mode == "1":
+        return render(
+            request,
+            "adminapp/report/freezing_report_print.html",
+            {
+                "sectioned_data": sectioned_data,
+                "grand_totals": grand_totals,
+                "start_date": start_date,
+                "end_date": end_date,
+                "entry_type": entry_type,
+                "section_by": section_by,
+                "units": units,
+                "glazes": glazes,
+            },
+        )
+
+    # Handle CSV export
+    if action == "csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="enhanced_freezing_report.csv"'
+        writer = csv.writer(response)
+        
+        # Write headers
+        headers = [
+            "Section", "Date", "Voucher No", "Type", "Item", "Grade", "Category", 
+            "Species", "Brand", "Freezing Category", "Processing Center", "Store", 
+            "Status", "KG", "Slab Qty", "C/S Qty", "USD Amount", "INR Amount", 
+            "Avg USD Rate/KG", "Avg Yield %"
+        ]
+        
+        if units:
+            headers.insert(-8, "Unit Description")
+            headers.insert(-8, "Unit Code")
+        if glazes:
+            headers.insert(-8, "Glaze %")
+            
+        writer.writerow(headers)
+        
+        for section_name, section_data in sectioned_data.items():
+            for item in section_data['items']:
+                row = [
+                    section_name,
+                    item.get("freezing_entry__freezing_date"),
+                    item.get("freezing_entry__voucher_number"),
+                    item.get("entry_type"),
+                    item.get("item__name"),
+                    item.get("grade__grade") or "N/A",
+                    item.get("item__category__name"),
+                    item.get("item__species__name") or "N/A",
+                    item.get("brand__name") or "N/A",
+                    item.get("freezing_category__name") or "N/A",
+                    item.get("processing_center__name") or "N/A",
+                    item.get("store__name") or "N/A",
+                    item.get("freezing_entry__freezing_status"),
+                    item.get("total_kg"),
+                    item.get("total_slab_quantity"),
+                    item.get("total_c_s_quantity"),
+                    item.get("total_usd_amount"),
+                    item.get("total_inr_amount"),
+                    round(float(item.get("avg_usd_rate_per_kg") or 0), 2),
+                    round(float(item.get("avg_yield_percentage") or 0), 2) if item.get("avg_yield_percentage") else "N/A",
+                ]
+                
+                # Insert unit and glaze data at proper positions
+                if units:
+                    row.insert(-8, item.get("unit__description", "N/A"))
+                    row.insert(-8, item.get("unit__unit_code", "N/A"))
+                if glazes:
+                    row.insert(-8, item.get("glaze__percentage", "N/A"))
+                    
+                writer.writerow(row)
+        
+        return response
+
+    # Handle Excel export
+    if action == "excel":
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Freezing Report')
+        
+        # Define formats
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#D7E4BC',
+            'border': 1,
+            'align': 'center'
+        })
+        
+        section_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#F2F2F2',
+            'border': 1,
+            'align': 'center'
+        })
+        
+        data_format = workbook.add_format({'border': 1})
+        number_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00'})
+        
+        # Write headers
+        headers = [
+            "Section", "Date", "Voucher No", "Type", "Item", "Grade", "Category", 
+            "Species", "Brand", "Freezing Category", "Processing Center", "Store", 
+            "Status", "KG", "Slab Qty", "C/S Qty", "USD Amount", "INR Amount", 
+            "Avg USD Rate/KG", "Avg Yield %"
+        ]
+        
+        if units:
+            headers.insert(-8, "Unit Description")
+            headers.insert(-8, "Unit Code")
+        if glazes:
+            headers.insert(-8, "Glaze %")
+        
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, header_format)
+        
+        row = 1
+        for section_name, section_data in sectioned_data.items():
+            # Write section header
+            worksheet.merge_range(row, 0, row, len(headers)-1, f"SECTION: {section_name}", section_format)
+            row += 1
+            
+            for item in section_data['items']:
+                col = 0
+                worksheet.write(row, col, section_name, data_format); col += 1
+                worksheet.write(row, col, str(item.get("freezing_entry__freezing_date")), data_format); col += 1
+                worksheet.write(row, col, item.get("freezing_entry__voucher_number"), data_format); col += 1
+                worksheet.write(row, col, item.get("entry_type"), data_format); col += 1
+                worksheet.write(row, col, item.get("item__name"), data_format); col += 1
+                worksheet.write(row, col, item.get("grade__grade") or "N/A", data_format); col += 1
+                worksheet.write(row, col, item.get("item__category__name"), data_format); col += 1
+                worksheet.write(row, col, item.get("item__species__name") or "N/A", data_format); col += 1
+                worksheet.write(row, col, item.get("brand__name") or "N/A", data_format); col += 1
+                
+                if units:
+                    worksheet.write(row, col, item.get("unit__description", "N/A"), data_format); col += 1
+                    worksheet.write(row, col, item.get("unit__unit_code", "N/A"), data_format); col += 1
+                if glazes:
+                    worksheet.write(row, col, item.get("glaze__percentage", "N/A"), data_format); col += 1
+                
+                worksheet.write(row, col, item.get("freezing_category__name") or "N/A", data_format); col += 1
+                worksheet.write(row, col, item.get("processing_center__name") or "N/A", data_format); col += 1
+                worksheet.write(row, col, item.get("store__name") or "N/A", data_format); col += 1
+                worksheet.write(row, col, item.get("freezing_entry__freezing_status"), data_format); col += 1
+                worksheet.write(row, col, float(item.get("total_kg") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("total_slab_quantity") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("total_c_s_quantity") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("total_usd_amount") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("total_inr_amount") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("avg_usd_rate_per_kg") or 0), number_format); col += 1
+                worksheet.write(row, col, float(item.get("avg_yield_percentage") or 0) if item.get("avg_yield_percentage") else 0, number_format)
+                
+                row += 1
+        
+        workbook.close()
+        output.seek(0)
+        
+        response = HttpResponse(
+            output.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="enhanced_freezing_report.xlsx"'
+        return response
+
+    return render(
+        request,
+        "adminapp/report/freezing_report.html",
+        {
+            "sectioned_data": sectioned_data,
+            "grand_totals": grand_totals,
+            "items": items,
+            "grades": grades,
+            "categories": categories,
+            "species": species,
+            "brands": brands,
+            "freezing_categories": freezing_categories,
+            "processing_centers": processing_centers,
+            "stores": stores,
+            "units": units,
+            "glazes": glazes,
+            "vouchers": all_vouchers,
+            "selected_items": selected_items,
+            "selected_grades": selected_grades,
+            "selected_categories": selected_categories,
+            "selected_species": selected_species,
+            "selected_brands": selected_brands,
+            "selected_freezing_categories": selected_freezing_categories,
+            "selected_processing_centers": selected_processing_centers,
+            "selected_stores": selected_stores,
+            "selected_units": selected_units,
+            "selected_glazes": selected_glazes,
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "freezing_status": freezing_status,
+            "voucher_search": voucher_search,
+            "entry_type": entry_type,
+            "section_by": section_by,
+        },
+    )
+
+# Separate view for print format
+def freezing_report_print(request):
+    """Separate view specifically for print format"""
+    items = Item.objects.all()
+    grades = ItemGrade.objects.all()
+    categories = ItemCategory.objects.all()
+    species = Species.objects.all()
+    brands = ItemBrand.objects.all()
+    freezing_categories = FreezingCategory.objects.all()
+
+    # Get filter parameters (same as main view)
+    selected_items = request.GET.getlist("items")
+    selected_grades = request.GET.getlist("grades")
+    selected_categories = request.GET.getlist("categories")
+    selected_species = request.GET.getlist("species")
+    selected_brands = request.GET.getlist("brands")
+    selected_freezing_categories = request.GET.getlist("freezing_categories")
+    date_filter = request.GET.get("date_filter")
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    freezing_status = request.GET.get("freezing_status")
+    voucher_search = request.GET.get("voucher_search", "").strip()
+    entry_type = request.GET.get("entry_type", "all")
+
+    # Base querysets
+    spot_queryset = FreezingEntrySpotItem.objects.select_related(
+        "freezing_entry", "item", "grade", "item__category", "item__species",
+        "brand", "freezing_category"
+    )
+    
+    local_queryset = FreezingEntryLocalItem.objects.select_related(
+        "freezing_entry", "item", "grade", "item__category", "item__species",
+        "brand", "freezing_category"
+    )
+
+    # Apply same filters as main view
+    def apply_filters(queryset):
+        if selected_items:
+            queryset = queryset.filter(item__id__in=selected_items)
+        if selected_grades:
+            queryset = queryset.filter(grade__id__in=selected_grades)
+        if selected_categories:
+            queryset = queryset.filter(item__category__id__in=selected_categories)
+        if selected_species:
+            queryset = queryset.filter(item__species__id__in=selected_species)
+        if selected_brands:
+            queryset = queryset.filter(brand__id__in=selected_brands)
+        if selected_freezing_categories:
+            queryset = queryset.filter(freezing_category__id__in=selected_freezing_categories)
+        if freezing_status:
+            queryset = queryset.filter(freezing_entry__freezing_status=freezing_status)
+        if voucher_search:
+            queryset = queryset.filter(freezing_entry__voucher_number__icontains=voucher_search)
+
+        if date_filter == "week":
+            queryset = queryset.filter(freezing_entry__freezing_date__gte=now().date() - timedelta(days=7))
+        elif date_filter == "month":
+            queryset = queryset.filter(freezing_entry__freezing_date__month=now().month)
+        elif date_filter == "year":
+            queryset = queryset.filter(freezing_entry__freezing_date__year=now().year)
+
+        if start_date and end_date:
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(freezing_entry__freezing_date__range=[start, end])
+            except:
+                pass
+
+        return queryset
+
+    # Apply filters
+    spot_queryset = apply_filters(spot_queryset)
+    local_queryset = apply_filters(local_queryset)
+
+    summary_data = []
+
+    # Process entries based on type filter
+    if entry_type in ['all', 'spot']:
+        spot_summary = (
+            spot_queryset.values(
+                "item__name",
+                "item__category__name",
+                "item__species__name",
+                "grade__grade",
+                "brand__name",
+                "freezing_category__name",
+                "freezing_entry__voucher_number",
+                "freezing_entry__freezing_date",
+                "freezing_entry__freezing_status",
+            )
+            .annotate(
+                total_kg=Sum("kg"),
+                total_slab_quantity=Sum("slab_quantity"),
+                total_c_s_quantity=Sum("c_s_quantity"),
+                total_usd_amount=Sum("usd_rate_item"),
+                total_inr_amount=Sum("usd_rate_item_to_inr"),
+                avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
+                avg_yield_percentage=Avg("yield_percentage"),
+                entry_type=Value('Spot', output_field=CharField()),
+            )
+            .order_by("freezing_entry__freezing_date")
+        )
+        summary_data.extend(list(spot_summary))
+
+    if entry_type in ['all', 'local']:
+        local_summary = (
+            local_queryset.values(
+                "item__name",
+                "item__category__name",
+                "item__species__name",
+                "grade__grade",
+                "brand__name",
+                "freezing_category__name",
+                "freezing_entry__voucher_number",
+                "freezing_entry__freezing_date",
+                "freezing_entry__freezing_status",
+            )
+            .annotate(
+                total_kg=Sum("kg"),
+                total_slab_quantity=Sum("slab_quantity"),
+                total_c_s_quantity=Sum("c_s_quantity"),
+                total_usd_amount=Sum("usd_rate_item"),
+                total_inr_amount=Sum("usd_rate_item_to_inr"),
+                avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
+                avg_yield_percentage=Value(None, output_field=DecimalField()),
+                entry_type=Value('Local', output_field=CharField()),
+            )
+            .order_by("freezing_entry__freezing_date")
+        )
+        summary_data.extend(list(local_summary))
+
+    # Sort combined data by date
+    summary_data = sorted(summary_data, key=lambda x: x['freezing_entry__freezing_date'])
+
+    return render(
+        request,
+        "adminapp/report/freezing_report_print.html",
+        {
+            "summary": summary_data,
+            "start_date": start_date,
+            "end_date": end_date,
+            "entry_type": entry_type,
+            "selected_items": selected_items,
+            "selected_grades": selected_grades,
+            "selected_categories": selected_categories,
+            "selected_species": selected_species,
+            "selected_brands": selected_brands,
+            "selected_freezing_categories": selected_freezing_categories,
+            "freezing_status": freezing_status,
+            "voucher_search": voucher_search,
+        },
+    )
+
+
+
+
+
+
+
+
+
+
+
 
 
 

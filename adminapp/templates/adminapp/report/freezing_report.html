@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enhanced Sectioned Freezing Report</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Load required libraries from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0.75in 0.5in;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.3;
+            color: #000000;
+            background: white;
+        }
+
+        .filter-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #333;
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            background-color: white;
+        }
+
+        .filter-group select[multiple] {
+            height: 100px;
+            overflow-y: auto;
+        }
+
+        .filter-group select:focus, .filter-group input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .filter-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .filter-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .filter-btn.export {
+            background: #28a745;
+            color: white;
+        }
+
+        .filter-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 2px solid #000;
+            page-break-inside: avoid;
+            background-color: #f8f9fa;
+        }
+
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #000;
+        }
+
+        .report-subtitle {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .company-info {
+            background-color: #e8f5e8;
+            padding: 10px;
+            border: 1px solid #000;
+            margin-bottom: 10px;
+            border-radius: 3px;
+        }
+
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 3px;
+        }
+
+        .company-location {
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 2px;
+        }
+
+        .date-range {
+            font-size: 12px;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+            border: 2px solid #000;
+            padding: 12px;
+            margin: 20px 0 10px 0;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            page-break-before: avoid;
+            page-break-after: avoid;
+            border-radius: 3px;
+        }
+
+        .section-title {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #000;
+        }
+
+        .section-summary {
+            background-color: #f8f9fa;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            border: 2px solid #000;
+            font-size: 10px;
+            page-break-inside: auto;
+            background-color: white;
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, #f8f8f8 0%, #e8e8e8 100%);
+            border: 1px solid #000;
+            padding: 8px 4px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 9px;
+            vertical-align: middle;
+            color: #000;
+        }
+
+        .data-table td {
+            border: 1px solid #000;
+            padding: 5px 3px;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 9px;
+        }
+
+        .data-table .number-col {
+            text-align: right;
+            padding-right: 6px;
+        }
+
+        .data-table .center-col {
+            text-align: center;
+        }
+
+        /* Column width adjustments */
+        .serial-col { width: 35px; }
+        .date-col { width: 70px; }
+        .item-col { width: 120px; }
+        .category-col { width: 80px; }
+        .unit-col { width: 55px; }
+        .grade-col { width: 65px; }
+        .glaze-col { width: 65px; }
+        .qty-col { width: 75px; }
+        .type-col { width: 50px; }
+        .brand-col { width: 80px; }
+        .species-col { width: 80px; }
+
+        .section-total-row {
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+            font-weight: bold;
+        }
+
+        .section-total-row td {
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            font-weight: bold;
+            font-size: 10px;
+            padding: 6px 3px;
+        }
+
+        .grand-total-section {
+            margin-top: 25px;
+            border: 2px solid #000;
+            page-break-inside: avoid;
+            border-radius: 3px;
+        }
+
+        .grand-total-header {
+            background: linear-gradient(135deg, #d0d0d0 0%, #b8b8b8 100%);
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .grand-total-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .grand-total-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            font-weight: bold;
+            text-align: right;
+            font-size: 11px;
+        }
+
+        .grand-total-table .label-col {
+            background-color: #f8f8f8;
+            text-align: left;
+            width: 200px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            font-style: italic;
+            color: #666;
+            font-size: 14px;
+            border: 1px dashed #ccc;
+            margin: 20px 0;
+            background-color: #f8f9fa;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 10px 18px;
+            border: 1px solid #000;
+            background-color: #f0f0f0;
+            font-size: 11px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .action-btn:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-1px);
+        }
+
+        .print-btn {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .pdf-btn {
+            background-color: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Enhanced styling for better readability */
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f0f8ff;
+        }
+
+        /* Print styles */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0.75in 0.5in;
+            }
+
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                padding: 0;
+                font-size: 10px;
+            }
+            
+            .filter-form, .action-buttons {
+                display: none !important;
+            }
+            
+            .report-header {
+                page-break-inside: avoid;
+                margin-bottom: 15px;
+                padding: 10px;
+            }
+            
+            .section-header {
+                page-break-before: avoid;
+                page-break-after: avoid;
+                margin: 15px 0 8px 0;
+                padding: 8px;
+                font-size: 12px;
+            }
+            
+            .data-table {
+                page-break-inside: auto;
+                margin-bottom: 10px;
+                font-size: 9px;
+            }
+            
+            .data-table thead {
+                display: table-header-group;
+            }
+            
+            .data-table tbody tr {
+                page-break-inside: avoid;
+            }
+            
+            .section-total-row {
+                page-break-inside: avoid;
+            }
+            
+            .grand-total-section {
+                page-break-inside: avoid;
+                margin-top: 20px;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+                font-size: 10px;
+            }
+            
+            .filter-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .data-table {
+                font-size: 8px;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 2px 1px;
+                font-size: 8px;
+            }
+
+            .filter-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .filter-btn {
+                width: 80%;
+                max-width: 200px;
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+        }
+
+        .notification.success {
+            background-color: #4CAF50;
+        }
+
+        .notification.error {
+            background-color: #f44336;
+        }
+
+        /* Filter indicators */
+        .active-filters {
+            background-color: #e7f3ff;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #007bff;
+            font-size: 11px;
+        }
+
+        .filter-tag {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 2px 6px;
+            margin: 2px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Filter Form -->
+    <div class="filter-form">
+        <form method="GET" id="filterForm">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label for="section_by">Section By:</label>
+                    <select name="section_by" id="section_by">
+                        <option value="category" {% if section_by == 'category' %}selected{% endif %}>Category</option>
+                        <option value="brand" {% if section_by == 'brand' %}selected{% endif %}>Brand</option>
+                        <option value="month" {% if section_by == 'month' %}selected{% endif %}>Month</option>
+                        <option value="species" {% if section_by == 'species' %}selected{% endif %}>Species</option>
+                        <option value="processing_center" {% if section_by == 'processing_center' %}selected{% endif %}>Processing Center</option>
+                        <option value="grade" {% if section_by == 'grade' %}selected{% endif %}>Grade</option>
+                        <option value="item" {% if section_by == 'item' %}selected{% endif %}>Item</option>
+                        <option value="store" {% if section_by == 'store' %}selected{% endif %}>Store</option>
+                        {% if units %}
+                        <option value="unit" {% if section_by == 'unit' %}selected{% endif %}>Unit</option>
+                        {% endif %}
+                        {% if glazes %}
+                        <option value="glaze" {% if section_by == 'glaze' %}selected{% endif %}>Glaze</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="entry_type">Entry Type:</label>
+                    <select name="entry_type" id="entry_type">
+                        <option value="all" {% if entry_type == 'all' %}selected{% endif %}>All Types</option>
+                        <option value="spot" {% if entry_type == 'spot' %}selected{% endif %}>Spot</option>
+                        <option value="local" {% if entry_type == 'local' %}selected{% endif %}>Local</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="items">Items:</label>
+                    <select name="items" id="items" multiple>
+                        <option value="">All Items</option>
+                        {% for item in items %}
+                        <option value="{{ item.id }}" {% if item.id|stringformat:"s" in selected_items %}selected{% endif %}>
+                            {{ item.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="grades">Grades:</label>
+                    <select name="grades" id="grades" multiple>
+                        <option value="">All Grades</option>
+                        {% for grade in grades %}
+                        <option value="{{ grade.id }}" {% if grade.id|stringformat:"s" in selected_grades %}selected{% endif %}>
+                            {{ grade.grade }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if units %}
+                <div class="filter-group">
+                    <label for="units">Units:</label>
+                    <select name="units" id="units" multiple>
+                        <option value="">All Units</option>
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}" {% if unit.id|stringformat:"s" in selected_units %}selected{% endif %}>
+                            {{ unit.name }}{% if unit.unit_code %} ({{ unit.unit_code }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                {% if glazes %}
+                <div class="filter-group">
+                    <label for="glazes">Glazes:</label>
+                    <select name="glazes" id="glazes" multiple>
+                        <option value="">All Glazes</option>
+                        {% for glaze in glazes %}
+                        <option value="{{ glaze.id }}" {% if glaze.id|stringformat:"s" in selected_glazes %}selected{% endif %}>
+                            {{ glaze.name }}{% if glaze.percentage %} ({{ glaze.percentage }}%){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="filter-group">
+                    <label for="categories">Categories:</label>
+                    <select name="categories" id="categories" multiple>
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}" {% if category.id|stringformat:"s" in selected_categories %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="brands">Brands:</label>
+                    <select name="brands" id="brands" multiple>
+                        <option value="">All Brands</option>
+                        {% for brand in brands %}
+                        <option value="{{ brand.id }}" {% if brand.id|stringformat:"s" in selected_brands %}selected{% endif %}>
+                            {{ brand.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="species">Species:</label>
+                    <select name="species" id="species" multiple>
+                        <option value="">All Species</option>
+                        {% for spec in species %}
+                        <option value="{{ spec.id }}" {% if spec.id|stringformat:"s" in selected_species %}selected{% endif %}>
+                            {{ spec.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="freezing_categories">Freezing Categories:</label>
+                    <select name="freezing_categories" id="freezing_categories" multiple>
+                        <option value="">All Freezing Categories</option>
+                        {% for freezing_cat in freezing_categories %}
+                        <option value="{{ freezing_cat.id }}" {% if freezing_cat.id|stringformat:"s" in selected_freezing_categories %}selected{% endif %}>
+                            {{ freezing_cat.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="processing_centers">Processing Centers:</label>
+                    <select name="processing_centers" id="processing_centers" multiple>
+                        <option value="">All Processing Centers</option>
+                        {% for pc in processing_centers %}
+                        <option value="{{ pc.id }}" {% if pc.id|stringformat:"s" in selected_processing_centers %}selected{% endif %}>
+                            {{ pc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="stores">Stores:</label>
+                    <select name="stores" id="stores" multiple>
+                        <option value="">All Stores</option>
+                        {% for store in stores %}
+                        <option value="{{ store.id }}" {% if store.id|stringformat:"s" in selected_stores %}selected{% endif %}>
+                            {{ store.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="date_filter">Date Filter:</label>
+                    <select name="date_filter" id="date_filter">
+                        <option value="" {% if not date_filter %}selected{% endif %}>All Time</option>
+                        <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
+                        <option value="week" {% if date_filter == 'week' %}selected{% endif %}>This Week</option>
+                        <option value="month" {% if date_filter == 'month' %}selected{% endif %}>This Month</option>
+                        <option value="quarter" {% if date_filter == 'quarter' %}selected{% endif %}>This Quarter</option>
+                        <option value="year" {% if date_filter == 'year' %}selected{% endif %}>This Year</option>
+                        <option value="custom" {% if date_filter == 'custom' %}selected{% endif %}>Custom Range</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="start_date">Start Date:</label>
+                    <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
+                </div>
+
+                <div class="filter-group">
+                    <label for="end_date">End Date:</label>
+                    <input type="date" name="end_date" id="end_date" value="{{ end_date }}">
+                </div>
+
+                <div class="filter-group">
+                    <label for="freezing_status">Status:</label>
+                    <select name="freezing_status" id="freezing_status">
+                        <option value="" {% if not freezing_status %}selected{% endif %}>All Status</option>
+                        <option value="complete" {% if freezing_status == 'complete' %}selected{% endif %}>Complete</option>
+                        <option value="incomplete" {% if freezing_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
+                        <option value="pending" {% if freezing_status == 'pending' %}selected{% endif %}>Pending</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="voucher_search">Voucher Search:</label>
+                    <input type="text" name="voucher_search" id="voucher_search" value="{{ voucher_search }}" placeholder="Search voucher number...">
+                </div>
+            </div>
+
+            <div class="filter-buttons">
+                <button type="submit" class="filter-btn primary">Generate Report</button>
+                <button type="button" onclick="resetForm()" class="filter-btn secondary">Reset Filters</button>
+                <a href="?action=csv&{{ request.GET.urlencode }}" class="filter-btn export">Export CSV</a>
+                <a href="?action=excel&{{ request.GET.urlencode }}" class="filter-btn export">Export Excel</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Active Filters Display -->
+    {% if request.GET %}
+    <div class="active-filters">
+        <strong>Active Filters:</strong>
+        {% if section_by %}<span class="filter-tag">Section: {{ section_by|title }}</span>{% endif %}
+        {% if entry_type != 'all' %}<span class="filter-tag">Type: {{ entry_type|title }}</span>{% endif %}
+        {% if start_date %}<span class="filter-tag">From: {{ start_date }}</span>{% endif %}
+        {% if end_date %}<span class="filter-tag">To: {{ end_date }}</span>{% endif %}
+        {% if freezing_status %}<span class="filter-tag">Status: {{ freezing_status|title }}</span>{% endif %}
+        {% if voucher_search %}<span class="filter-tag">Voucher: {{ voucher_search }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Report Header -->
+    <div class="report-header">
+        <div class="report-title">ENHANCED SECTIONED FREEZING REPORT</div>
+        <div class="report-subtitle">Detailed Breakdown by {{ section_by|title }}</div>
+        
+        <div class="company-info">
+            <div class="company-name">PREMIER MARINE FOOD</div>
+            <div class="company-location">VANDANAM, ALAPPUZHA</div>
+            <div class="company-location">KERALA, INDIA</div>
+        </div>
+        
+        <div class="date-range">
+            {% if start_date and end_date %}
+                Period: {{ start_date|date:"d-M-Y" }} to {{ end_date|date:"d-M-Y" }}
+            {% elif date_filter == 'month' %}
+                Period: Current Month ({{ "now"|date:"F Y" }})
+            {% elif date_filter == 'week' %}
+                Period: Current Week
+            {% elif date_filter == 'year' %}
+                Period: Current Year ({{ "now"|date:"Y" }})
+            {% else %}
+                Period: All Records
+            {% endif %}
+            | Sectioned by: {{ section_by|upper }}
+        </div>
+    </div>
+
+    <!-- Sectioned Data Display -->
+    <div id="sectioned-content">
+        {% for section_name, section_data in sectioned_data.items %}
+        <!-- Section Header -->
+        <div class="section-header">
+            <div class="section-title">
+                {% if section_by == 'month' %}
+                    {{ section_name|date:"F Y" }}
+                {% elif section_by == 'category' %}
+                    CATEGORY: {{ section_name|upper }}
+                {% elif section_by == 'brand' %}
+                    BRAND: {{ section_name|upper }}
+                {% elif section_by == 'species' %}
+                    SPECIES: {{ section_name|upper }}
+                {% elif section_by == 'grade' %}
+                    GRADE: {{ section_name|upper }}
+                {% elif section_by == 'item' %}
+                    ITEM: {{ section_name|upper }}
+                {% elif section_by == 'unit' %}
+                    UNIT: {{ section_name|upper }}
+                {% elif section_by == 'glaze' %}
+                    GLAZE: {{ section_name|upper }}
+                {% elif section_by == 'processing_center' %}
+                    PROCESSING CENTER: {{ section_name|upper }}
+                {% elif section_by == 'store' %}
+                    STORE: {{ section_name|upper }}
+                {% else %}
+                    {{ section_name|upper }}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Section Summary -->
+        <div class="section-summary">
+            <strong>Section Summary:</strong> 
+            {{ section_data.items|length }} records | 
+            Total: {{ section_data.totals.total_kg|floatformat:2 }} KG | 
+            USD: ${{ section_data.totals.total_usd_amount|floatformat:2 }} | 
+            INR: ₹{{ section_data.totals.total_inr_amount|floatformat:2 }}
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="serial-col">S.NO</th>
+                    <th class="date-col">DATE</th>
+                    <th class="item-col">ITEM NAME</th>
+                    <th class="brand-col">BRAND</th>
+                    <th class="grade-col">GRADE</th>
+                    {% if units %}
+                    <th class="unit-col">UNIT</th>
+                    {% endif %}
+                    {% if glazes %}
+                    <th class="glaze-col">GLAZE</th>
+                    {% endif %}
+                    <th class="category-col">CATEGORY</th>
+                    <th class="species-col">SPECIES</th>
+                    <th class="type-col">TYPE</th>
+                    <th class="qty-col">QTY (KG)</th>
+                    <th class="qty-col">USD AMT</th>
+                    <th class="qty-col">INR AMT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in section_data.items %}
+                <tr>
+                    <td class="center-col">{{ forloop.counter }}</td>
+                    <td class="center-col">{{ item.freezing_entry__freezing_date|date:"d/m/Y" }}</td>
+                    <td title="{{ item.item__name }}">{{ item.item__name|truncatechars:18 }}</td>
+                    <td title="{{ item.item__brand__name|default:'N/A' }}">{{ item.item__brand__name|default:"N/A"|truncatechars:12 }}</td>
+                    <td class="center-col">{{ item.grade__grade|default:"N/A" }}</td>
+                    {% if units %}
+                    <td class="center-col" title="{{ item.unit__description|default:'N/A' }}">
+                        {{ item.unit__unit_code|default:item.unit__description|default:"N/A"|truncatechars:8 }}
+                    </td>
+                    {% endif %}
+                    {% if glazes %}
+                    <td class="center-col" title="{{ item.glaze__name|default:'N/A' }}">
+                        {% if item.glaze__percentage %}{{ item.glaze__percentage }}%{% else %}{{ item.glaze__name|default:"N/A"|truncatechars:8 }}{% endif %}
+                    </td>
+                    {% endif %}
+                    <td title="{{ item.item__category__name|default:'N/A' }}">{{ item.item__category__name|default:"N/A"|truncatechars:12 }}</td>
+                    <td title="{{ item.item__species__name|default:'N/A' }}">{{ item.item__species__name|default:"N/A"|truncatechars:12 }}</td>
+                    <td class="center-col">{{ item.entry_type|upper }}</td>
+                    <td class="number-col">{{ item.total_kg|floatformat:2 }}</td>
+                    <td class="number-col">${{ item.total_usd_amount|floatformat:2 }}</td>
+                    <td class="number-col">₹{{ item.total_inr_amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                
+                <!-- Section Total Row -->
+                <tr class="section-total-row">
+                    <td colspan="{% if units and glazes %}10{% elif units or glazes %}9{% else %}8{% endif %}" class="center-col"><strong>SECTION TOTAL</strong></td>
+                    <td class="number-col"><strong>{{ section_data.totals.total_kg|floatformat:2 }}</strong></td>
+                    <td class="number-col"><strong>${{ section_data.totals.total_usd_amount|floatformat:2 }}</strong></td>
+                    <td class="number-col"><strong>₹{{ section_data.totals.total_inr_amount|floatformat:2 }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        {% empty %}
+        <div class="no-data">
+            <h3>No Records Found</h3>
+            <p>No freezing records match your current filter criteria.</p>
+            <p>Try adjusting your filters or selecting a different date range.</p>
+        </div>
+        {% endfor %}
+
+        <!-- Grand Total Section -->
+        {% if sectioned_data %}
+        <div class="grand-total-section">
+            <div class="grand-total-header">GRAND TOTALS - ALL SECTIONS</div>
+            <table class="grand-total-table">
+                <tr>
+                    <td class="label-col">TOTAL QUANTITY (KG)</td>
+                    <td class="number-col">{{ grand_totals.total_kg|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="label-col">TOTAL USD AMOUNT</td>
+                    <td class="number-col">${{ grand_totals.total_usd_amount|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="label-col">TOTAL INR AMOUNT</td>
+                    <td class="number-col">₹{{ grand_totals.total_inr_amount|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="label-col">TOTAL RECORDS</td>
+                    <td class="number-col">{{ grand_totals.count }}</td>
+                </tr>
+                <tr>
+                    <td class="label-col">TOTAL SECTIONS</td>
+                    <td class="number-col">{{ sectioned_data|length }}</td>
+                </tr>
+                {% if grand_totals.avg_kg %}
+                <tr>
+                    <td class="label-col">AVERAGE QUANTITY PER RECORD (KG)</td>
+                    <td class="number-col">{{ grand_totals.avg_kg|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                {% if grand_totals.avg_usd_amount %}
+                <tr>
+                    <td class="label-col">AVERAGE USD AMOUNT PER RECORD</td>
+                    <td class="number-col">${{ grand_totals.avg_usd_amount|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button type="button" onclick="window.print()" class="action-btn print-btn">
+            🖨️ Print Report
+        </button>
+        <button type="button" onclick="generatePDF()" class="action-btn pdf-btn">
+            <span class="loading-spinner" id="pdfSpinner"></span>
+            📄 Generate PDF
+        </button>
+        <a href="?print=1&{{ request.GET.urlencode }}" target="_blank" class="action-btn">
+            👁️ Print Preview
+        </a>
+        <button type="button" onclick="exportToCSV()" class="action-btn export">
+            📊 Export CSV
+        </button>
+        <button type="button" onclick="showReportSummary()" class="action-btn">
+            📋 Report Summary
+        </button>
+    </div>
+
+<script>
+// Enhanced form handling functions
+function resetForm() {
+    const form = document.getElementById('filterForm');
+    if (form) {
+        form.reset();
+        
+        // Clear all multi-select dropdowns
+        const multiSelects = form.querySelectorAll('select[multiple]');
+        multiSelects.forEach(select => {
+            Array.from(select.options).forEach(option => {
+                option.selected = false;
+            });
+        });
+        
+        // Reset to default values
+        document.getElementById('section_by').value = 'category';
+        document.getElementById('entry_type').value = 'all';
+        
+        // Submit form to show all data
+        setTimeout(() => {
+            window.location.href = window.location.pathname;
+        }, 100);
+    }
+}
+
+// Enhanced PDF Generation with better error handling
+async function generatePDF() {
+    const pdfButton = document.querySelector('.pdf-btn');
+    const spinner = document.getElementById('pdfSpinner');
+    
+    if (!pdfButton) {
+        showNotification('PDF button not found', 'error');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        if (spinner) spinner.style.display = 'inline-block';
+        pdfButton.style.pointerEvents = 'none';
+        pdfButton.style.opacity = '0.7';
+        pdfButton.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span>Generating PDF...';
+
+        // Wait for libraries to load
+        if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+            showNotification('Loading PDF libraries...', 'success');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        if (typeof window.jspdf === 'undefined') {
+            throw new Error('jsPDF library failed to load. Please refresh and try again.');
+        }
+
+        if (typeof html2canvas === 'undefined') {
+            throw new Error('Canvas library failed to load. Please refresh and try again.');
+        }
+
+        // Hide elements for PDF generation
+        const elementsToHide = ['.filter-form', '.action-buttons', '.active-filters'];
+        const hiddenElements = [];
+        
+        elementsToHide.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+                if (el && el.style.display !== 'none') {
+                    hiddenElements.push({element: el, originalDisplay: el.style.display});
+                    el.style.display = 'none';
+                }
+            });
+        });
+
+        // Create high-quality canvas
+        const canvas = await html2canvas(document.body, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            width: document.body.scrollWidth,
+            height: document.body.scrollHeight,
+            dpi: 300,
+            quality: 1.0
+        });
+
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        
+        // Create PDF with proper A4 dimensions
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+            compress: true
+        });
+
+        // A4 dimensions with margins
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+        const margin = 10;
+        const printableWidth = pdfWidth - (margin * 2);
+        const printableHeight = pdfHeight - (margin * 2);
+        
+        const imgWidth = printableWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let yPosition = margin;
+        let heightLeft = imgHeight;
+        let pageNumber = 1;
+
+        // Add content to PDF
+        pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= printableHeight;
+
+        // Add additional pages if needed
+        while (heightLeft > 0) {
+            yPosition = margin - (imgHeight - heightLeft);
+            pdf.addPage();
+            pageNumber++;
+            pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight, undefined, 'FAST');
+            heightLeft -= printableHeight;
+        }
+
+        // Generate filename with timestamp
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+        const sectionBy = document.getElementById('section_by')?.value || 'category';
+        const filename = `Enhanced_Freezing_Report_${sectionBy}_${dateStr}_${timeStr}.pdf`;
+
+        // Save the PDF
+        pdf.save(filename);
+        
+        showNotification(`PDF generated successfully! (${pageNumber} page${pageNumber > 1 ? 's' : ''})`, 'success');
+
+        // Restore hidden elements
+        hiddenElements.forEach(({element, originalDisplay}) => {
+            element.style.display = originalDisplay;
+        });
+
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        
+        let errorMessage = 'PDF Generation Failed: ';
+        if (error.message.includes('jsPDF')) {
+            errorMessage += 'PDF library issue. Please refresh the page.';
+        } else if (error.message.includes('html2canvas')) {
+            errorMessage += 'Canvas library issue. Please refresh the page.';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred.';
+        }
+        
+        showNotification(errorMessage, 'error');
+    } finally {
+        // Restore button state
+        if (spinner) spinner.style.display = 'none';
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+        pdfButton.innerHTML = '📄 Generate PDF';
+        
+        // Show hidden elements
+        const elementsToShow = ['.filter-form', '.action-buttons', '.active-filters'];
+        elementsToShow.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+                if (el) el.style.display = '';
+            });
+        });
+    }
+}
+
+// Enhanced CSV Export function
+function exportToCSV() {
+    try {
+        const tables = document.querySelectorAll('.data-table');
+        if (tables.length === 0) {
+            showNotification('No data to export', 'error');
+            return;
+        }
+
+        let csvContent = '';
+        let isFirstTable = true;
+
+        tables.forEach((table, tableIndex) => {
+            // Add section header
+            const sectionHeader = table.closest('.section-header + .section-summary + .data-table')?.previousElementSibling?.previousElementSibling;
+            if (sectionHeader && !isFirstTable) {
+                csvContent += '\n\n' + sectionHeader.textContent.trim() + '\n';
+            } else if (sectionHeader && isFirstTable) {
+                csvContent += sectionHeader.textContent.trim() + '\n';
+                isFirstTable = false;
+            }
+
+            // Add table headers
+            const headers = Array.from(table.querySelectorAll('thead th')).map(th => 
+                th.textContent.trim().replace(/,/g, ';')
+            );
+            csvContent += headers.join(',') + '\n';
+
+            // Add table data
+            const rows = table.querySelectorAll('tbody tr:not(.section-total-row)');
+            rows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td')).map(td => 
+                    td.textContent.trim().replace(/,/g, ';')
+                );
+                csvContent += cells.join(',') + '\n';
+            });
+
+            // Add section total
+            const totalRow = table.querySelector('.section-total-row');
+            if (totalRow) {
+                const totalCells = Array.from(totalRow.querySelectorAll('td')).map(td => 
+                    td.textContent.trim().replace(/,/g, ';')
+                );
+                csvContent += totalCells.join(',') + '\n';
+            }
+        });
+
+        // Create and download CSV file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const sectionBy = document.getElementById('section_by')?.value || 'category';
+        const filename = `Enhanced_Freezing_Report_${sectionBy}_${dateStr}.csv`;
+
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification('CSV exported successfully!', 'success');
+        }
+    } catch (error) {
+        console.error('CSV export error:', error);
+        showNotification('Failed to export CSV: ' + error.message, 'error');
+    }
+}
+
+// Show report summary
+function showReportSummary() {
+    const grandTotals = document.querySelector('.grand-total-table');
+    if (!grandTotals) {
+        showNotification('No summary data available', 'error');
+        return;
+    }
+    
+    let summary = 'REPORT SUMMARY\n\n';
+    const rows = grandTotals.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length === 2) {
+            summary += cells[0].textContent.trim() + ': ' + cells[1].textContent.trim() + '\n';
+        }
+    });
+    
+    alert(summary);
+}
+
+// Enhanced notification system
+function showNotification(message, type) {
+    // Remove existing notifications
+    document.querySelectorAll('.notification').forEach(notification => {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    });
+
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }
+    }, 5000);
+}
+
+// Auto-submit form when section_by changes
+document.getElementById('section_by').addEventListener('change', function() {
+    showNotification('Updating report layout...', 'success');
+    setTimeout(() => {
+        document.getElementById('filterForm').submit();
+    }, 500);
+});
+
+// Date filter handling
+document.getElementById('date_filter').addEventListener('change', function() {
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+    
+    if (this.value === 'custom') {
+        startDate.style.display = 'block';
+        endDate.style.display = 'block';
+        startDate.required = true;
+        endDate.required = true;
+    } else {
+        startDate.style.display = 'none';
+        endDate.style.display = 'none';
+        startDate.required = false;
+        endDate.required = false;
+        
+        if (this.value) {
+            setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        }
+    }
+});
+
+// Print event handlers
+window.addEventListener('beforeprint', function() {
+    document.querySelectorAll('.filter-form, .action-buttons, .active-filters').forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+});
+
+window.addEventListener('afterprint', function() {
+    document.querySelectorAll('.filter-form, .action-buttons, .active-filters').forEach(el => {
+        if (el) el.style.display = '';
+    });
+});
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Enhance multi-select dropdowns
+    const multiSelects = document.querySelectorAll('select[multiple]');
+    multiSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const selectedCount = Array.from(this.selectedOptions).length;
+            if (selectedCount > 0) {
+                this.title = `${selectedCount} item${selectedCount > 1 ? 's' : ''} selected`;
+            } else {
+                this.title = 'No items selected';
+            }
+        });
+        
+        // Initial title setup
+        const selectedCount = Array.from(select.selectedOptions).length;
+        if (selectedCount > 0) {
+            select.title = `${selectedCount} item${selectedCount > 1 ? 's' : ''} selected`;
+        }
+    });
+
+    // Show welcome message if no filters applied
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.toString()) {
+        setTimeout(() => {
+            showNotification('Welcome! Apply filters to generate your custom report.', 'success');
+        }, 1000);
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey) {
+        switch(e.key) {
+            case 'p':
+                e.preventDefault();
+                window.print();
+                break;
+            case 's':
+                e.preventDefault();
+                generatePDF();
+                break;
+            case 'r':
+                e.preventDefault();
+                resetForm();
+                break;
+        }
+    }
+});
+</script>
+
+</body>
+</html>
