@@ -599,37 +599,66 @@ class ShipmentOverheadDeleteView(DeleteView):
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:shipment_overhead_list')
 
-def settings_list(request):
-    settings = Settings.objects.all()
-    return render(request, 'adminapp/list/settings_list.html', {'settings': settings})
-
 def settings_create(request):
     if request.method == 'POST':
         form = SettingsForm(request.POST)
         if form.is_valid():
-            form.save()
+            dollar_rate = form.cleaned_data['dollar_rate_to_inr']
+            vehicle_rent = form.cleaned_data['vehicle_rent_km']
+
+            # Only create if NO active settings exist with same values
+            exists = Settings.objects.filter(
+                dollar_rate_to_inr=dollar_rate,
+                vehicle_rent_km=vehicle_rent,
+                is_active=True
+            ).exists()
+
+            if not exists:
+                # deactivate all old ones
+                Settings.objects.filter(is_active=True).update(is_active=False)
+                # create new one
+                form.save()
             return redirect('adminapp:settings_list')
     else:
         form = SettingsForm()
+
     return render(request, 'adminapp/forms/settings_form.html', {'form': form})
 
 def settings_update(request, pk):
-    setting = get_object_or_404(Settings, pk=pk)
+    old_setting = get_object_or_404(Settings, pk=pk)
+
     if request.method == 'POST':
-        form = SettingsForm(request.POST, instance=setting)
+        # Don’t bind to old instance → we want a *new* row
+        form = SettingsForm(request.POST)
         if form.is_valid():
-            form.save()
+            # Mark old setting inactive
+            old_setting.is_active = False
+            old_setting.save()
+
+            # Create new setting
+            new_setting = form.save(commit=False)
+            new_setting.is_active = True
+            new_setting.save()
+
             return redirect('adminapp:settings_list')
     else:
-        form = SettingsForm(instance=setting)
+        # Prefill form with old values for editing
+        form = SettingsForm(instance=old_setting)
+
     return render(request, 'adminapp/forms/settings_form.html', {'form': form})
 
 def settings_delete(request, pk):
     setting = get_object_or_404(Settings, pk=pk)
     if request.method == 'POST':
-        setting.delete()
+        setting.is_active = False   # mark inactive instead of deleting
+        setting.save()
         return redirect('adminapp:settings_list')
+
     return render(request, 'adminapp/confirm_delete.html', {'setting': setting})
+
+def settings_list(request):
+    settings = Settings.objects.filter(is_active=True).order_by('-created_at')
+    return render(request, 'adminapp/list/settings_list.html', {'settings': settings})
 
 
 # function for creating a Purchase Entry
@@ -741,6 +770,9 @@ def spot_purchase_detail(request, pk):
     return render(request, 'adminapp/purchases/spot_purchase_detail.html', {
         'purchase': purchase
     })
+
+
+
 
 def local_purchase_create(request):
     if request.method == 'POST':
@@ -1314,7 +1346,7 @@ def get_unit_details(request):
         return JsonResponse({'error': 'Unit not found'}, status=404)
 
 def get_dollar_rate(request):
-    settings_obj = Settings.objects.first()
+    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
     if settings_obj:
         return JsonResponse({
             'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
@@ -1544,14 +1576,17 @@ def get_party_details(request):
     try:
         purchase = LocalPurchase.objects.get(id=party_id)
 
-        # ✅ assuming LocalPurchaseItem has related_name = "items"
+        # assuming LocalPurchaseItem has FK → ItemGrade as `grade`
         items = purchase.items.all().values(
             'id',
             'item__id',
             'item__name',
             'quantity',
             'rate',
-            'amount'
+            'amount',
+            'grade__id',
+            'grade__grade',             # grade text
+            'grade__species__name',     # ✅ species name
         )
 
         data = {
@@ -1576,7 +1611,7 @@ def get_unit_details_local(request):
         return JsonResponse({'error': 'Unit not found'}, status=404)
 
 def get_dollar_rate_local(request):
-    settings_obj = Settings.objects.first()
+    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
     if settings_obj:
         return JsonResponse({
             'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
@@ -1980,7 +2015,7 @@ def get_grade_for_species(request):
 
 def get_dollar_rate_pre_workout(request):
     """Return the current dollar to INR rate for Pre-Shipment WorkOut."""
-    settings_obj = Settings.objects.first()
+    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
     if settings_obj:
         return JsonResponse({
             'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
@@ -2803,8 +2838,33 @@ def peeling_shed_supply_report_print(request):
 
 
 
-# FREEZING REPORT
+
+
+
+
+# DIAGNOSTIC VERSION - Check what fields actually exist
 def freezing_report(request):
+    # First, let's check what fields actually exist on the models
+    from django.db import connection
+    
+    # Check FreezingEntrySpotItem fields
+    try:
+        spot_item_fields = [field.name for field in FreezingEntrySpotItem._meta.fields]
+        print("FreezingEntrySpotItem fields:", spot_item_fields)
+        
+        local_item_fields = [field.name for field in FreezingEntryLocalItem._meta.fields]
+        print("FreezingEntryLocalItem fields:", local_item_fields)
+        
+        # Check foreign key relationships
+        spot_fk_fields = [field.name for field in FreezingEntrySpotItem._meta.fields if field.get_internal_type() == 'ForeignKey']
+        print("FreezingEntrySpotItem FK fields:", spot_fk_fields)
+        
+        local_fk_fields = [field.name for field in FreezingEntryLocalItem._meta.fields if field.get_internal_type() == 'ForeignKey']
+        print("FreezingEntryLocalItem FK fields:", local_fk_fields)
+        
+    except Exception as e:
+        print("Error checking fields:", str(e))
+
     items = Item.objects.all()
     grades = ItemGrade.objects.all()
     categories = ItemCategory.objects.all()
@@ -2843,63 +2903,113 @@ def freezing_report(request):
     freezing_status = request.GET.get("freezing_status")
     voucher_search = request.GET.get("voucher_search", "").strip()
     entry_type = request.GET.get("entry_type", "all")  # all, spot, local
-    section_by = request.GET.get("section_by", "category")  # category, brand, month, processing_center, etc.
+    section_by = request.GET.get("section_by", "category")
 
-    # Base querysets for both spot and local entries
-    spot_queryset = FreezingEntrySpotItem.objects.select_related(
-        "freezing_entry", "item", "grade", "item__category", "item__species",
-        "brand", "freezing_category", "processing_center", "store"
-    )
-    
-    local_queryset = FreezingEntryLocalItem.objects.select_related(
-        "freezing_entry", "item", "grade", "item__category", "item__species", 
-        "brand", "freezing_category", "processing_center", "store"
-    )
+    # SAFE: Start with minimal select_related and build up
+    spot_queryset = FreezingEntrySpotItem.objects.select_related("freezing_entry", "item", "item__category")
+    local_queryset = FreezingEntryLocalItem.objects.select_related("freezing_entry", "item", "item__category")
 
-    # Add unit and glaze relationships if they exist
-    if units and hasattr(FreezingEntrySpotItem, 'unit'):
-        spot_queryset = spot_queryset.select_related("unit")
-    if glazes and hasattr(FreezingEntrySpotItem, 'glaze'):
-        spot_queryset = spot_queryset.select_related("glaze")
-    if units and hasattr(FreezingEntryLocalItem, 'unit'):
-        local_queryset = local_queryset.select_related("unit")
-    if glazes and hasattr(FreezingEntryLocalItem, 'glaze'):
-        local_queryset = local_queryset.select_related("glaze")
+    # Check what other relationships exist and add them safely
+    try:
+        # Test if grade field exists
+        test_spot = FreezingEntrySpotItem.objects.first()
+        if test_spot and hasattr(test_spot, 'grade'):
+            spot_queryset = spot_queryset.select_related("grade")
+            local_queryset = local_queryset.select_related("grade")
+            print("Added grade to select_related")
+    except:
+        print("No grade field found")
 
-    # Apply filters to both querysets
+    try:
+        # Test if species field exists
+        if test_spot and hasattr(test_spot, 'species'):
+            spot_queryset = spot_queryset.select_related("species")
+            local_queryset = local_queryset.select_related("species")
+            print("Added species to select_related")
+    except:
+        print("No direct species field found")
+
+    try:
+        # Test if brand field exists
+        if test_spot and hasattr(test_spot, 'brand'):
+            spot_queryset = spot_queryset.select_related("brand")
+            local_queryset = local_queryset.select_related("brand")
+            print("Added brand to select_related")
+    except:
+        print("No brand field found")
+
+    try:
+        # Test if freezing_category field exists
+        if test_spot and hasattr(test_spot, 'freezing_category'):
+            spot_queryset = spot_queryset.select_related("freezing_category")
+            local_queryset = local_queryset.select_related("freezing_category")
+            print("Added freezing_category to select_related")
+    except:
+        print("No freezing_category field found")
+
+    try:
+        # Test if processing_center field exists
+        if test_spot and hasattr(test_spot, 'processing_center'):
+            spot_queryset = spot_queryset.select_related("processing_center")
+            local_queryset = local_queryset.select_related("processing_center")
+            print("Added processing_center to select_related")
+    except:
+        print("No processing_center field found")
+
+    try:
+        # Test if store field exists
+        if test_spot and hasattr(test_spot, 'store'):
+            spot_queryset = spot_queryset.select_related("store")
+            local_queryset = local_queryset.select_related("store")
+            print("Added store to select_related")
+    except:
+        print("No store field found")
+
+    # Apply filters with safe field checks
     def apply_filters(queryset, is_spot=True):
+        # Item filters
         if selected_items:
             queryset = queryset.filter(item__id__in=selected_items)
-        if selected_grades:
+        
+        # Check if grade field exists before filtering
+        test_item = queryset.first()
+        if test_item and hasattr(test_item, 'grade') and selected_grades:
             queryset = queryset.filter(grade__id__in=selected_grades)
+        
         if selected_categories:
             queryset = queryset.filter(item__category__id__in=selected_categories)
-        if selected_species:
-            queryset = queryset.filter(item__species__id__in=selected_species)
-        if selected_brands:
-            # Only filter by the brand field that exists on the FreezingEntry models
+        
+        # Check if species field exists before filtering
+        if test_item and hasattr(test_item, 'species') and selected_species:
+            queryset = queryset.filter(species__id__in=selected_species)
+        
+        # Check other fields similarly
+        if test_item and hasattr(test_item, 'brand') and selected_brands:
             queryset = queryset.filter(brand__id__in=selected_brands)
-        if selected_freezing_categories:
+        if test_item and hasattr(test_item, 'freezing_category') and selected_freezing_categories:
             queryset = queryset.filter(freezing_category__id__in=selected_freezing_categories)
-        if selected_processing_centers:
+        if test_item and hasattr(test_item, 'processing_center') and selected_processing_centers:
             queryset = queryset.filter(processing_center__id__in=selected_processing_centers)
-        if selected_stores:
+        if test_item and hasattr(test_item, 'store') and selected_stores:
             queryset = queryset.filter(store__id__in=selected_stores)
-        if selected_units and hasattr(queryset.model, 'unit'):
+        if test_item and hasattr(test_item, 'unit') and selected_units:
             queryset = queryset.filter(unit__id__in=selected_units)
-        if selected_glazes and hasattr(queryset.model, 'glaze'):
+        if test_item and hasattr(test_item, 'glaze') and selected_glazes:
             queryset = queryset.filter(glaze__id__in=selected_glazes)
+            
+        # Status and voucher filters
         if freezing_status:
             queryset = queryset.filter(freezing_entry__freezing_status=freezing_status)
         if voucher_search:
             queryset = queryset.filter(freezing_entry__voucher_number__icontains=voucher_search)
 
-        # Enhanced date filters
+        # Date filters
         today = now().date()
         if date_filter == "today":
             queryset = queryset.filter(freezing_entry__freezing_date=today)
         elif date_filter == "week":
-            queryset = queryset.filter(freezing_entry__freezing_date__gte=today - timedelta(days=7))
+            week_start = today - timedelta(days=today.weekday())
+            queryset = queryset.filter(freezing_entry__freezing_date__gte=week_start)
         elif date_filter == "month":
             queryset = queryset.filter(
                 freezing_entry__freezing_date__year=today.year,
@@ -2911,8 +3021,15 @@ def freezing_report(request):
             queryset = queryset.filter(freezing_entry__freezing_date__gte=quarter_start)
         elif date_filter == "year":
             queryset = queryset.filter(freezing_entry__freezing_date__year=today.year)
+        elif date_filter == "custom" and start_date and end_date:
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(freezing_entry__freezing_date__range=[start, end])
+            except ValueError:
+                pass
 
-        if start_date and end_date:
+        if start_date and end_date and not date_filter:
             try:
                 start = datetime.strptime(start_date, "%Y-%m-%d").date()
                 end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -2926,93 +3043,182 @@ def freezing_report(request):
     spot_queryset = apply_filters(spot_queryset, True)
     local_queryset = apply_filters(local_queryset, False)
 
-    # Combine and process data for sectioning
+    # Process data safely
     all_data = []
 
-    # Process spot entries with correct field names
     if entry_type in ['all', 'spot']:
-        spot_data_fields = [
-            "item__name", "item__category__name", "item__species__name",
-            "grade__grade", "brand__name", 
-            "freezing_category__name", "processing_center__name", "store__name",
-            "freezing_entry__voucher_number", "freezing_entry__freezing_date",
-            "freezing_entry__freezing_status"
-        ]
-        
-        # Add unit and glaze fields with proper names
-        if units and hasattr(FreezingEntrySpotItem, 'unit'):
-            spot_data_fields.extend(["unit__description", "unit__unit_code"])
-        if glazes and hasattr(FreezingEntrySpotItem, 'glaze'):
-            spot_data_fields.extend(["glaze__percentage"])
+        for item in spot_queryset:
+            data_row = {
+                'id': item.id,
+                'item__name': item.item.name if item.item else None,
+                'item__category__name': item.item.category.name if item.item and item.item.category else None,
+                'freezing_entry__voucher_number': item.freezing_entry.voucher_number if item.freezing_entry else None,
+                'freezing_entry__freezing_date': item.freezing_entry.freezing_date if item.freezing_entry else None,
+                'freezing_entry__freezing_status': item.freezing_entry.freezing_status if item.freezing_entry else None,
+                'entry_type': 'spot',
+                'item_count': 1
+            }
             
-        spot_data = spot_queryset.values(*spot_data_fields).annotate(
-            total_kg=Sum("kg"),
-            total_slab_quantity=Sum("slab_quantity"),
-            total_c_s_quantity=Sum("c_s_quantity"),
-            total_usd_amount=Sum("usd_rate_item"),
-            total_inr_amount=Sum("usd_rate_item_to_inr"),
-            avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
-            avg_yield_percentage=Avg("yield_percentage"),
-            entry_type=Value('spot', output_field=CharField()),
-        ).order_by("freezing_entry__freezing_date")
-        
-        all_data.extend(list(spot_data))
+            # Add optional fields safely
+            if hasattr(item, 'species') and item.species:
+                data_row['item__species__name'] = item.species.name
+            else:
+                data_row['item__species__name'] = None
+                
+            if hasattr(item, 'grade') and item.grade:
+                data_row['grade__grade'] = item.grade.grade
+            else:
+                data_row['grade__grade'] = None
+                
+            if hasattr(item, 'brand') and item.brand:
+                data_row['brand__name'] = item.brand.name
+            else:
+                data_row['brand__name'] = None
+                
+            if hasattr(item, 'freezing_category') and item.freezing_category:
+                data_row['freezing_category__name'] = item.freezing_category.name
+            else:
+                data_row['freezing_category__name'] = None
+                
+            if hasattr(item, 'processing_center') and item.processing_center:
+                data_row['processing_center__name'] = item.processing_center.name
+            else:
+                data_row['processing_center__name'] = None
+                
+            if hasattr(item, 'store') and item.store:
+                data_row['store__name'] = item.store.name
+            else:
+                data_row['store__name'] = None
 
-    # Process local entries with correct field names
+            # Add numeric fields
+            data_row.update({
+                'total_kg': float(getattr(item, 'kg', 0) or 0),
+                'total_slab_quantity': float(getattr(item, 'slab_quantity', 0) or 0),
+                'total_c_s_quantity': float(getattr(item, 'c_s_quantity', 0) or 0),
+                'total_usd_amount': float(getattr(item, 'usd_rate_item', 0) or 0),
+                'total_inr_amount': float(getattr(item, 'usd_rate_item_to_inr', 0) or 0),
+                'avg_usd_rate_per_kg': float(getattr(item, 'usd_rate_per_kg', 0) or 0),
+                'avg_yield_percentage': float(getattr(item, 'yield_percentage', 0) or 0),
+            })
+            
+            # Add unit and glaze fields if they exist
+            if hasattr(item, 'unit') and item.unit:
+                data_row['unit__description'] = item.unit.description
+                data_row['unit__unit_code'] = item.unit.unit_code
+            else:
+                data_row['unit__description'] = None
+                data_row['unit__unit_code'] = None
+                
+            if hasattr(item, 'glaze') and item.glaze:
+                data_row['glaze__percentage'] = item.glaze.percentage
+            else:
+                data_row['glaze__percentage'] = None
+                
+            all_data.append(data_row)
+
     if entry_type in ['all', 'local']:
-        local_data_fields = [
-            "item__name", "item__category__name", "item__species__name",
-            "grade__grade", "brand__name",
-            "freezing_category__name", "processing_center__name", "store__name",
-            "freezing_entry__voucher_number", "freezing_entry__freezing_date",
-            "freezing_entry__freezing_status"
-        ]
-        
-        # Add unit and glaze fields with proper names
-        if units and hasattr(FreezingEntryLocalItem, 'unit'):
-            local_data_fields.extend(["unit__description", "unit__unit_code"])
-        if glazes and hasattr(FreezingEntryLocalItem, 'glaze'):
-            local_data_fields.extend(["glaze__percentage"])
+        for item in local_queryset:
+            data_row = {
+                'id': item.id,
+                'item__name': item.item.name if item.item else None,
+                'item__category__name': item.item.category.name if item.item and item.item.category else None,
+                'freezing_entry__voucher_number': item.freezing_entry.voucher_number if item.freezing_entry else None,
+                'freezing_entry__freezing_date': item.freezing_entry.freezing_date if item.freezing_entry else None,
+                'freezing_entry__freezing_status': item.freezing_entry.freezing_status if item.freezing_entry else None,
+                'entry_type': 'local',
+                'item_count': 1
+            }
             
-        local_data = local_queryset.values(*local_data_fields).annotate(
-            total_kg=Sum("kg"),
-            total_slab_quantity=Sum("slab_quantity"),
-            total_c_s_quantity=Sum("c_s_quantity"),
-            total_usd_amount=Sum("usd_rate_item"),
-            total_inr_amount=Sum("usd_rate_item_to_inr"),
-            avg_usd_rate_per_kg=Avg("usd_rate_per_kg"),
-            avg_yield_percentage=Value(None, output_field=DecimalField()),
-            entry_type=Value('local', output_field=CharField()),
-        ).order_by("freezing_entry__freezing_date")
-        
-        all_data.extend(list(local_data))
+            # Add optional fields safely (same as spot)
+            if hasattr(item, 'species') and item.species:
+                data_row['item__species__name'] = item.species.name
+            else:
+                data_row['item__species__name'] = None
+                
+            if hasattr(item, 'grade') and item.grade:
+                data_row['grade__grade'] = item.grade.grade
+            else:
+                data_row['grade__grade'] = None
+                
+            if hasattr(item, 'brand') and item.brand:
+                data_row['brand__name'] = item.brand.name
+            else:
+                data_row['brand__name'] = None
+                
+            if hasattr(item, 'freezing_category') and item.freezing_category:
+                data_row['freezing_category__name'] = item.freezing_category.name
+            else:
+                data_row['freezing_category__name'] = None
+                
+            if hasattr(item, 'processing_center') and item.processing_center:
+                data_row['processing_center__name'] = item.processing_center.name
+            else:
+                data_row['processing_center__name'] = None
+                
+            if hasattr(item, 'store') and item.store:
+                data_row['store__name'] = item.store.name
+            else:
+                data_row['store__name'] = None
 
-    # Group data into sections based on section_by parameter
+            # Add numeric fields
+            data_row.update({
+                'total_kg': float(getattr(item, 'kg', 0) or 0),
+                'total_slab_quantity': float(getattr(item, 'slab_quantity', 0) or 0),
+                'total_c_s_quantity': float(getattr(item, 'c_s_quantity', 0) or 0),
+                'total_usd_amount': float(getattr(item, 'usd_rate_item', 0) or 0),
+                'total_inr_amount': float(getattr(item, 'usd_rate_item_to_inr', 0) or 0),
+                'avg_usd_rate_per_kg': float(getattr(item, 'usd_rate_per_kg', 0) or 0),
+                'avg_yield_percentage': None,  # Local entries don't have yield percentage
+            })
+            
+            # Add unit and glaze fields if they exist
+            if hasattr(item, 'unit') and item.unit:
+                data_row['unit__description'] = item.unit.description
+                data_row['unit__unit_code'] = item.unit.unit_code
+            else:
+                data_row['unit__description'] = None
+                data_row['unit__unit_code'] = None
+                
+            if hasattr(item, 'glaze') and item.glaze:
+                data_row['glaze__percentage'] = item.glaze.percentage
+            else:
+                data_row['glaze__percentage'] = None
+                
+            all_data.append(data_row)
+
+    # Sectioning logic (rest of the original code remains the same)
     sectioned_data = {}
     
     for item in all_data:
-        # Determine section key based on section_by parameter
         if section_by == "category":
             section_key = item.get("item__category__name") or "Uncategorized"
         elif section_by == "brand":
             section_key = item.get("brand__name") or "No Brand"
         elif section_by == "processing_center":
             section_key = item.get("processing_center__name") or "No Processing Center"
+        elif section_by == "store":
+            section_key = item.get("store__name") or "No Store"
         elif section_by == "month":
             date_obj = item.get("freezing_entry__freezing_date")
-            section_key = f"{date_obj.strftime('%B %Y')}" if date_obj else "No Date"
+            if date_obj:
+                section_key = f"{date_obj.strftime('%B %Y')}"
+            else:
+                section_key = "No Date"
         elif section_by == "species":
             section_key = item.get("item__species__name") or "No Species"
         elif section_by == "grade":
             section_key = item.get("grade__grade") or "No Grade"
         elif section_by == "item":
             section_key = item.get("item__name") or "No Item"
-        elif section_by == "store":
-            section_key = item.get("store__name") or "No Store"
-        elif section_by == "unit" and units:
+        elif section_by == "unit":
             section_key = item.get("unit__description") or "No Unit"
-        elif section_by == "glaze" and glazes:
-            section_key = f"{item.get('glaze__percentage', 0)}%" or "No Glaze"
+        elif section_by == "glaze":
+            glaze_pct = item.get("glaze__percentage")
+            section_key = f"{glaze_pct}%" if glaze_pct is not None else "No Glaze"
+        elif section_by == "entry_type":
+            section_key = item.get("entry_type", "Unknown").title()
+        elif section_by == "status":
+            section_key = item.get("freezing_entry__freezing_status", "Unknown").title()
         else:
             section_key = "All Items"
             
@@ -3025,7 +3231,8 @@ def freezing_report(request):
                     'total_c_s_quantity': 0,
                     'total_usd_amount': 0,
                     'total_inr_amount': 0,
-                    'count': 0
+                    'count': 0,
+                    'item_count': 0
                 }
             }
         
@@ -3039,8 +3246,8 @@ def freezing_report(request):
         totals['total_usd_amount'] += float(item.get('total_usd_amount') or 0)
         totals['total_inr_amount'] += float(item.get('total_inr_amount') or 0)
         totals['count'] += 1
+        totals['item_count'] += int(item.get('item_count') or 0)
 
-    # Sort sections by key
     sectioned_data = dict(sorted(sectioned_data.items()))
 
     # Calculate grand totals
@@ -3050,193 +3257,29 @@ def freezing_report(request):
         'total_c_s_quantity': 0,
         'total_usd_amount': 0,
         'total_inr_amount': 0,
-        'count': 0
+        'count': 0,
+        'item_count': 0,
+        'avg_kg_per_entry': 0,
+        'avg_usd_per_kg': 0
     }
     
     for section in sectioned_data.values():
-        for key in grand_totals:
+        for key in ['total_kg', 'total_slab_quantity', 'total_c_s_quantity', 
+                   'total_usd_amount', 'total_inr_amount', 'count', 'item_count']:
             grand_totals[key] += section['totals'][key]
 
-    # Calculate averages for grand totals
     if grand_totals['count'] > 0:
-        grand_totals['avg_kg'] = grand_totals['total_kg'] / grand_totals['count']
-        grand_totals['avg_usd_amount'] = grand_totals['total_usd_amount'] / grand_totals['count']
+        grand_totals['avg_kg_per_entry'] = grand_totals['total_kg'] / grand_totals['count']
+    if grand_totals['total_kg'] > 0:
+        grand_totals['avg_usd_per_kg'] = grand_totals['total_usd_amount'] / grand_totals['total_kg']
 
-    # Get unique vouchers for filter dropdown
+    # Get unique vouchers
     try:
-        spot_vouchers = FreezingEntrySpot.objects.values_list('voucher_number', flat=True).distinct()
-        local_vouchers = FreezingEntryLocal.objects.values_list('voucher_number', flat=True).distinct()
-        all_vouchers = sorted(set(list(spot_vouchers) + list(local_vouchers)))
-    except:
+        spot_vouchers = list(FreezingEntrySpot.objects.values_list('voucher_number', flat=True).distinct())
+        local_vouchers = list(FreezingEntryLocal.objects.values_list('voucher_number', flat=True).distinct())
+        all_vouchers = sorted(set(spot_vouchers + local_vouchers))
+    except Exception as e:
         all_vouchers = []
-
-    # Check if export/print requested
-    action = request.GET.get("action")
-    print_mode = request.GET.get("print")
-
-    # Handle print request
-    if action == "print" or print_mode == "1":
-        return render(
-            request,
-            "adminapp/report/freezing_report_print.html",
-            {
-                "sectioned_data": sectioned_data,
-                "grand_totals": grand_totals,
-                "start_date": start_date,
-                "end_date": end_date,
-                "entry_type": entry_type,
-                "section_by": section_by,
-                "units": units,
-                "glazes": glazes,
-            },
-        )
-
-    # Handle CSV export
-    if action == "csv":
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="enhanced_freezing_report.csv"'
-        writer = csv.writer(response)
-        
-        # Write headers
-        headers = [
-            "Section", "Date", "Voucher No", "Type", "Item", "Grade", "Category", 
-            "Species", "Brand", "Freezing Category", "Processing Center", "Store", 
-            "Status", "KG", "Slab Qty", "C/S Qty", "USD Amount", "INR Amount", 
-            "Avg USD Rate/KG", "Avg Yield %"
-        ]
-        
-        if units:
-            headers.insert(-8, "Unit Description")
-            headers.insert(-8, "Unit Code")
-        if glazes:
-            headers.insert(-8, "Glaze %")
-            
-        writer.writerow(headers)
-        
-        for section_name, section_data in sectioned_data.items():
-            for item in section_data['items']:
-                row = [
-                    section_name,
-                    item.get("freezing_entry__freezing_date"),
-                    item.get("freezing_entry__voucher_number"),
-                    item.get("entry_type"),
-                    item.get("item__name"),
-                    item.get("grade__grade") or "N/A",
-                    item.get("item__category__name"),
-                    item.get("item__species__name") or "N/A",
-                    item.get("brand__name") or "N/A",
-                    item.get("freezing_category__name") or "N/A",
-                    item.get("processing_center__name") or "N/A",
-                    item.get("store__name") or "N/A",
-                    item.get("freezing_entry__freezing_status"),
-                    item.get("total_kg"),
-                    item.get("total_slab_quantity"),
-                    item.get("total_c_s_quantity"),
-                    item.get("total_usd_amount"),
-                    item.get("total_inr_amount"),
-                    round(float(item.get("avg_usd_rate_per_kg") or 0), 2),
-                    round(float(item.get("avg_yield_percentage") or 0), 2) if item.get("avg_yield_percentage") else "N/A",
-                ]
-                
-                # Insert unit and glaze data at proper positions
-                if units:
-                    row.insert(-8, item.get("unit__description", "N/A"))
-                    row.insert(-8, item.get("unit__unit_code", "N/A"))
-                if glazes:
-                    row.insert(-8, item.get("glaze__percentage", "N/A"))
-                    
-                writer.writerow(row)
-        
-        return response
-
-    # Handle Excel export
-    if action == "excel":
-        output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-        worksheet = workbook.add_worksheet('Freezing Report')
-        
-        # Define formats
-        header_format = workbook.add_format({
-            'bold': True,
-            'bg_color': '#D7E4BC',
-            'border': 1,
-            'align': 'center'
-        })
-        
-        section_format = workbook.add_format({
-            'bold': True,
-            'bg_color': '#F2F2F2',
-            'border': 1,
-            'align': 'center'
-        })
-        
-        data_format = workbook.add_format({'border': 1})
-        number_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00'})
-        
-        # Write headers
-        headers = [
-            "Section", "Date", "Voucher No", "Type", "Item", "Grade", "Category", 
-            "Species", "Brand", "Freezing Category", "Processing Center", "Store", 
-            "Status", "KG", "Slab Qty", "C/S Qty", "USD Amount", "INR Amount", 
-            "Avg USD Rate/KG", "Avg Yield %"
-        ]
-        
-        if units:
-            headers.insert(-8, "Unit Description")
-            headers.insert(-8, "Unit Code")
-        if glazes:
-            headers.insert(-8, "Glaze %")
-        
-        for col, header in enumerate(headers):
-            worksheet.write(0, col, header, header_format)
-        
-        row = 1
-        for section_name, section_data in sectioned_data.items():
-            # Write section header
-            worksheet.merge_range(row, 0, row, len(headers)-1, f"SECTION: {section_name}", section_format)
-            row += 1
-            
-            for item in section_data['items']:
-                col = 0
-                worksheet.write(row, col, section_name, data_format); col += 1
-                worksheet.write(row, col, str(item.get("freezing_entry__freezing_date")), data_format); col += 1
-                worksheet.write(row, col, item.get("freezing_entry__voucher_number"), data_format); col += 1
-                worksheet.write(row, col, item.get("entry_type"), data_format); col += 1
-                worksheet.write(row, col, item.get("item__name"), data_format); col += 1
-                worksheet.write(row, col, item.get("grade__grade") or "N/A", data_format); col += 1
-                worksheet.write(row, col, item.get("item__category__name"), data_format); col += 1
-                worksheet.write(row, col, item.get("item__species__name") or "N/A", data_format); col += 1
-                worksheet.write(row, col, item.get("brand__name") or "N/A", data_format); col += 1
-                
-                if units:
-                    worksheet.write(row, col, item.get("unit__description", "N/A"), data_format); col += 1
-                    worksheet.write(row, col, item.get("unit__unit_code", "N/A"), data_format); col += 1
-                if glazes:
-                    worksheet.write(row, col, item.get("glaze__percentage", "N/A"), data_format); col += 1
-                
-                worksheet.write(row, col, item.get("freezing_category__name") or "N/A", data_format); col += 1
-                worksheet.write(row, col, item.get("processing_center__name") or "N/A", data_format); col += 1
-                worksheet.write(row, col, item.get("store__name") or "N/A", data_format); col += 1
-                worksheet.write(row, col, item.get("freezing_entry__freezing_status"), data_format); col += 1
-                worksheet.write(row, col, float(item.get("total_kg") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("total_slab_quantity") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("total_c_s_quantity") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("total_usd_amount") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("total_inr_amount") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("avg_usd_rate_per_kg") or 0), number_format); col += 1
-                worksheet.write(row, col, float(item.get("avg_yield_percentage") or 0) if item.get("avg_yield_percentage") else 0, number_format)
-                
-                row += 1
-        
-        workbook.close()
-        output.seek(0)
-        
-        response = HttpResponse(
-            output.read(),
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        response["Content-Disposition"] = 'attachment; filename="enhanced_freezing_report.xlsx"'
-        return response
 
     return render(
         request,
@@ -3274,6 +3317,8 @@ def freezing_report(request):
             "section_by": section_by,
         },
     )
+
+
 
 # Separate view for print format
 def freezing_report_print(request):

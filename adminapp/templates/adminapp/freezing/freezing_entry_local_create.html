@@ -487,27 +487,32 @@
             $('.formset-form').each(function() {
                 const itemSelect = $(this).find('.item-select');
                 const currentValue = itemSelect.val();
-                
+
                 // Clear and add default option
                 itemSelect.empty().append('<option value="">---------</option>');
-                
+
                 if (partyItems.length > 0) {
-                    // Add only items from the selected party
-                    partyItems.forEach(item => {
-                        itemSelect.append(`<option value="${item.item__id}" data-quantity="${item.quantity}" data-rate="${item.rate}" data-amount="${item.amount}">${item.item__name}</option>`);
-                    });
-                    
-                    // Restore previous selection if it exists in the filtered list
+                    // Add items with grade
+                        partyItems.forEach(item => {
+                            itemSelect.append(`
+                                <option value="${item.item__id}" 
+                                    data-quantity="${item.quantity}" 
+                                    data-rate="${item.rate}" 
+                                    data-amount="${item.amount}">
+                                    ${item.item__name} - ${item.grade__species__name} - ${item.grade__grade}
+                                </option>
+                            `);
+                        });
+                    // Restore selection if valid
                     if (currentValue && partyItems.some(item => item.item__id == currentValue)) {
                         itemSelect.val(currentValue);
                     }
                 } else {
-                    // If no party selected, you might want to load all items
-                    // This depends on your requirements
                     console.log('No party selected - items filtered');
                 }
             });
         }
+
     </script>
 
     <!-- Unit calculation -->

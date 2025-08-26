@@ -172,7 +172,7 @@ urlpatterns = [
     path('ajax/get-dollar-rate/', views.get_dollar_rate, name='get_dollar_rate'),
     path("get_spot_purchase_items_by_date/", views.get_spot_purchase_items_by_date, name="get_spot_purchase_items_by_date"),
 
-    #  create freezing entry spot
+    #  create freezing entry local
     path('freezing-entry-local/create/', views.create_freezing_entry_local, name='freezing_entry_local_create'),
     path('freezing-entry-local/', views.freezing_entry_local_list, name='freezing_entry_local_list'),
     path('freezing-entry-local/delete/<str:pk>/', views.delete_freezing_entry_local, name='delete_freezing_entry_local'),

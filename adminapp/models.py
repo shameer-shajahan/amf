@@ -5,6 +5,7 @@ from django.db import models
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils import timezone   # ✅ import here
 
 
 class CustomUserManager(BaseUserManager):
@@ -240,6 +241,8 @@ class ShipmentOverhead(BaseModel):
 class Settings(BaseModel):
     dollar_rate_to_inr = models.DecimalField(max_digits=10, decimal_places=2)
     vehicle_rent_km = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)  # ✅ uses current datetime
 
 # shed creation
 
