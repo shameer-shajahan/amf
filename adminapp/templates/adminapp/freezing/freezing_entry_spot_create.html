@@ -40,15 +40,20 @@
 
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 15px;
             margin-bottom: 20px;
+        }
+        .items-grid {
+            font-size: small;
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            margin-bottom: 10px;
         }
 
         .form-column {
             display: flex;
             flex-direction: column;
-            gap: 12px;
         }
 
         label {
@@ -119,28 +124,6 @@
             background: #a71d2a;
         }
 
-        .total-table {
-            margin-top: 20px;
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .total-table th, .total-table td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-
-        .total-table th {
-            background-color: #007BFF;
-            color: white;
-        }
-
-        /* Hide specified fields */
-        .hidden {
-            display: none;
-        }
-
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -152,7 +135,242 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .entry-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .entry-table th,
+        .entry-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .entry-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .entry-table td input,
+        .entry-table td select {
+            width: 95%;
+            padding: 4px 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .data-row td {
+            font-size: 11px;
+        }
+
+        .remove-btn {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .remove-btn:hover {
+            background: #c0392b;
+        }
+
+        .totals-heading {
+            margin-top: 30px;
+            margin-bottom: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0056b3;
+            border-left: 5px solid #0056b3;
+            padding-left: 10px;
+        }
+
+        .total-table {
+            margin-top: 10px;
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .total-table th, .total-table td {
+            padding: 12px 15px;
+            border: 1px solid #e2e6ea;
+            font-size: 0.95rem;
+        }
+
+        .total-table th {
+            background-color: #0056b3;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .total-table td {
+            font-weight: 600;
+            background: #f9fbfd;
+        }
+
+        .total-table td input {
+            font-weight: bold;
+            color: #0d6efd;
+            text-align: center;
+            background: #eef4ff;
+            border: 1px solid #ccdfff;
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+
+        /* Horizontal scroll for items table */
+        .items-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .items-table {
+            width: 100%;
+            min-width: 1200px; /* Reduced further since hidden fields are removed */
+            table-layout: auto;
+            border-collapse: collapse;
+        }
+
+        /* Hide specified fields */
+        .hidden {
+            display: none;
+        }
+
+        /* Optimized column widths to fit better */
+        .col-pr-centre { min-width: 80px; max-width: 100px; }
+        .col-store { min-width: 80px; max-width: 100px; }
+        .col-shed { min-width: 60px; max-width: 70px; }
+        .col-item { min-width: 70px; max-width: 150px; }
+        .col-category { min-width: 100px; max-width: 120px; }
+        .col-unit { min-width:70px; max-width: 100px; }
+        .col-glaze { min-width: 50px; max-width: 60px; }
+        .col-fr-category { min-width: 100px; max-width: 120px; }
+        .col-brand { min-width: 90px; max-width: 100px; }
+        .col-species { min-width: 60px; max-width: 70px; }
+        .col-type { min-width: 90px; max-width: 110px; }
+        .col-grade { min-width: 80px; max-width: 100px; }
+        .col-slab-qty { min-width: 70px; max-width: 90px; }
+        .col-cs-qty { min-width: 70px; max-width: 90px; }
+        .col-kg { min-width: 60px; max-width: 80px; }
+        .col-usd-rate-kg { min-width: 90px; max-width: 110px; }
+        .col-usd-item { min-width: 70px; max-width: 90px; }
+        .col-usd-inr { min-width: 90px; max-width: 110px; }
+        .col-yield { min-width: 70px; max-width: 90px; }
+        .col-action { min-width: 70px; max-width: 80px; }
+
+        /* Ensure proper text handling */
+        .items-table th,
+        .items-table td {
+            padding: 6px 4px;
+            border: 1px solid #ddd;
+            font-size: 11px;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+
+        .items-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 10px;
+        }
+
+        /* Make inputs and selects fit properly */
+        .items-table td input,
+        .items-table td select {
+            width: 100%;
+            padding: 3px 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Fieldset adjustments */
+        fieldset {
+            border: 1px solid #007BFF;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            background: #f9f9f9;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
     </style>
+
+  <!-- /* Blue outline for focused form fields */ -->
+    <style>
+        /* Blue outline for focused form fields */
+input:focus, 
+select:focus, 
+textarea:focus {
+    border-color: #007BFF !important;
+    outline: 2px solid #007BFF !important;
+    outline-offset: 0px;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Specific focus styles for items table fields */
+.items-table td input:focus,
+.items-table td select:focus {
+    border-color: #007BFF !important;
+    outline: 2px solid #007BFF !important;
+    outline-offset: 0px;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Focus styles for entry table fields */
+.entry-table td input:focus,
+.entry-table td select:focus {
+    border-color: #007BFF !important;
+    outline: 2px solid #007BFF !important;
+    outline-offset: 0px;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Focus styles for total table fields */
+.total-table td input:focus,
+.total-table td select:focus {
+    border-color: #007BFF !important;
+    outline: 2px solid #007BFF !important;
+    outline-offset: 0px;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+    </style>
+    
+
 </head>
 
 <body>
@@ -162,689 +380,756 @@
 
     <form method="post">
         {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-column">
-                <label for="id_freezing_date">Freezing Date</label>
-                {{ form.freezing_date }} {{ form.freezing_date.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_voucher_number">Voucher Number</label>
-                {{ form.voucher_number }} {{ form.voucher_number.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_spot_purchase_date">Spot Purchase Date</label>
-                {{ form.spot_purchase_date }} {{ form.spot_purchase_date.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_spot">Spot</label>
-                {{ form.spot }} {{ form.spot.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_spot_agent">Spot Agent</label>
-                {{ form.spot_agent }} {{ form.spot_agent.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_spot_supervisor">Spot Supervisor</label>
-                {{ form.spot_supervisor }} {{ form.spot_supervisor.errors }}
-            </div>
-        </div>
 
-            <fieldset>
-                <legend>Items</legend>
-                {{ formset.management_form }}
-                <div id="formset-container">
-                    {% for form in formset %}
-                    <div class="formset-form">
-                        <div class="form-grid">
-                            <div class="form-column">
-                                <label for="id_processing_center">Processing Centre</label>
-                                {{ form.processing_center }} {{ form.processing_center.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_store">Store</label>
-                                {{ form.store }} {{ form.store.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_shed">Shed</label>
-                                {{ form.shed }} {{ form.shed.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_item">Item Name</label>
-                                {{ form.item }} {{ form.item.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_unit">Unit</label>
-                                {{ form.unit }} {{ form.unit.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_glaze">Glaze</label>
-                                {{ form.glaze }} {{ form.glaze.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_freezing_category">Freezing Category</label>
-                                {{ form.freezing_category }} {{ form.freezing_category.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_brand">Brand</label>
-                                {{ form.brand }} {{ form.brand.errors }}
-                            </div>
-<div class="form-column">
-    <label for="{{ form.species.id_for_label }}">Species</label>
-    {{ form.species }}
-    {{ form.species.errors }}
-</div>
+        <table class="entry-table">
+            <tr>
+                <th>Freezing Date</th>
+                <th>Voucher Number</th>
+                <th>Spot Purchase Date</th>
+                <th>Spot</th>
+                <th>Spot Agent</th>
+                <th>Spot Supervisor</th>
+            </tr>
+            <tr>
+                <td>{{ form.freezing_date }} {{ form.freezing_date.errors }}</td>
+                <td>{{ form.voucher_number }} {{ form.voucher_number.errors }}</td>
+                <td>{{ form.spot_purchase_date }} {{ form.spot_purchase_date.errors }}</td>
+                <td>{{ form.spot }} {{ form.spot.errors }}</td>
+                <td>{{ form.spot_agent }} {{ form.spot_agent.errors }}</td>
+                <td>{{ form.spot_supervisor }} {{ form.spot_supervisor.errors }}</td>
+            </tr>
+        </table>
 
-<div class="form-column">
-    <label for="{{ form.peeling_type.id_for_label }}">Peeling Type</label>
-    {{ form.peeling_type }}
-    {{ form.peeling_type.errors }}
-</div>
+        <fieldset>
+            <legend>Items</legend>
+            {{ formset.management_form }}
 
+            <div class="items-container">
+                <table class="entry-table items-table" id="formset-table">
+                    <thead>
+                        <tr>
+                            <th class="col-pr-centre">PR Centre</th>
+                            <th class="col-store">Store</th>
+                            <th class="col-shed">Shed</th>
+                            <th class="col-item">Item</th>
+                            <th class="col-category">Category</th>
+                            <th class="col-unit">Unit</th>
+                            <th class="col-glaze">Glaze</th>
+                            <th class="col-fr-category">FR Category</th>
+                            <th class="col-brand">Brand</th>
+                            <th class="col-species">Species</th>
+                            <th class="col-type">Type</th>
+                            <th class="col-grade">Grade</th>
+                            <th class="col-slab-qty">Slab Qty</th>
+                            <th class="col-usd-rate-kg">Price</th>
+                            <th class="col-yield">Yield %</th>
+                            <th class="col-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="formset-container">
+                        {% for form in formset %}
+                        <tr class="formset-form data-row">
+                            <td class="col-pr-centre">{{ form.processing_center }} {{ form.processing_center.errors }}</td>
+                            <td class="col-store">{{ form.store }} {{ form.store.errors }}</td>
+                            <td class="col-shed">{{ form.shed }} {{ form.shed.errors }}</td>
+                            <td class="col-item">{{ form.item }} {{ form.item.errors }}</td>
+                            <td class="col-category">{{ form.item_quality }} {{ form.item_quality.errors }}</td>
+                            <td class="col-unit">{{ form.unit }} {{ form.unit.errors }}</td>
+                            <td class="col-glaze">{{ form.glaze }} {{ form.glaze.errors }}</td>
+                            <td class="col-fr-category">{{ form.freezing_category }} {{ form.freezing_category.errors }}</td>
+                            <td class="col-brand">{{ form.brand }} {{ form.brand.errors }}</td>
+                            <td class="col-species">{{ form.species }} {{ form.species.errors }}</td>
+                            <td class="col-type">{{ form.peeling_type }} {{ form.peeling_type.errors }}</td>
+                            <td class="col-grade">{{ form.grade }} {{ form.grade.errors }}</td>
+                            <td class="col-slab-qty">{{ form.slab_quantity }} {{ form.slab_quantity.errors }}</td>
+                            <td class="hidden">{{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}</td>
+                            <td class="hidden">{{ form.kg }} {{ form.kg.errors }}</td>
+                            <td class="col-usd-rate-kg">{{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}</td>
+                            <td class="col-yield">{{ form.yield_percentage }} {{ form.yield_percentage.errors }}</td>
+                            <td class="col-action"><button type="button" class="remove-btn">Remove</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-                            <div class="form-column">
-                                <label for="id_grade">Grade</label>
-                                {{ form.grade }} {{ form.grade.errors }}
-                            </div>
-                            <div class="form-column ">
-                                <label for="id_slab_quantity">Slab Quantity</label>
-                                {{ form.slab_quantity }} {{ form.slab_quantity.errors }}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="id_c_s_quantity">C/S Quantity</label>
-                                {{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="id_kg">Kg</label>
-                                {{ form.kg }} {{ form.kg.errors }}
-                            </div>
-                            <div class="form-column ">
-                                <label for="id_usd_rate_per_kg">USD Rate per Kg</label>
-                                {{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="id_usd_rate_item">USD Rate Item</label>
-                                {{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="id_usd_rate_item_to_inr">USD Rate Item to INR</label>
-                                {{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}
-                            </div>
-                            <div class="form-column">
-                                <label for="id_yield_percentage">Yield Percentage</label>
-                                {{ form.yield_percentage }} {{ form.yield_percentage.errors }}
-                            </div>
-                        </div>
-                        <!-- 👇 Each form has its own remove button -->
-                        <button type="button" class="remove-btn">Remove</button>
-                    </div>
-                    {% endfor %}
-                </div>
+            <button type="button" id="add-more-btn" class="button">+ Add More Item</button>
+        </fieldset>
 
-                <button type="button" id="add-more-btn" class="button">+ Add More Item</button>
-            </fieldset>
-
+        <h3 class="totals-heading">Freezing Entry Summary</h3>
         <table class="total-table">
-            <tr>
-                <th>Total Yield Percentage</th>
-                <td>{{ form.total_yield_percentage }} {{ form.total_yield_percentage.errors }}</td>
-                <th>Total USD</th>
-                <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
-                <th>Total INR</th>
-                <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
-                <th>Total Slab</th>
-                <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
-            </tr>
-            <tr>
-                <th>Total C/S</th>
-                <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
-                <th>Total KG</th>
-                <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
-                <th>Freezing Status</th>
-                <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Total Yield %</th>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Freezing Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ form.total_yield_percentage }} {{ form.total_yield_percentage.errors }}</td>
+                    <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
+                    <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
+                    <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
+                    <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
+                    <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
+                    <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
+                </tr>
+            </tbody>
         </table>
 
         <br>
         <button type="submit" class="button">Save</button>
     </form>
 
+    <!-- Clone & Add More Formset with Slab / CS / KG Calculation -->
+    <script>
+    $(document).ready(function () {
+        const formsetContainer = $('#formset-container');
+        const totalForms = $('#id_form-TOTAL_FORMS');
 
+        $('#add-more-btn').click(function () {
+            let formIndex = parseInt(totalForms.val());
+            let lastForm = $('.formset-form:last');
+            let newForm = lastForm.clone(false);
 
+            // Fields to preserve
+            const fieldsToPreserve = [
+                'processing_center','store','shed','item','item_quality','unit',
+                'glaze','freezing_category','brand','species','peeling_type'
+            ];
 
-<!-- Clone & Add More Formset with Slab / CS / KG Calculation -->
-<script>
-$(document).ready(function () {
-    const formsetContainer = $('#formset-container');   // container div wrapping all forms
-    const totalForms = $('#id_form-TOTAL_FORMS');       // management form field
+            // Fields to completely reset
+            const fieldsToCompletelyReset = [
+                'usd_rate_per_kg','usd_rate_item','usd_rate_item_to_inr'
+            ];
 
-    $('#add-more-btn').click(function () {
-        let formIndex = parseInt(totalForms.val());
-        let lastForm = $('.formset-form:last');   // clone from last instead of first
-        let newForm = lastForm.clone(false);
+            // Fields to reset normally
+            const fieldsToReset = [
+                'grade','slab_quantity','c_s_quantity','kg','yield_percentage'
+            ];
 
-        // Fields to preserve
-        const fieldsToPreserve = [
-            'processing_center','store','shed','item','unit',
-            'glaze','freezing_category','brand','species','peeling_type'
-        ];
+            // Preserve values from the last form
+            let preservedValues = {};
+            fieldsToPreserve.forEach(function(fieldName){
+                let element = lastForm.find(`[name*="${fieldName}"]`);
+                if (element.length > 0) preservedValues[fieldName] = element.val();
+            });
 
-        // Fields to completely reset
-        const fieldsToCompletelyReset = [
-            'usd_rate_per_kg','usd_rate_item','usd_rate_item_to_inr'
-        ];
+            // Update names, ids, reset values
+            newForm.find(':input').each(function(){
+                let name = $(this).attr('name');
+                if(name){
+                    let oldFieldName = name.split('-').pop();
+                    name = name.replace(/-\d+-/, `-${formIndex}-`);
+                    let id = 'id_'+name;
+                    $(this).attr({name:name, id:id});
 
-        // Fields to reset normally
-        const fieldsToReset = [
-            'grade','slab_quantity','c_s_quantity','kg','yield_percentage'
-        ];
-
-        // Preserve values from the last form
-        let preservedValues = {};
-        fieldsToPreserve.forEach(function(fieldName){
-            let element = lastForm.find(`[name*="${fieldName}"]`);
-            if (element.length > 0) preservedValues[fieldName] = element.val();
-        });
-
-        // Update names, ids, reset values
-        newForm.find(':input').each(function(){
-            let name = $(this).attr('name');
-            if(name){
-                let oldFieldName = name.split('-').pop();
-                name = name.replace(/-\d+-/, `-${formIndex}-`);
-                let id = 'id_'+name;
-                $(this).attr({name:name, id:id});
-
-                if(fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined){
-                    $(this).val(preservedValues[oldFieldName]);
-                } else if(fieldsToReset.includes(oldFieldName)){
-                    if($(this).is('select')) $(this).prop('selectedIndex', 0);
-                    else $(this).val('');
-                } else if(fieldsToCompletelyReset.includes(oldFieldName)){
-                    let $newInput = $('<input>').attr({
-                        'type': $(this).attr('type') || 'text',
-                        'name': name,
-                        'id': id,
-                        'class': $(this).attr('class') || '',
-                        'step': $(this).attr('step') || '',
-                        'value': ''
-                    });
-                    $(this).replaceWith($newInput);
+                    if(fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined){
+                        $(this).val(preservedValues[oldFieldName]);
+                    } else if(fieldsToReset.includes(oldFieldName)){
+                        if($(this).is('select')) $(this).prop('selectedIndex', 0);
+                        else $(this).val('');
+                    } else if(fieldsToCompletelyReset.includes(oldFieldName)){
+                        let $newInput = $('<input>').attr({
+                            'type': $(this).attr('type') || 'text',
+                            'name': name,
+                            'id': id,
+                            'class': $(this).attr('class') || '',
+                            'step': $(this).attr('step') || '',
+                            'value': ''
+                        });
+                        $(this).replaceWith($newInput);
+                    }
                 }
-            }
-        });
-
-        // Add calculation classes
-        newForm.find('[name*="slab_quantity"]').addClass('slab-quantity');
-        newForm.find('[name*="c_s_quantity"]').addClass('cs-quantity');
-        newForm.find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
-        newForm.find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
-        newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
-        newForm.find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
-        newForm.find('[name*="unit"]').addClass('unit-select');
-
-        // Reset DELETE field
-        newForm.find('input[name$="-DELETE"]').prop('checked', false);
-
-        // Fetch unit details again if needed
-        let unitId = preservedValues['unit'];
-        if (unitId) {
-            $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
-                newForm.data('precision', data.precision);
-                newForm.data('factor', data.factor);
             });
-        }
 
-        // Append new form
-        formsetContainer.append(newForm);
-        totalForms.val(formIndex + 1);
+            // Add calculation classes
+            newForm.find('[name*="slab_quantity"]').addClass('slab-quantity');
+            newForm.find('[name*="c_s_quantity"]').addClass('cs-quantity');
+            newForm.find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
+            newForm.find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
+            newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
+            newForm.find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
+            newForm.find('[name*="unit"]').addClass('unit-select');
 
-        // Force clear USD fields
-        setTimeout(function() {
-            newForm.find('[name*="usd_rate_per_kg"]').val('');
-            newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').val('');
-            newForm.find('[name*="usd_rate_item_to_inr"]').val('');
-        }, 100);
+            // Reset DELETE field
+            newForm.find('input[name$="-DELETE"]').prop('checked', false);
 
-        // Focus first blank field
-        newForm.find('[name*="grade"]').focus();
-
-        console.log('New form cloned from last form, USD fields cleared');
-    });
-});
-</script>
-
-<!-- // Remove (event delegation so it works for new forms too) -->
-<script>
-$(document).ready(function () {
-    const formsetContainer = $("#formset-container");
-    const totalForms = $("#id_form-TOTAL_FORMS");
-
-    // Remove (event delegation so it works for new forms too)
-    $(document).on("click", ".remove-btn", function () {
-        if ($(".formset-form").length > 1) {
-            $(this).closest(".formset-form").remove();
-
-            // Re-number forms
-            let forms = $(".formset-form");
-            totalForms.val(forms.length);
-            forms.each(function (index) {
-                $(this).find("input, select, label").each(function () {
-                    if ($(this).attr("name")) {
-                        let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
-                        $(this).attr("name", name);
-                        $(this).attr("id", "id_" + name);
-                    }
-                    if ($(this).attr("for")) {
-                        let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
-                        $(this).attr("for", newFor);
-                    }
+            // Fetch unit details again if needed
+            let unitId = preservedValues['unit'];
+            if (unitId) {
+                $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
+                    newForm.data('precision', data.precision);
+                    newForm.data('factor', data.factor);
                 });
-            });
-        } else {
-            alert("At least one form is required.");
-        }
+            }
+
+            // Append new form
+            formsetContainer.append(newForm);
+            totalForms.val(formIndex + 1);
+
+            // Force clear USD fields
+            setTimeout(function() {
+                newForm.find('[name*="usd_rate_per_kg"]').val('');
+                newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').val('');
+                newForm.find('[name*="usd_rate_item_to_inr"]').val('');
+            }, 100);
+
+            // Focus first blank field
+            newForm.find('[name*="grade"]').focus();
+
+            console.log('New form cloned from last form, USD fields cleared');
+        });
     });
-});
-</script>
+    </script>
 
-<!-- Unit Calculation -->
-<script>
-$(document).ready(function () {
-    let dollarRate = 0;
+    <!-- Remove (event delegation so it works for new forms too) -->
+    <script>
+    $(document).ready(function () {
+        const formsetContainer = $("#formset-container");
+        const totalForms = $("#id_form-TOTAL_FORMS");
 
-    // Fetch dollar rate on page load
-    $.getJSON("{% url 'adminapp:get_dollar_rate' %}", function (data) {
-        if (data.dollar_rate_to_inr) {
-            dollarRate = parseFloat(data.dollar_rate_to_inr);
-        }
-    }).fail(function() {
-        console.log('Could not fetch dollar rate, using default 0');
+        // Remove (event delegation so it works for new forms too)
+        $(document).on("click", ".remove-btn", function () {
+            if ($(".formset-form").length > 1) {
+                $(this).closest(".formset-form").remove();
+
+                // Re-number forms
+                let forms = $(".formset-form");
+                totalForms.val(forms.length);
+                forms.each(function (index) {
+                    $(this).find("input, select, label").each(function () {
+                        if ($(this).attr("name")) {
+                            let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("name", name);
+                            $(this).attr("id", "id_" + name);
+                        }
+                        if ($(this).attr("for")) {
+                            let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("for", newFor);
+                        }
+                    });
+                });
+            } else {
+                alert("At least one form is required.");
+            }
+        });
     });
+    </script>
 
-    // Helper to recalc a single formset row
-    function recalcRow($row) {
-        let slabQty = parseFloat($row.find('.slab-quantity').val()) || 0;
-        let usdPerKg = parseFloat($row.find('.usd-rate-per-kg').val()) || 0;
-        let precision = parseFloat($row.data('precision')) || 0;
-        let factor = parseFloat($row.data('factor')) || 0;
+    <!-- Unit Calculation -->
+    <script>
+    $(document).ready(function () {
+        let dollarRate = 0;
 
-        // Calculate CS Quantity only if we have slab quantity and precision
-        if (slabQty && precision) {
-            $row.find('.cs-quantity').val((slabQty / precision).toFixed(2));
-        } else if (!slabQty) {
-            $row.find('.cs-quantity').val('');
-        }
-
-        // Calculate KG only if we have slab quantity and factor
-        if (slabQty && factor) {
-            $row.find('.kg').val((slabQty * factor).toFixed(2));
-        } else if (!slabQty) {
-            $row.find('.kg').val('');
-        }
-
-        // Calculate USD Rate Item only if we have both KG and USD per KG
-        let kg = parseFloat($row.find('.kg').val()) || 0;
-        if (kg && usdPerKg) {
-            $row.find('.usd-rate-item').val((usdPerKg * kg).toFixed(2));
-        } else {
-            $row.find('.usd-rate-item').val('');
-        }
-
-        // Calculate USD Rate Item to INR
-        let usdItem = parseFloat($row.find('.usd-rate-item').val()) || 0;
-        if (usdItem && dollarRate) {
-            $row.find('.usd-rate-item-inr').val((usdItem * dollarRate).toFixed(2));
-        } else {
-            $row.find('.usd-rate-item-inr').val('');
-        }
-    }
-
-    // When unit changes → fetch precision/factor and recalc
-    $(document).on('change', '.unit-select', function () {
-        let $row = $(this).closest('.formset-form');
-        let unitId = $(this).val();
-
-        if (!unitId) {
-            // Clear data attributes if no unit selected
-            $row.removeData('precision').removeData('factor');
-            recalcRow($row);
-            return;
-        }
-
-        $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
-            $row.data('precision', data.precision);
-            $row.data('factor', data.factor);
-            recalcRow($row);
+        // Fetch dollar rate on page load
+        $.getJSON("{% url 'adminapp:get_dollar_rate' %}", function (data) {
+            if (data.dollar_rate_to_inr) {
+                dollarRate = parseFloat(data.dollar_rate_to_inr);
+            }
         }).fail(function() {
-            console.log('Could not fetch unit details for unit ID:', unitId);
+            console.log('Could not fetch dollar rate, using default 0');
         });
-    });
 
-    // Trigger recalculation on input changes
-    $(document).on('input', '.slab-quantity, .usd-rate-per-kg', function () {
-        let $row = $(this).closest('.formset-form');
-        recalcRow($row);
-    });
+        // Helper to recalc a single formset row
+        function recalcRow($row) {
+            let slabQty = parseFloat($row.find('.slab-quantity').val()) || 0;
+            let usdPerKg = parseFloat($row.find('.usd-rate-per-kg').val()) || 0;
+            let precision = parseFloat($row.data('precision')) || 0;
+            let factor = parseFloat($row.data('factor')) || 0;
 
-    // Clear dependent fields when slab quantity is cleared
-    $(document).on('input', '.slab-quantity', function () {
-        let $row = $(this).closest('.formset-form');
-        if (!$(this).val()) {
-            $row.find('.cs-quantity, .kg, .usd-rate-item, .usd-rate-item-inr').val('');
-        }
-    });
+            // Calculate CS Quantity only if we have slab quantity and precision
+            if (slabQty && precision) {
+                $row.find('.cs-quantity').val((slabQty / precision).toFixed(2));
+            } else if (!slabQty) {
+                $row.find('.cs-quantity').val('');
+            }
 
-    // Clear dependent fields when USD rate per kg is cleared
-    $(document).on('input', '.usd-rate-per-kg', function () {
-        let $row = $(this).closest('.formset-form');
-        if (!$(this).val()) {
-            $row.find('.usd-rate-item, .usd-rate-item-inr').val('');
-        }
-    });
+            // Calculate KG only if we have slab quantity and factor
+            if (slabQty && factor) {
+                $row.find('.kg').val((slabQty * factor).toFixed(2));
+            } else if (!slabQty) {
+                $row.find('.kg').val('');
+            }
 
-    // Prevent any automatic filling of USD rate per kg in cloned forms
-    $(document).on('focus', '.usd-rate-per-kg', function() {
-        // Only allow focus if it's an existing form or user actually clicked
-        let $row = $(this).closest('.formset-form');
-        if (!$(this).data('user-interaction') && $row.index() > 0) {
-            // This is a cloned form and no user interaction yet
-            if ($(this).val() !== '') {
-                console.log('Auto-filled value detected, clearing...');
-                $(this).val('');
+            // Calculate USD Rate Item only if we have both KG and USD per KG
+            let kg = parseFloat($row.find('.kg').val()) || 0;
+            if (kg && usdPerKg) {
+                $row.find('.usd-rate-item').val((usdPerKg * kg).toFixed(2));
+            } else {
+                $row.find('.usd-rate-item').val('');
+            }
+
+            // Calculate USD Rate Item to INR
+            let usdItem = parseFloat($row.find('.usd-rate-item').val()) || 0;
+            if (usdItem && dollarRate) {
+                $row.find('.usd-rate-item-inr').val((usdItem * dollarRate).toFixed(2));
+            } else {
+                $row.find('.usd-rate-item-inr').val('');
             }
         }
-        $(this).data('user-interaction', true);
-    });
-});
-</script>
 
-<!-- Populate Spots based on Date -->
-<script>
-    $('#id_spot_purchase_date').on('change', function () {
-        const date = $(this).val();
-        $.get("{% url 'adminapp:get_spots_by_date' %}", { date: date }, function (data) {
-            const spotSelect = $('#id_spot').empty().append('<option value="">---------</option>');
-            data.spots.forEach(spot => {
-                spotSelect.append(`<option value="${spot.id}">${spot.spot__location_name} - ${spot.voucher_number}</option>`);
-            });
-        });
-    });
-</script>
+        // When unit changes → fetch precision/factor and recalc
+        $(document).on('change', '.unit-select', function () {
+            let $row = $(this).closest('.formset-form');
+            let unitId = $(this).val();
 
-<!-- Populate Agent & Supervisor based on Spot -->
-<script>
-    $('#id_spot').on('change', function () {
-        const spotId = $(this).val();
-        if (!spotId) return;
-
-        $.get("{% url 'adminapp:get_spot_details' %}", { spot_id: spotId }, function (data) {
-            const agent = $('#id_spot_agent');
-            const supervisor = $('#id_spot_supervisor');
-
-            if (!agent.find(`option[value="${data.agent_id}"]`).length) {
-                agent.append(`<option value="${data.agent_id}">${data.agent_name}</option>`);
-            }
-            agent.val(data.agent_id);
-
-            if (!supervisor.find(`option[value="${data.supervisor_id}"]`).length) {
-                supervisor.append(`<option value="${data.supervisor_id}">${data.supervisor_name}</option>`);
-            }
-            supervisor.val(data.supervisor_id);
-        });
-    });
-</script>
-
-<!-- Populate Sheds and Items based on Date -->
-<script>
-    $('#id_spot_purchase_date').on('change', function () {
-        const selectedDate = $(this).val();
-        if (!selectedDate) return;
-
-        $.get("{% url 'adminapp:get_sheds_by_date' %}", { date: selectedDate }, function (data) {
-            const shedSet = new Set();
-            const itemSet = new Set();
-
-            data.sheds.forEach(supply => {
-                shedSet.add(`<option value="${supply.shed_id}">${supply.shed_name}</option>`);
-                itemSet.add(`<option value="${supply.item_id}">${supply.item_name}</option>`);
-            });
-
-            $('[name$="-shed"]').each(function () {
-                $(this).empty().append('<option value="">---------</option>');
-                shedSet.forEach(opt => $(this).append(opt));
-            });
-
-            $('[name$="-item"]').each(function () {
-                $(this).empty().append('<option value="">---------</option>');
-                itemSet.forEach(opt => $(this).append(opt));
-            });
-        }).fail(() => alert("Failed to load sheds/items for the selected date."));
-    });
-</script>
-
-<!-- Total Calculation -->
-<script>
-    function calculateTotals() {
-        let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0;
-        let validYieldCount = 0; // Count forms with valid yield percentages
-
-        $('.formset-form').each(function () {
-            // Skip deleted forms
-            if ($(this).find('[name$="DELETE"]').is(':checked')) {
+            if (!unitId) {
+                // Clear data attributes if no unit selected
+                $row.removeData('precision').removeData('factor');
+                recalcRow($row);
                 return;
             }
 
-            const getVal = (name) => {
-                const val = parseFloat($(this).find(`[name$="${name}"]`).val());
-                return isNaN(val) ? 0 : val;
-            };
-
-            const yieldPercentage = getVal('yield_percentage');
-            const usdRate = getVal('usd_rate_item');
-            const inrRate = getVal('usd_rate_item_to_inr');
-            const slabQty = getVal('slab_quantity');
-            const csQty = getVal('c_s_quantity');
-            const kgWeight = getVal('kg');
-
-            // Only sum yield if it's a valid number > 0
-            if (yieldPercentage > 0) {
-                totalYield += yieldPercentage;
-                validYieldCount++;
-            }
-            
-            totalUSD += usdRate;
-            totalINR += inrRate;
-            totalSlab += slabQty;
-            totalCS += csQty;
-            totalKG += kgWeight;
+            $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
+                $row.data('precision', data.precision);
+                $row.data('factor', data.factor);
+                recalcRow($row);
+            }).fail(function() {
+                console.log('Could not fetch unit details for unit ID:', unitId);
+            });
         });
 
-        // Update the total fields
-        $('#id_total_yield_percentage').val(totalYield.toFixed(2));
-        $('#id_total_usd').val(totalUSD.toFixed(2));
-        $('#id_total_inr').val(totalINR.toFixed(2));
-        $('#id_total_slab').val(totalSlab.toFixed(2));
-        $('#id_total_c_s').val(totalCS.toFixed(2));
-        $('#id_total_kg').val(totalKG.toFixed(2));
-    }
+        // Trigger recalculation on input changes
+        $(document).on('input', '.slab-quantity, .usd-rate-per-kg', function () {
+            let $row = $(this).closest('.formset-form');
+            recalcRow($row);
+        });
 
-    // Trigger calculation on any input change
-    $(document).on('input change', '.formset-form :input', calculateTotals);
-    $(document).on('change', '.formset-form [name$="DELETE"]', calculateTotals);
-    $(document).ready(calculateTotals);
-</script>
+        // Clear dependent fields when slab quantity is cleared
+        $(document).on('input', '.slab-quantity', function () {
+            let $row = $(this).closest('.formset-form');
+            if (!$(this).val()) {
+                $row.find('.cs-quantity, .kg, .usd-rate-item, .usd-rate-item-inr').val('');
+            }
+        });
 
-<!-- yield-percentage -->
-<script>
-$(document).ready(function () {
-    let ajaxCall = null;
+        // Clear dependent fields when USD rate per kg is cleared
+        $(document).on('input', '.usd-rate-per-kg', function () {
+            let $row = $(this).closest('.formset-form');
+            if (!$(this).val()) {
+                $row.find('.usd-rate-item, .usd-rate-item-inr').val('');
+            }
+        });
 
-    function fetchShedData(spotDate) {
-        if (!spotDate) {
-            $("#shed-data").html("<p>Please select a Spot Purchase Date.</p>");
-            return;
-        }
+        // Prevent any automatic filling of USD rate per kg in cloned forms
+        $(document).on('focus', '.usd-rate-per-kg', function() {
+            // Only allow focus if it's an existing form or user actually clicked
+            let $row = $(this).closest('.formset-form');
+            if (!$(this).data('user-interaction') && $row.index() > 0) {
+                // This is a cloned form and no user interaction yet
+                if ($(this).val() !== '') {
+                    console.log('Auto-filled value detected, clearing...');
+                    $(this).val('');
+                }
+            }
+            $(this).data('user-interaction', true);
+        });
+    });
+    </script>
 
-        // Cancel previous AJAX if still running
-        if (ajaxCall) ajaxCall.abort();
+    <!-- Populate Spots based on Date -->
+    <script>
+        $('#id_spot_purchase_date').on('change', function () {
+            const date = $(this).val();
+            $.get("{% url 'adminapp:get_spots_by_date' %}", { date: date }, function (data) {
+                const spotSelect = $('#id_spot').empty().append('<option value="">---------</option>');
+                data.spots.forEach(spot => {
+                    spotSelect.append(`<option value="${spot.id}">${spot.spot__location_name} - ${spot.voucher_number}</option>`);
+                });
+            });
+        });
+    </script>
 
-        ajaxCall = $.ajax({
-            url: "/adminapp/ajax/get-sheds-by-date/",
-            data: { date: spotDate },
-            success: function (response) {
-                console.log(response); // for debugging
+    <!-- Populate Agent & Supervisor based on Spot -->
+    <script>
+        $('#id_spot').on('change', function () {
+            const spotId = $(this).val();
+            if (!spotId) return;
 
-                if (!response.sheds || response.sheds.length === 0) {
-                    $("#shed-data").html("<p>No shed data for this spot purchase date.</p>");
+            $.get("{% url 'adminapp:get_spot_details' %}", { spot_id: spotId }, function (data) {
+                const agent = $('#id_spot_agent');
+                const supervisor = $('#id_spot_supervisor');
+
+                if (!agent.find(`option[value="${data.agent_id}"]`).length) {
+                    agent.append(`<option value="${data.agent_id}">${data.agent_name}</option>`);
+                }
+                agent.val(data.agent_id);
+
+                if (!supervisor.find(`option[value="${data.supervisor_id}"]`).length) {
+                    supervisor.append(`<option value="${data.supervisor_id}">${data.supervisor_name}</option>`);
+                }
+                supervisor.val(data.supervisor_id);
+            });
+        });
+    </script>
+
+    <!-- Populate Sheds and Items based on Date -->
+    <script>
+        $('#id_spot_purchase_date').on('change', function () {
+            const selectedDate = $(this).val();
+            if (!selectedDate) return;
+
+            $.get("{% url 'adminapp:get_sheds_by_date' %}", { date: selectedDate }, function (data) {
+                const shedSet = new Set();
+                const itemSet = new Set();
+
+                data.sheds.forEach(supply => {
+                    shedSet.add(`<option value="${supply.shed_id}">${supply.shed_name}</option>`);
+                    itemSet.add(`<option value="${supply.item_id}">${supply.item_name}</option>`);
+                });
+
+                $('[name$="-shed"]').each(function () {
+                    $(this).empty().append('<option value="">---------</option>');
+                    shedSet.forEach(opt => $(this).append(opt));
+                });
+
+                $('[name$="-item"]').each(function () {
+                    $(this).empty().append('<option value="">---------</option>');
+                    itemSet.forEach(opt => $(this).append(opt));
+                });
+            }).fail(() => alert("Failed to load sheds/items for the selected date."));
+        });
+    </script>
+
+    <!-- Total Calculation -->
+    <script>
+        function calculateTotals() {
+            let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0;
+            let validYieldCount = 0; // Count forms with valid yield percentages
+
+            $('.formset-form').each(function () {
+                // Skip deleted forms
+                if ($(this).find('[name$="DELETE"]').is(':checked')) {
                     return;
                 }
 
-                let html = "<h3>Shed Quantities</h3><ul>";
-                response.sheds.forEach(shed => {
-                    html += `<li>
-                        Shed: ${shed.shed_name} |
-                        Item: ${shed.item_name} |
-                        Quantity Received: ${shed.quantity_received_shed}
-                    </li>`;
-                });
-                html += "</ul>";
-                $("#shed-data").html(html);
-            },
-            error: function () {
-                $("#shed-data").html("<p>Error fetching shed data.</p>");
+                const getVal = (name) => {
+                    const val = parseFloat($(this).find(`[name$="${name}"]`).val());
+                    return isNaN(val) ? 0 : val;
+                };
+
+                const yieldPercentage = getVal('yield_percentage');
+                const usdRate = getVal('usd_rate_item');
+                const inrRate = getVal('usd_rate_item_to_inr');
+                const slabQty = getVal('slab_quantity');
+                const csQty = getVal('c_s_quantity');
+                const kgWeight = getVal('kg');
+
+                // Only sum yield if it's a valid number > 0
+                if (yieldPercentage > 0) {
+                    totalYield += yieldPercentage;
+                    validYieldCount++;
+                }
+                
+                totalUSD += usdRate;
+                totalINR += inrRate;
+                totalSlab += slabQty;
+                totalCS += csQty;
+                totalKG += kgWeight;
+            });
+
+            // Update the total fields
+            $('#id_total_yield_percentage').val(totalYield.toFixed(2));
+            $('#id_total_usd').val(totalUSD.toFixed(2));
+            $('#id_total_inr').val(totalINR.toFixed(2));
+            $('#id_total_slab').val(totalSlab.toFixed(2));
+            $('#id_total_c_s').val(totalCS.toFixed(2));
+            $('#id_total_kg').val(totalKG.toFixed(2));
+        }
+
+        // Trigger calculation on any input change
+        $(document).on('input change', '.formset-form :input', calculateTotals);
+        $(document).on('change', '.formset-form [name$="DELETE"]', calculateTotals);
+        $(document).ready(calculateTotals);
+    </script>
+
+    <!-- yield-percentage -->
+    <script>
+    $(document).ready(function () {
+        let ajaxCall = null;
+
+        function fetchShedData(spotDate) {
+            if (!spotDate) {
+                $("#shed-data").html("<p>Please select a Spot Purchase Date.</p>");
+                return;
             }
-        });
 
-        return ajaxCall;
-    }
+            // Cancel previous AJAX if still running
+            if (ajaxCall) ajaxCall.abort();
 
-    function validateAndFetch() {
-        let spotDate = $("#id_spot_purchase_date").val();
-        if (!spotDate) return;
-        fetchShedData(spotDate);
-    }
-
-    // Trigger shed data fetch on Spot Purchase Date change
-    $("#id_spot_purchase_date").on("change", validateAndFetch);
-
-    // Fetch on page load if date exists
-    let initialDate = $("#id_spot_purchase_date").val();
-    if (initialDate) validateAndFetch();
-
-    // Yield calculation per row
-    $(document).on("input change", "input[name$='kg'], select[name$='shed']", function () {
-        let row = $(this).closest(".formset-form");
-
-        let kgField = row.find("input[name$='kg']");
-        let yieldField = row.find("input[name$='yield_percentage']");
-        let shedSelect = row.find("select[name$='shed']");
-        let itemSelect = row.find("select[name$='item']");
-
-        let kg = parseFloat(kgField.val()) || 0;
-        let spotDate = $("#id_spot_purchase_date").val();
-
-        if (shedSelect.val() && itemSelect.val() && spotDate) {
-            $.ajax({
+            ajaxCall = $.ajax({
                 url: "/adminapp/ajax/get-sheds-by-date/",
                 data: { date: spotDate },
                 success: function (response) {
-                    let sheds = response.sheds || [];
-                    let selectedShed = shedSelect.val();
-                    let selectedItem = itemSelect.val();
+                    console.log(response); // for debugging
 
-                    let found = sheds.find(s =>
-                        s.shed_id == selectedShed && s.item_id == selectedItem
-                    );
+                    if (!response.sheds || response.sheds.length === 0) {
+                        $("#shed-data").html("<p>No shed data for this spot purchase date.</p>");
+                        return;
+                    }
 
-                    if (found) {
-                        let qtyReceived = parseFloat(found.quantity_received_shed) || 0;
-                        let yieldPercent = qtyReceived ? (kg / qtyReceived) * 100 : 0;
-                        yieldField.val(yieldPercent.toFixed(2));
-                    } else {
-                        yieldField.val("");
+                    let html = "<h3>Shed Quantities</h3><ul>";
+                    response.sheds.forEach(shed => {
+                        html += `<li>
+                            Shed: ${shed.shed_name} |
+                            Item: ${shed.item_name} |
+                            Quantity Received: ${shed.quantity_received_shed}
+                        </li>`;
+                    });
+                    html += "</ul>";
+                    $("#shed-data").html(html);
+                },
+                error: function () {
+                    $("#shed-data").html("<p>Error fetching shed data.</p>");
+                }
+            });
+
+            return ajaxCall;
+        }
+
+        function validateAndFetch() {
+            let spotDate = $("#id_spot_purchase_date").val();
+            if (!spotDate) return;
+            fetchShedData(spotDate);
+        }
+
+        // Trigger shed data fetch on Spot Purchase Date change
+        $("#id_spot_purchase_date").on("change", validateAndFetch);
+
+        // Fetch on page load if date exists
+        let initialDate = $("#id_spot_purchase_date").val();
+        if (initialDate) validateAndFetch();
+
+        // Yield calculation per row
+        $(document).on("input change", "input[name$='kg'], select[name$='shed']", function () {
+            let row = $(this).closest(".formset-form");
+
+            let kgField = row.find("input[name$='kg']");
+            let yieldField = row.find("input[name$='yield_percentage']");
+            let shedSelect = row.find("select[name$='shed']");
+            let itemSelect = row.find("select[name$='item']");
+
+            let kg = parseFloat(kgField.val()) || 0;
+            let spotDate = $("#id_spot_purchase_date").val();
+
+            if (shedSelect.val() && itemSelect.val() && spotDate) {
+                $.ajax({
+                    url: "/adminapp/ajax/get-sheds-by-date/",
+                    data: { date: spotDate },
+                    success: function (response) {
+                        let sheds = response.sheds || [];
+                        let selectedShed = shedSelect.val();
+                        let selectedItem = itemSelect.val();
+
+                        let found = sheds.find(s =>
+                            s.shed_id == selectedShed && s.item_id == selectedItem
+                        );
+
+                        if (found) {
+                            let qtyReceived = parseFloat(found.quantity_received_shed) || 0;
+                            let yieldPercent = qtyReceived ? (kg / qtyReceived) * 100 : 0;
+                            yieldField.val(yieldPercent.toFixed(2));
+                        } else {
+                            yieldField.val("");
+                        }
+                    }
+                });
+            }
+        });
+    });
+    </script>
+
+    <!--  load grade -->
+    <script>
+    $(document).on("change", "select[name$='species']", function () {
+        var speciesId = $(this).val();
+        var $gradeSelect = $(this).closest(".formset-form").find("select[name$='grade']");
+
+        if (speciesId) {
+            $.ajax({
+                url: "{% url 'adminapp:get_grade_for_species' %}",
+                data: { "species_id": speciesId },
+                dataType: "json",
+                success: function (data) {
+                    $gradeSelect.empty();
+                    $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+
+                    $.each(data.grades, function (index, grade) {
+                        $gradeSelect.append($("<option>", {
+                            value: grade.id,
+                            text: grade.grade
+                        }));
+                    });
+                }
+            });
+        } else {
+            $gradeSelect.empty();
+            $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+        }
+    });
+    </script>
+
+    <!--  load peeling and Species -->
+    <script>
+    $(document).ready(function () {
+        console.log("Freezing Entry AJAX ready");
+
+        // 🔹 Listen for item change inside each formset row
+        $(document).on("change", ".item-select", function () {
+            let itemId = $(this).val();
+            let row = $(this).closest(".formset-form");
+
+            if (!itemId) return;
+
+            // 🔹 1. Fetch Species for this item
+            $.ajax({
+                url: "{% url 'adminapp:get_species_for_item' %}",
+                data: { item_id: itemId },
+                success: function (response) {
+                    let speciesSelect = row.find(".species-select");
+                    speciesSelect.empty().append('<option value="">---------</option>');
+                    $.each(response.species, function (i, species) {
+                        speciesSelect.append('<option value="' + species.id + '">' + species.name + '</option>');
+                    });
+                }
+            });
+
+            // 🔹 2. Fetch Peeling Types for this item
+            $.ajax({
+                url: "{% url 'adminapp:get_peeling_for_item' %}",
+                data: { item_id: itemId },
+                success: function (response) {
+                    let peelingSelect = row.find(".peeling-select");
+                    peelingSelect.empty().append('<option value="">---------</option>');
+                    $.each(response.peeling_types, function (i, peeling) {
+                        peelingSelect.append('<option value="' + peeling.id + '">' + peeling.name + '</option>');
+                    });
+                }
+            });
+        });
+    });
+    </script>
+
+    <!-- // F1 key shortcut for adding more items -->
+    <script>
+        $(document).ready(function() {
+        $(document).on('keydown', function(e) {
+            // Check if F1 key is pressed (keyCode 112)
+            if (e.keyCode === 112 || e.which === 112) {
+                e.preventDefault(); // Prevent browser's default F1 help
+                $('#add-more-btn').click(); // Trigger the add more button
+                return false;
+            }
+        });
+    });
+    </script>
+
+    <!-- // Delete key shortcut for removing the focused item -->
+    <script>
+    $(document).ready(function () {
+        const formsetContainer = $("#formset-container");
+        const totalForms = $("#id_form-TOTAL_FORMS");
+
+        // Remove (event delegation so it works for new forms too)
+        function removeForm(form) {
+            if ($(".formset-form").length > 1) {
+                form.remove();
+
+                // Re-number forms
+                let forms = $(".formset-form");
+                totalForms.val(forms.length);
+                forms.each(function (index) {
+                    $(this).find("input, select, label").each(function () {
+                        if ($(this).attr("name")) {
+                            let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("name", name);
+                            $(this).attr("id", "id_" + name);
+                        }
+                        if ($(this).attr("for")) {
+                            let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("for", newFor);
+                        }
+                    });
+                });
+            } else {
+                alert("At least one form is required.");
+            }
+        }
+
+        // Click delete button
+        $(document).on("click", ".remove-btn", function () {
+            removeForm($(this).closest(".formset-form"));
+        });
+
+        // Keyboard Delete key
+        $(document).on("keydown", function (e) {
+            if (e.key === "Delete") {
+                let activeElement = $(document.activeElement).closest(".formset-form");
+                if (activeElement.length) {
+                    e.preventDefault();
+                    removeForm(activeElement);
+                }
+            }
+        });
+    });
+    </script>
+
+    <!-- // Arrow key navigation for form fields -->
+    <script>
+        $(document).ready(function() {
+            // Get all focusable form elements
+            function getFocusableElements() {
+                return $('input:not([type="hidden"]), select, textarea').filter(':visible');
+            }
+
+            $(document).on('keydown', 'input, select, textarea', function(e) {
+                // Check if left arrow key is pressed (keyCode 37)
+                if (e.keyCode === 37 || e.which === 37) {
+                    // Only trigger if cursor is at the beginning of input or it's a select
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === 0)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        // Move to previous field (left arrow = previous)
+                        if (currentIndex > 0) {
+                            focusableElements.eq(currentIndex - 1).focus();
+                        }
+                        return false;
+                    }
+                }
+                
+                // Check if right arrow key is pressed (keyCode 39)  
+                if (e.keyCode === 39 || e.which === 39) {
+                    // Only trigger if cursor is at the end of input or it's a select
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === this.value.length)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        // Move to next field (right arrow = next)
+                        if (currentIndex < focusableElements.length - 1) {
+                            focusableElements.eq(currentIndex + 1).focus();
+                        }
+                        return false;
                     }
                 }
             });
-        }
-    });
-});
-</script>
-
-
-<!--  load grade -->
-<script>
-$(document).on("change", "select[name$='species']", function () {
-    var speciesId = $(this).val();
-    var $gradeSelect = $(this).closest(".formset-form").find("select[name$='grade']");
-
-    if (speciesId) {
-        $.ajax({
-            url: "{% url 'adminapp:get_grade_for_species' %}",
-            data: { "species_id": speciesId },
-            dataType: "json",
-            success: function (data) {
-                $gradeSelect.empty();
-                $gradeSelect.append($("<option>", { value: "", text: "---------" }));
-
-                $.each(data.grades, function (index, grade) {
-                    $gradeSelect.append($("<option>", {
-                        value: grade.id,
-                        text: grade.grade
-                    }));
-                });
-            }
         });
-    } else {
-        $gradeSelect.empty();
-        $gradeSelect.append($("<option>", { value: "", text: "---------" }));
-    }
-});
-</script>
-
-
-<!--  load peeling and Species -->
-<script>
-$(document).ready(function () {
-    console.log("Freezing Entry AJAX ready");
-
-    // 🔹 Listen for item change inside each formset row
-    $(document).on("change", ".item-select", function () {
-        let itemId = $(this).val();
-        let row = $(this).closest(".formset-form");
-
-        if (!itemId) return;
-
-        // 🔹 1. Fetch Species for this item
-        $.ajax({
-            url: "{% url 'adminapp:get_species_for_item' %}",
-            data: { item_id: itemId },
-            success: function (response) {
-                let speciesSelect = row.find(".species-select");
-                speciesSelect.empty().append('<option value="">---------</option>');
-                $.each(response.species, function (i, species) {
-                    speciesSelect.append('<option value="' + species.id + '">' + species.name + '</option>');
-                });
-            }
-        });
-
-        // 🔹 2. Fetch Peeling Types for this item
-        $.ajax({
-            url: "{% url 'adminapp:get_peeling_for_item' %}",
-            data: { item_id: itemId },
-            success: function (response) {
-                let peelingSelect = row.find(".peeling-select");
-                peelingSelect.empty().append('<option value="">---------</option>');
-                $.each(response.peeling_types, function (i, peeling) {
-                    peelingSelect.append('<option value="' + peeling.id + '">' + peeling.name + '</option>');
-                });
-            }
-        });
-    });
-});
-</script>
-
-
-
+    </script>
+    
 
 </body>
 </html>

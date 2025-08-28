@@ -26,7 +26,9 @@ import csv
 import io
 from django.db.models import Sum, Avg, F, Value, CharField, DecimalField, FloatField
 
-
+# nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
+# item category ennu parayunne elam item quality anu  model name itemQuality
+# item group ennu parayunne elam item category anu model name itemCategory
 
 
 # Check if user is an admin
@@ -314,6 +316,28 @@ class ItemDeleteView(DeleteView):
     model = Item
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:item_list')
+
+class ItemQualityCreateView(CreateView):
+    model = ItemQuality
+    form_class = ItemQualityForm
+    template_name = 'adminapp/forms/itemquality_form.html'
+    success_url = reverse_lazy('adminapp:item_quality_create')
+
+class ItemQualityListView(ListView):
+    model = ItemQuality
+    template_name = 'adminapp/list/itemquality_list.html'
+    context_object_name = 'item_qualities'
+
+class ItemQualityUpdateView(UpdateView):
+    model = ItemQuality
+    form_class = ItemQualityForm
+    template_name = 'adminapp/forms/itemquality_form.html'
+    success_url = reverse_lazy('adminapp:item_quality_list')
+
+class ItemQualityDeleteView(DeleteView):
+    model = ItemQuality
+    template_name = 'adminapp/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:item_quality_list')
 
 class SpeciesListView(ListView):
     model = Species

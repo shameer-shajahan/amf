@@ -3,6 +3,12 @@ from . import views
 from django.conf import settings
 from django.conf.urls.static import static
 
+
+# nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
+# item category ennu parayunne elam item quality anu  model name itemQuality
+# item group ennu parayunne elam item category anu model name itemCategory
+
+
 app_name = 'adminapp'
 
 urlpatterns = [
@@ -62,6 +68,11 @@ urlpatterns = [
     path('item/list/', views.ItemListView.as_view(), name='item_list'),
     path('item/update/<str:pk>/', views.ItemUpdateView.as_view(), name='item_update'),
     path('item/delete/<str:pk>/', views.ItemDeleteView.as_view(), name='item_delete'),
+
+    path('item/quality/create/', views.ItemQualityCreateView.as_view(), name='item_quality_create'),
+    path('item/quality/list/', views.ItemQualityListView.as_view(), name='item_quality_list'),
+    path('item/quality/update/<str:pk>/', views.ItemQualityUpdateView.as_view(), name='item_quality_update'),
+    path('item/quality/delete/<str:pk>/', views.ItemQualityDeleteView.as_view(), name='item_quality_delete'),
 
     path('species/', views.SpeciesListView.as_view(), name='species_list'),
     path('species/create/', views.SpeciesCreateView.as_view(), name='species_create'),

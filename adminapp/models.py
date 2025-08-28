@@ -8,6 +8,15 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils import timezone   # ✅ import here
 
 
+
+# nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
+# item category ennu parayunne elam item quality anu  model name itemQuality
+# item group ennu parayunne elam item category anu model name itemCategory
+
+
+
+
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, full_name, mobile, password=None, **extra_fields):
         if not email:
@@ -140,9 +149,17 @@ class Item(BaseModel):
     def __str__(self):
         return f"{self.name}  - {self.code}"
 
+class ItemQuality(BaseModel):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    quality = models.CharField(max_length=100)
+    code = models.CharField(null=True, blank=True, unique=True,max_length=100)
+
+    def __str__(self):
+        return f"{self.quality}"
+
 class Species(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100,  unique=True)
     code = models.CharField(null=True, blank=True, unique=True,max_length=100)
 
     def __str__(self):
@@ -158,7 +175,7 @@ class ItemGrade(BaseModel):
         return f"{self.species} - {self.grade}"
     
 class FreezingCategory(BaseModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100,unique=True)
     code = models.CharField(null=True,blank=True,unique=True,max_length=100)
     tariff = models.PositiveIntegerField(null=True, blank=True)
 
@@ -182,13 +199,13 @@ class PackingUnit(BaseModel):
         return f"{self.unit_code}"
 
 class GlazePercentage(BaseModel):
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    percentage = models.CharField(max_length=5, unique=True)  # e.g., '10.00' for 10%
 
     def __str__(self):
         return f"{self.percentage}%"
 
 class ItemBrand(BaseModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=50, unique=True, blank=True, null=True)
 
     def __str__(self):
@@ -345,6 +362,9 @@ class LocalPurchase(BaseModel):
 class LocalPurchaseItem(BaseModel):
     purchase = models.ForeignKey(LocalPurchase, on_delete=models.CASCADE, related_name='items')
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True , default=None)
+    species = models.ForeignKey(Species, on_delete=models.CASCADE,null=True, blank=True)
+    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
     grade = models.ForeignKey(ItemGrade, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     rate = models.DecimalField(max_digits=10, decimal_places=2)
@@ -358,7 +378,7 @@ class LocalPurchaseItem(BaseModel):
 
 class PeelingShedSupply(models.Model):
     date = models.DateField()
-    voucher_number = models.CharField(max_length=50)
+    voucher_number = models.CharField(max_length=50, unique=True)
     shed = models.ForeignKey('shed', on_delete=models.CASCADE)
     vehicle_number = models.CharField(max_length=50)
     spot_purchase_date = models.DateField(null=True, blank=True)
@@ -393,7 +413,7 @@ class BaseModel(models.Model):
 
 class FreezingEntrySpot(BaseModel):
     freezing_date = models.DateField()
-    voucher_number = models.CharField(max_length=50)
+    voucher_number = models.CharField(max_length=50, unique=True)
 
     spot_purchase_date = models.DateField(null=True, blank=True)
     spot = models.ForeignKey('SpotPurchase', on_delete=models.CASCADE, related_name='freezing_entries')
@@ -422,6 +442,7 @@ class FreezingEntrySpotItem(BaseModel):
     store = models.ForeignKey('Store', on_delete=models.CASCADE, null=True )
     shed = models.ForeignKey('shed', on_delete=models.CASCADE, related_name='freezing_shed_items')
     item = models.ForeignKey('Item', on_delete=models.CASCADE, related_name='freezing_item_entries')
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True , default=None)
     unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)
     glaze = models.ForeignKey('GlazePercentage', on_delete=models.CASCADE)
     freezing_category = models.ForeignKey('FreezingCategory', on_delete=models.CASCADE)
@@ -449,7 +470,7 @@ class FreezingEntrySpotItem(BaseModel):
 # freezing entry by local purchase 
 class FreezingEntryLocal(BaseModel):
     freezing_date = models.DateField()
-    voucher_number = models.CharField(max_length=50)
+    voucher_number = models.CharField(max_length=50, unique=True)
 
     local_purchase_date = models.DateField(null=True, blank=True)
     party = models.ForeignKey('LocalPurchase', on_delete=models.CASCADE)
@@ -482,6 +503,7 @@ class FreezingEntryLocalItem(BaseModel):
     processing_center = models.ForeignKey('ProcessingCenter', on_delete=models.CASCADE, null=True, blank=True)
     store = models.ForeignKey('Store', on_delete=models.CASCADE, null=True, blank=True)
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True , default=None)
     unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)
     glaze = models.ForeignKey('GlazePercentage', on_delete=models.CASCADE)
     freezing_category = models.ForeignKey('FreezingCategory', on_delete=models.CASCADE)
@@ -514,6 +536,7 @@ class PreShipmentWorkOut(BaseModel):
 
 class PreShipmentWorkOutItem(BaseModel):
     workout = models.ForeignKey(PreShipmentWorkOut, on_delete=models.CASCADE, related_name="items")
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True , default=None)
     species = models.ForeignKey('Species', on_delete=models.CASCADE)
     peeling_type = models.ForeignKey('ItemType', on_delete=models.CASCADE)
     grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)

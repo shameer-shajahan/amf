@@ -1,0 +1,25 @@
+<!-- Quality List Template -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Item Quality List</title>
+</head>
+<body>
+    <h1>Item Quality List</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+        {% for obj in object_list %}
+        <tr>
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.name }}</td>
+            <td><a href="{% url 'adminapp:item_quality_update' obj.id %}">Edit</a></td>
+            <td><a href="{% url 'adminapp:item_quality_delete' obj.id %}">Delete</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

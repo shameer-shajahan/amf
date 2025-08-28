@@ -6,6 +6,13 @@ from django.utils.timezone import now
 from .models import *
 
 
+
+
+# nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
+# item category ennu parayunne elam item quality anu  model name itemQuality
+# item group ennu parayunne elam item category anu model name itemCategory
+
+
 class CustomUserCreationForm(forms.ModelForm):
     password = forms.CharField(label='Password', widget=forms.PasswordInput)
 
@@ -74,6 +81,11 @@ class ItemCategoryForm(forms.ModelForm):
 class ItemForm(forms.ModelForm):
     class Meta:
         model = Item
+        fields = '__all__'
+
+class ItemQualityForm(forms.ModelForm):
+    class Meta:
+        model = ItemQuality
         fields = '__all__'
 
 # forms.py
@@ -253,7 +265,10 @@ class LocalPurchaseItemForm(forms.ModelForm):
         exclude = ['purchase', 'amount']
         widgets = {
             'item': forms.Select(attrs={'class': 'form-control'}),
+            'quality': forms.Select(attrs={'class': 'form-control'}),
+            'species': forms.Select(attrs={'class': 'form-control'}),
             'grade': forms.Select(attrs={'class': 'form-control'}),
+            'item_type': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control quantity-input', 'step': '0.01'}),
             'rate': forms.NumberInput(attrs={'class': 'form-control rate-input', 'step': '0.01'}),
         }
@@ -322,6 +337,7 @@ class FreezingEntrySpotItemForm(forms.ModelForm):
 
             # 🔹 Add "item-select" for AJAX binding
             'item': forms.Select(attrs={'class': 'form-control item-select'}),
+            'item_quality': forms.Select(attrs={'class': 'form-control'}),
 
             'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
             'glaze': forms.Select(attrs={'class': 'form-control'}),
@@ -382,6 +398,7 @@ class FreezingEntryLocalItemForm(forms.ModelForm):
             'processing_center': forms.Select(attrs={'class': 'form-control'}),
             'store': forms.Select(attrs={'class': 'form-control'}),
             'item': forms.Select(attrs={'class': 'form-control'}),
+            'item_quality': forms.Select(attrs={'class': 'form-control'}),
             'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
             'glaze': forms.Select(attrs={'class': 'form-control'}),
             'freezing_category': forms.Select(attrs={'class': 'form-control'}),
@@ -433,6 +450,7 @@ class PreShipmentWorkOutItemForm(forms.ModelForm):
         fields = "__all__"
         exclude = ['remark']  # Exclude remark field
         widgets = {
+            'item_quality': forms.Select(attrs={'class': 'form-control quality'}),
             'species': forms.Select(attrs={'class': 'form-control species'}),            
             'peeling_type': forms.Select(attrs={'class': 'form-control'}),
             'grade': forms.Select(attrs={'class': 'form-control'}),

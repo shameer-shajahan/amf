@@ -75,7 +75,7 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
         <div class="col">
             <div class="card module-card">
-                <div class="card-title">Item Category</div>
+                <div class="card-title">Item Group</div>
                 <div class="btn-group-custom d-flex">
                     <a href="{% url 'adminapp:item_category_create' %}" class="btn-add flex-fill text-center">Add New</a>
                     <a href="{% url 'adminapp:item_category_list' %}" class="btn-list flex-fill text-center">View List</a>
@@ -88,6 +88,15 @@
                 <div class="btn-group-custom d-flex">
                     <a href="{% url 'adminapp:item_create' %}" class="btn-add flex-fill text-center">Add New</a>
                     <a href="{% url 'adminapp:item_list' %}" class="btn-list flex-fill text-center">View List</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card module-card">
+                <div class="card-title">Item Category</div>
+                <div class="btn-group-custom d-flex">
+                    <a href="{% url 'adminapp:item_quality_create' %}" class="btn-add flex-fill text-center">Add New</a>
+                    <a href="{% url 'adminapp:item_quality_list' %}" class="btn-list flex-fill text-center">View List</a>
                 </div>
             </div>
         </div>
