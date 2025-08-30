@@ -40,15 +40,20 @@
 
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 15px;
             margin-bottom: 20px;
+        }
+        .items-grid {
+            font-size: small;
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            margin-bottom: 10px;
         }
 
         .form-column {
             display: flex;
             flex-direction: column;
-            gap: 12px;
         }
 
         label {
@@ -80,6 +85,9 @@
             padding: 15px;
             margin-top: 20px;
             background: #f9f9f9;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         legend {
@@ -110,40 +118,13 @@
             background: #0056b3;
         }
 
-        .remove-btn {
+        .delete-btn {
             background: #dc3545;
-            color: white;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
             margin-top: 8px;
         }
 
-        .remove-btn:hover {
+        .delete-btn:hover {
             background: #a71d2a;
-        }
-
-        .total-table {
-            margin-top: 20px;
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .total-table th, .total-table td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-
-        .total-table th {
-            background-color: #007BFF;
-            color: white;
-        }
-
-        /* Hide specified fields */
-        .hidden {
-            display: none;
         }
 
         @media (max-width: 768px) {
@@ -157,6 +138,275 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .entry-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .entry-table th,
+        .entry-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .entry-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .entry-table td input,
+        .entry-table td select {
+            width: 95%;
+            padding: 4px 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .data-row td {
+            font-size: 11px;
+        }
+
+        .remove-btn {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .remove-btn:hover {
+            background: #c0392b;
+        }
+
+        .remove-btn.restore {
+            background: #4caf50;
+        }
+
+        .remove-btn.restore:hover {
+            background: #45a049;
+        }
+
+        .totals-heading {
+            margin-top: 30px;
+            margin-bottom: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0056b3;
+            border-left: 5px solid #0056b3;
+            padding-left: 10px;
+        }
+
+        .total-table {
+            margin-top: 10px;
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .total-table th, .total-table td {
+            padding: 12px 15px;
+            border: 1px solid #e2e6ea;
+            font-size: 0.95rem;
+        }
+
+        .total-table th {
+            background-color: #0056b3;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .total-table td {
+            font-weight: 600;
+            background: #f9fbfd;
+        }
+
+        .total-table td input {
+            font-weight: bold;
+            color: #0d6efd;
+            text-align: center;
+            background: #eef4ff;
+            border: 1px solid #ccdfff;
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+
+        /* Horizontal scroll for items table */
+        .items-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .items-table {
+            width: 100%;
+            min-width: 1200px;
+            table-layout: auto;
+            border-collapse: collapse;
+        }
+
+        /* Hide specified fields */
+        .hidden {
+            display: none;
+        }
+
+        /* Optimized column widths */
+        .col-pr-centre { min-width: 80px; max-width: 100px; }
+        .col-store { min-width: 80px; max-width: 100px; }
+        .col-shed { min-width: 60px; max-width: 70px; }
+        .col-item { min-width: 70px; max-width: 150px; }
+        .col-category { min-width: 100px; max-width: 120px; }
+        .col-unit { min-width:70px; max-width: 100px; }
+        .col-glaze { min-width: 50px; max-width: 60px; }
+        .col-fr-category { min-width: 100px; max-width: 120px; }
+        .col-brand { min-width: 90px; max-width: 100px; }
+        .col-species { min-width: 60px; max-width: 70px; }
+        .col-type { min-width: 90px; max-width: 110px; }
+        .col-grade { min-width: 80px; max-width: 100px; }
+        .col-slab-qty { min-width: 70px; max-width: 90px; }
+        .col-cs-qty { min-width: 70px; max-width: 90px; }
+        .col-kg { min-width: 60px; max-width: 80px; }
+        .col-usd-rate-kg { min-width: 90px; max-width: 110px; }
+        .col-usd-item { min-width: 70px; max-width: 90px; }
+        .col-usd-inr { min-width: 90px; max-width: 110px; }
+        .col-yield { min-width: 70px; max-width: 90px; }
+        .col-action { min-width: 70px; max-width: 80px; }
+        .col-delete { min-width: 60px; max-width: 70px; }
+
+        /* Table styling */
+        .items-table th,
+        .items-table td {
+            padding: 6px 4px;
+            border: 1px solid #ddd;
+            font-size: 11px;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+
+        .items-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 10px;
+        }
+
+        .items-table td input,
+        .items-table td select {
+            width: 100%;
+            padding: 3px 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Row styling */
+        .items-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .items-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+
+        .items-table tbody tr.to-delete {
+            background: #ffe6e6 !important;
+            opacity: 0.7;
+        }
+
+        .items-table tbody tr.new-row {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* Delete checkbox styling */
+        .delete-checkbox {
+            text-align: center;
+        }
+
+        .delete-checkbox input[type="checkbox"] {
+            transform: scale(1.2);
+            margin: 0;
+        }
+
+        .delete-checkbox label {
+            font-size: 9px;
+            color: #dc3545;
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* Animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Focus styles */
+        input:focus, 
+        select:focus, 
+        textarea:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        .items-table td input:focus,
+        .items-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        .entry-table td input:focus,
+        .entry-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        .total-table td input:focus,
+        .total-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
     </style>
 </head>
 
@@ -167,398 +417,371 @@
 
     <form method="post">
         {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-column">
-                <label for="{{ form.freezing_date.id_for_label }}">Freezing Date</label>
-                {{ form.freezing_date }}
-                {% if form.freezing_date.errors %}
-                    <div class="error">{{ form.freezing_date.errors }}</div>
-                {% endif %}
-            </div>
-            <div class="form-column">
-                <label for="{{ form.voucher_number.id_for_label }}">Voucher Number</label>
-                {{ form.voucher_number }}
-                {% if form.voucher_number.errors %}
-                    <div class="error">{{ form.voucher_number.errors }}</div>
-                {% endif %}
-            </div>
-            <div class="form-column">
-                <label for="{{ form.spot_purchase_date.id_for_label }}">Spot Purchase Date</label>
-                {{ form.spot_purchase_date }}
-                {% if form.spot_purchase_date.errors %}
-                    <div class="error">{{ form.spot_purchase_date.errors }}</div>
-                {% endif %}
-            </div>
-            <div class="form-column">
-                <label for="{{ form.spot.id_for_label }}">Spot</label>
-                {{ form.spot }}
-                {% if form.spot.errors %}
-                    <div class="error">{{ form.spot.errors }}</div>
-                {% endif %}
-            </div>
-            <div class="form-column">
-                <label for="{{ form.spot_agent.id_for_label }}">Spot Agent</label>
-                {{ form.spot_agent }}
-                {% if form.spot_agent.errors %}
-                    <div class="error">{{ form.spot_agent.errors }}</div>
-                {% endif %}
-            </div>
-            <div class="form-column">
-                <label for="{{ form.spot_supervisor.id_for_label }}">Spot Supervisor</label>
-                {{ form.spot_supervisor }}
-                {% if form.spot_supervisor.errors %}
-                    <div class="error">{{ form.spot_supervisor.errors }}</div>
-                {% endif %}
-            </div>
-        </div>
+
+        <table class="entry-table">
+            <tr>
+                <th>Freezing Date</th>
+                <th>Voucher Number</th>
+                <th>Spot Purchase Date</th>
+                <th>Spot</th>
+                <th>Spot Agent</th>
+                <th>Spot Supervisor</th>
+            </tr>
+            <tr>
+                <td>{{ form.freezing_date }} {{ form.freezing_date.errors }}</td>
+                <td>{{ form.voucher_number }} {{ form.voucher_number.errors }}</td>
+                <td>{{ form.spot_purchase_date }} {{ form.spot_purchase_date.errors }}</td>
+                <td>{{ form.spot }} {{ form.spot.errors }}</td>
+                <td>{{ form.spot_agent }} {{ form.spot_agent.errors }}</td>
+                <td>{{ form.spot_supervisor }} {{ form.spot_supervisor.errors }}</td>
+            </tr>
+        </table>
 
         <fieldset>
             <legend>Items</legend>
             {{ formset.management_form }}
-            <div id="formset-container">
-                {% for form in formset %}
-                    <div class="formset-form">
-                        <!-- Hidden fields for update functionality -->
-                        {{ form.id }}
-                        
-                        <div class="form-grid">
-                            <div class="form-column">
-                                <label for="{{ form.processing_center.id_for_label }}">Processing Centre</label>
-                                {{ form.processing_center }}
-                                {% if form.processing_center.errors %}
-                                    <div class="error">{{ form.processing_center.errors }}</div>
+
+            <div class="items-container">
+                <table class="entry-table items-table" id="formset-table">
+                    <thead>
+                        <tr>
+                            <th class="col-pr-centre">PR Centre</th>
+                            <th class="col-store">Store</th>
+                            <th class="col-shed">Shed</th>
+                            <th class="col-item">Item</th>
+                            <th class="col-category">Category</th>
+                            <th class="col-unit">Unit</th>
+                            <th class="col-glaze">Glaze</th>
+                            <th class="col-fr-category">FR Category</th>
+                            <th class="col-brand">Brand</th>
+                            <th class="col-species">Species</th>
+                            <th class="col-type">Type</th>
+                            <th class="col-grade">Grade</th>
+                            <th class="col-slab-qty">Slab Qty</th>
+                            <th class="col-usd-rate-kg">Price</th>
+                            <th class="col-yield">Yield %</th>
+                            <!-- <th class="col-delete">Delete</th> -->
+                            <th class="col-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="formset-container">
+                        {% for form in formset %}
+                        <tr class="formset-form data-row">
+                            <!-- Hidden fields -->
+                            <td class="hidden-fields" style="display: none;">
+                                {% for hidden in form.hidden_fields %}
+                                    {{ hidden }}
+                                {% endfor %}
+                            </td>
+                            
+                            <td class="col-pr-centre">{{ form.processing_center }} {{ form.processing_center.errors }}</td>
+                            <td class="col-store">{{ form.store }} {{ form.store.errors }}</td>
+                            <td class="col-shed">{{ form.shed }} {{ form.shed.errors }}</td>
+                            <td class="col-item">{{ form.item }} {{ form.item.errors }}</td>
+                            <td class="col-category">{{ form.item_quality }} {{ form.item_quality.errors }}</td>
+                            <td class="col-unit">{{ form.unit }} {{ form.unit.errors }}</td>
+                            <td class="col-glaze">{{ form.glaze }} {{ form.glaze.errors }}</td>
+                            <td class="col-fr-category">{{ form.freezing_category }} {{ form.freezing_category.errors }}</td>
+                            <td class="col-brand">{{ form.brand }} {{ form.brand.errors }}</td>
+                            <td class="col-species">{{ form.species }} {{ form.species.errors }}</td>
+                            <td class="col-type">{{ form.peeling_type }} {{ form.peeling_type.errors }}</td>
+                            <td class="col-grade">{{ form.grade }} {{ form.grade.errors }}</td>
+                            <td class="col-slab-qty">{{ form.slab_quantity }} {{ form.slab_quantity.errors }}</td>
+                            <td class="hidden">{{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}</td>
+                            <td class="hidden">{{ form.kg }} {{ form.kg.errors }}</td>
+                            <td class="col-usd-rate-kg">{{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}</td>
+                            <td class="col-yield">{{ form.yield_percentage }} {{ form.yield_percentage.errors }}</td>
+                            
+                            <!-- Delete checkbox -->
+                            <td class="delete-checkbox col-delete hidden">
+                                {% if form.DELETE %}
+                                    {{ form.DELETE }}
+                                    <label for="{{ form.DELETE.id_for_label }}">Mark</label>
                                 {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.store.id_for_label }}">Store</label>
-                                {{ form.store }}
-                                {% if form.store.errors %}
-                                    <div class="error">{{ form.store.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.shed.id_for_label }}">Shed</label>
-                                {{ form.shed }}
-                                {% if form.shed.errors %}
-                                    <div class="error">{{ form.shed.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.item.id_for_label }}">Item Name</label>
-                                {{ form.item }}
-                                {% if form.item.errors %}
-                                    <div class="error">{{ form.item.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.unit.id_for_label }}">Unit</label>
-                                {{ form.unit }}
-                                {% if form.unit.errors %}
-                                    <div class="error">{{ form.unit.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.glaze.id_for_label }}">Glaze</label>
-                                {{ form.glaze }}
-                                {% if form.glaze.errors %}
-                                    <div class="error">{{ form.glaze.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.freezing_category.id_for_label }}">Freezing Category</label>
-                                {{ form.freezing_category }}
-                                {% if form.freezing_category.errors %}
-                                    <div class="error">{{ form.freezing_category.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.brand.id_for_label }}">Brand</label>
-                                {{ form.brand }}
-                                {% if form.brand.errors %}
-                                    <div class="error">{{ form.brand.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.species.id_for_label }}">Species</label>
-                                {{ form.species }}
-                                {% if form.species.errors %}
-                                    <div class="error">{{ form.species.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.peeling_type.id_for_label }}">Peeling Type</label>
-                                {{ form.peeling_type }}
-                                {% if form.peeling_type.errors %}
-                                    <div class="error">{{ form.peeling_type.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.grade.id_for_label }}">Grade</label>
-                                {{ form.grade }}
-                                {% if form.grade.errors %}
-                                    <div class="error">{{ form.grade.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.slab_quantity.id_for_label }}">Slab Quantity</label>
-                                {{ form.slab_quantity }}
-                                {% if form.slab_quantity.errors %}
-                                    <div class="error">{{ form.slab_quantity.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="{{ form.c_s_quantity.id_for_label }}">C/S Quantity</label>
-                                {{ form.c_s_quantity }}
-                                {% if form.c_s_quantity.errors %}
-                                    <div class="error">{{ form.c_s_quantity.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="{{ form.kg.id_for_label }}">Kg</label>
-                                {{ form.kg }}
-                                {% if form.kg.errors %}
-                                    <div class="error">{{ form.kg.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.usd_rate_per_kg.id_for_label }}">USD Rate per Kg</label>
-                                {{ form.usd_rate_per_kg }}
-                                {% if form.usd_rate_per_kg.errors %}
-                                    <div class="error">{{ form.usd_rate_per_kg.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="{{ form.usd_rate_item.id_for_label }}">USD Rate Item</label>
-                                {{ form.usd_rate_item }}
-                                {% if form.usd_rate_item.errors %}
-                                    <div class="error">{{ form.usd_rate_item.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column hidden">
-                                <label for="{{ form.usd_rate_item_to_inr.id_for_label }}">USD Rate Item to INR</label>
-                                {{ form.usd_rate_item_to_inr }}
-                                {% if form.usd_rate_item_to_inr.errors %}
-                                    <div class="error">{{ form.usd_rate_item_to_inr.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-column">
-                                <label for="{{ form.yield_percentage.id_for_label }}">Yield Percentage</label>
-                                {{ form.yield_percentage }}
-                                {% if form.yield_percentage.errors %}
-                                    <div class="error">{{ form.yield_percentage.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <!-- Delete checkbox for existing forms -->
-                        {% if form.instance.pk %}
-                            <label>
-                                {{ form.DELETE }}
-                                Delete this item
-                            </label>
-                        {% endif %}
-                        
-                        <button type="button" class="remove-btn">Remove</button>
-                    </div>
-                {% endfor %}
+                            </td>
+                            
+                            <!-- Action button -->
+                            <td class="col-action">
+                                <button type="button" class="remove-btn">
+                                    {% if form.DELETE %}Remove{% else %}Remove{% endif %}
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
 
             <button type="button" id="add-more-btn" class="button">+ Add More Item</button>
         </fieldset>
 
+        <h3 class="totals-heading">Freezing Entry Summary</h3>
         <table class="total-table">
-            <tr>
-                <th>Total Yield Percentage</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_yield_percentage" name="total_yield_percentage" value="{{ freezing_entry.total_yield_percentage|floatformat:2 }}" readonly>
-                </td>
-                <th>Total USD</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_usd" name="total_usd" value="{{ freezing_entry.total_usd|floatformat:2 }}" readonly>
-                </td>
-                <th>Total INR</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_inr" name="total_inr" value="{{ freezing_entry.total_inr|floatformat:2 }}" readonly>
-                </td>
-                <th>Total Slab</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_slab" name="total_slab" value="{{ freezing_entry.total_slab|floatformat:2 }}" readonly>
-                </td>
-            </tr>
-            <tr>
-                <th>Total C/S</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_c_s" name="total_c_s" value="{{ freezing_entry.total_c_s|floatformat:2 }}" readonly>
-                </td>
-                <th>Total KG</th>
-                <td>
-                    <input type="number" step="0.01" id="id_total_kg" name="total_kg" value="{{ freezing_entry.total_kg|floatformat:2 }}" readonly>
-                </td>
-                <th>Freezing Status</th>
-                <td>
-                    {{ form.freezing_status }}
-                </td>
-                <td colspan="2"></td>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Total Yield %</th>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Freezing Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ form.total_yield_percentage }} {{ form.total_yield_percentage.errors }}</td>
+                    <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
+                    <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
+                    <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
+                    <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
+                    <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
+                    <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
+                </tr>
+            </tbody>
         </table>
 
         <br>
         <button type="submit" class="button">Update Entry</button>
     </form>
 
+    <!-- Clone & Add More Formset with Slab / CS / KG Calculation -->
     <script>
-        $(document).ready(function () {
-            const formsetContainer = $('#formset-container');
-            const totalForms = $('#id_form-TOTAL_FORMS');
+    $(document).ready(function () {
+        const formsetContainer = $('#formset-container');
+        const totalForms = $('#id_form-TOTAL_FORMS');
 
-            // Add CSS classes to existing forms for calculations
-            $('.formset-form').each(function() {
-                $(this).find('[name*="slab_quantity"]').addClass('slab-quantity');
-                $(this).find('[name*="c_s_quantity"]').addClass('cs-quantity');
-                $(this).find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
-                $(this).find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
-                $(this).find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
-                $(this).find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
-                $(this).find('[name*="unit"]').addClass('unit-select');
-                $(this).find('[name*="item"]').addClass('item-select');
-                $(this).find('[name*="species"]').addClass('species-select');
-                $(this).find('[name*="peeling_type"]').addClass('peeling-select');
-            });
+                   // Add new form
+            $("#add-form").click(function () {
+                const formCount = parseInt(totalForms.val());
+                const newForm = $(".formset-form:first").clone(true);
 
-            // Clone and Add More functionality
-            $('#add-more-btn').click(function () {
-                let formIndex = parseInt(totalForms.val());
-                let lastForm = $('.formset-form:last');
-                let newForm = lastForm.clone(true);
-
-                // Fields to preserve from last form
-                const fieldsToPreserve = [
-                    'processing_center', 'store', 'shed', 'item', 'unit',
-                    'glaze', 'freezing_category', 'brand', 'species', 'peeling_type'
-                ];
-
-                // Fields to reset
-                const fieldsToReset = [
-                    'grade', 'slab_quantity', 'c_s_quantity', 'kg', 
-                    'usd_rate_per_kg', 'usd_rate_item', 'usd_rate_item_to_inr', 
-                    'yield_percentage'
-                ];
-
-                // Preserve values
-                let preservedValues = {};
-                fieldsToPreserve.forEach(function(fieldName) {
-                    let element = lastForm.find(`[name*="${fieldName}"]`);
-                    if (element.length > 0) preservedValues[fieldName] = element.val();
-                });
-
-                // Update form attributes and reset values
-                newForm.find(':input').each(function() {
-                    let name = $(this).attr('name');
+                // Update names/ids
+                newForm.find("input, select, textarea").each(function () {
+                    const name = $(this).attr("name");
                     if (name) {
-                        let oldFieldName = name.split('-').pop();
-                        name = name.replace(/-\d+-/, `-${formIndex}-`);
-                        let id = 'id_' + name;
-                        $(this).attr({ name: name, id: id });
-
-                        if (fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined) {
-                            $(this).val(preservedValues[oldFieldName]);
-                        } else if (fieldsToReset.includes(oldFieldName)) {
-                            if ($(this).is('select')) {
-                                $(this).prop('selectedIndex', 0);
-                            } else {
-                                $(this).val('');
-                            }
+                        const newName = name.replace(/-\d+-/, `-${formCount}-`);
+                        const newId = $(this).attr("id").replace(/-\d+-/, `-${formCount}-`);
+                        $(this).attr({ name: newName, id: newId });
+                        if ($(this).attr("type") !== "hidden" && $(this).attr("type") !== "checkbox") {
+                            $(this).val("");
                         }
                     }
                 });
 
-                // Reset DELETE and remove id field for new form
-                newForm.find('input[name$="-DELETE"]').prop('checked', false);
-                newForm.find('input[name$="-id"]').val('');
+                // Uncheck DELETE if present
+                newForm.find("input[type=checkbox]").prop("checked", false);
 
-                // Add calculation classes
-                newForm.find('[name*="slab_quantity"]').addClass('slab-quantity');
-                newForm.find('[name*="c_s_quantity"]').addClass('cs-quantity');
-                newForm.find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
-                newForm.find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
-                newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
-                newForm.find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
-                newForm.find('[name*="unit"]').addClass('unit-select');
-                newForm.find('[name*="item"]').addClass('item-select');
-                newForm.find('[name*="species"]').addClass('species-select');
-                newForm.find('[name*="peeling_type"]').addClass('peeling-select');
-
-                formsetContainer.append(newForm);
-                totalForms.val(formIndex + 1);
-
-                newForm.find('[name*="grade"]').focus();
+                newForm.appendTo(formsetContainer);
+                totalForms.val(formCount + 1);
             });
 
-            // Remove form functionality
-            $(document).on('click', '.remove-btn', function () {
-                let form = $(this).closest('.formset-form');
-                let deleteField = form.find('input[name$="-DELETE"]');
-                
-                if (deleteField.length > 0) {
-                    // Mark for deletion instead of removing
-                    deleteField.prop('checked', true);
-                    form.hide();
+        $('#add-more-btn').click(function () {
+            let formIndex = parseInt(totalForms.val());
+            let lastForm = $('.formset-form:last');
+            let newForm = lastForm.clone(false);
+
+            // Fields to preserve
+            const fieldsToPreserve = [
+                'processing_center','store','shed','item','item_quality','unit',
+                'glaze','freezing_category','brand','species','peeling_type'
+            ];
+
+            // Fields to completely reset
+            const fieldsToCompletelyReset = [
+                'usd_rate_per_kg','usd_rate_item','usd_rate_item_to_inr'
+            ];
+
+            // Fields to reset normally
+            const fieldsToReset = [
+                'grade','slab_quantity','c_s_quantity','kg','yield_percentage'
+            ];
+
+            // Preserve values from the last form
+            let preservedValues = {};
+            fieldsToPreserve.forEach(function(fieldName){
+                let element = lastForm.find(`[name*="${fieldName}"]`);
+                if (element.length > 0) preservedValues[fieldName] = element.val();
+            });
+
+            // Update names, ids, reset values
+            newForm.find(':input').each(function(){
+                let name = $(this).attr('name');
+                if(name){
+                    let oldFieldName = name.split('-').pop();
+                    name = name.replace(/-\d+-/, `-${formIndex}-`);
+                    let id = 'id_'+name;
+                    $(this).attr({name:name, id:id});
+
+                    if(fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined){
+                        $(this).val(preservedValues[oldFieldName]);
+                    } else if(fieldsToReset.includes(oldFieldName)){
+                        if($(this).is('select')) $(this).prop('selectedIndex', 0);
+                        else $(this).val('');
+                    } else if(fieldsToCompletelyReset.includes(oldFieldName)){
+                        let $newInput = $('<input>').attr({
+                            'type': $(this).attr('type') || 'text',
+                            'name': name,
+                            'id': id,
+                            'class': $(this).attr('class') || '',
+                            'step': $(this).attr('step') || '',
+                            'value': ''
+                        });
+                        $(this).replaceWith($newInput);
+                    }
+                }
+            });
+
+            // Add calculation classes
+            newForm.find('[name*="slab_quantity"]').addClass('slab-quantity');
+            newForm.find('[name*="c_s_quantity"]').addClass('cs-quantity');
+            newForm.find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
+            newForm.find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
+            newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
+            newForm.find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
+            newForm.find('[name*="unit"]').addClass('unit-select');
+
+            // Reset DELETE field
+            newForm.find('input[name$="-DELETE"]').prop('checked', false);
+            newForm.removeClass('to-delete');
+
+            // Update button text for new rows
+            newForm.find('.remove-btn').text('Remove').removeClass('restore');
+
+            // Add animation class
+            newForm.addClass('new-row');
+
+            // Append new form
+            formsetContainer.append(newForm);
+            totalForms.val(formIndex + 1);
+
+            // Remove animation class after animation completes
+            setTimeout(function() {
+                newForm.removeClass('new-row');
+            }, 300);
+
+            // Focus first blank field
+            newForm.find('[name*="grade"]').focus();
+
+            console.log('New form cloned from last form, USD fields cleared');
+        });
+    });
+    </script>
+
+    <!-- Remove/Hide functionality for update form -->
+    <script>
+    $(document).ready(function () {
+        const formsetContainer = $("#formset-container");
+        const totalForms = $("#id_form-TOTAL_FORMS");
+
+        // Remove/hide form functionality
+        $(document).on("click", ".remove-btn", function () {
+            const row = $(this).closest(".formset-form");
+            const deleteCheckbox = row.find("input[type=checkbox][name$='-DELETE']");
+            
+            if (deleteCheckbox.length > 0) {
+                // For existing records with DELETE checkbox
+                if (deleteCheckbox.prop("checked")) {
+                    // Unmark for deletion
+                    deleteCheckbox.prop("checked", false);
+                    row.removeClass("to-delete");
+                    $(this).text("Hide").removeClass("restore");
                 } else {
-                    // Remove new forms completely
-                    if ($('.formset-form:visible').length > 1) {
-                        form.remove();
+                    // Mark for deletion
+                    deleteCheckbox.prop("checked", true);
+                    row.addClass("to-delete");
+                    $(this).text("Restore").addClass("restore");
+                }
+            } else {
+                // For new forms without DELETE checkbox, remove completely
+                if ($(".formset-form").length > 1) {
+                    row.fadeOut(300, function() {
+                        $(this).remove();
                         
-                        // Re-number remaining forms
-                        $('.formset-form').each(function(index) {
-                            $(this).find('input, select, label').each(function() {
-                                if ($(this).attr('name')) {
-                                    let name = $(this).attr('name').replace(/-\d+-/, '-' + index + '-');
-                                    $(this).attr('name', name);
-                                    $(this).attr('id', 'id_' + name);
+                        // Re-number forms
+                        let forms = $(".formset-form");
+                        totalForms.val(forms.length);
+                        forms.each(function (index) {
+                            $(this).find("input, select, label").each(function () {
+                                if ($(this).attr("name")) {
+                                    let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("name", name);
+                                    $(this).attr("id", "id_" + name);
                                 }
-                                if ($(this).attr('for')) {
-                                    let newFor = $(this).attr('for').replace(/-\d+-/, '-' + index + '-');
-                                    $(this).attr('for', newFor);
+                                if ($(this).attr("for")) {
+                                    let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("for", newFor);
                                 }
                             });
                         });
-                        
-                        totalForms.val($('.formset-form').length);
-                    }
+                    });
+                } else {
+                    alert("At least one form is required.");
                 }
-                
-                calculateTotals();
-            });
+            }
         });
 
-        // Dollar rate and unit calculations
+        // Handle form submission - show confirmation for deletions
+        $("form").on("submit", function(e) {
+            const deletedItems = $("input[name$='-DELETE']:checked").length;
+            if (deletedItems > 0) {
+                const confirm = window.confirm(
+                    `You are about to delete ${deletedItems} item(s). Are you sure you want to continue?`
+                );
+                if (!confirm) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+
+        // Initialize existing DELETE checkboxes on page load
+        $("input[name$='-DELETE']:checked").each(function() {
+            const row = $(this).closest(".formset-form");
+            row.addClass("to-delete");
+            row.find(".remove-btn").text("Restore").addClass("restore");
+        });
+    });
+    </script>
+
+    <!-- Unit Calculation -->
+    <script>
+    $(document).ready(function () {
         let dollarRate = 0;
 
+        // Fetch dollar rate on page load
         $.getJSON("{% url 'adminapp:get_dollar_rate' %}", function (data) {
             if (data.dollar_rate_to_inr) {
                 dollarRate = parseFloat(data.dollar_rate_to_inr);
             }
+        }).fail(function() {
+            console.log('Could not fetch dollar rate, using default 0');
         });
 
-        // Calculate row totals
+        // Helper to recalc a single formset row
         function recalcRow($row) {
             let slabQty = parseFloat($row.find('.slab-quantity').val()) || 0;
             let usdPerKg = parseFloat($row.find('.usd-rate-per-kg').val()) || 0;
             let precision = parseFloat($row.data('precision')) || 0;
             let factor = parseFloat($row.data('factor')) || 0;
 
+            // Calculate CS Quantity only if we have slab quantity and precision
             if (slabQty && precision) {
                 $row.find('.cs-quantity').val((slabQty / precision).toFixed(2));
             } else if (!slabQty) {
                 $row.find('.cs-quantity').val('');
             }
 
+            // Calculate KG only if we have slab quantity and factor
             if (slabQty && factor) {
                 $row.find('.kg').val((slabQty * factor).toFixed(2));
             } else if (!slabQty) {
                 $row.find('.kg').val('');
             }
 
+            // Calculate USD Rate Item only if we have both KG and USD per KG
             let kg = parseFloat($row.find('.kg').val()) || 0;
             if (kg && usdPerKg) {
                 $row.find('.usd-rate-item').val((usdPerKg * kg).toFixed(2));
@@ -566,6 +789,7 @@
                 $row.find('.usd-rate-item').val('');
             }
 
+            // Calculate USD Rate Item to INR
             let usdItem = parseFloat($row.find('.usd-rate-item').val()) || 0;
             if (usdItem && dollarRate) {
                 $row.find('.usd-rate-item-inr').val((usdItem * dollarRate).toFixed(2));
@@ -574,7 +798,7 @@
             }
         }
 
-        // Unit change handler
+        // When unit changes → fetch precision/factor and recalc
         $(document).on('change', '.unit-select', function () {
             let $row = $(this).closest('.formset-form');
             let unitId = $(this).val();
@@ -589,66 +813,50 @@
                 $row.data('precision', data.precision);
                 $row.data('factor', data.factor);
                 recalcRow($row);
+            }).fail(function() {
+                console.log('Could not fetch unit details for unit ID:', unitId);
             });
         });
 
-        // Input change handlers
+        // Trigger recalculation on input changes
         $(document).on('input', '.slab-quantity, .usd-rate-per-kg', function () {
             let $row = $(this).closest('.formset-form');
             recalcRow($row);
         });
 
-        // Total calculation
-        function calculateTotals() {
-            let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0;
+        // Clear dependent fields when slab quantity is cleared
+        $(document).on('input', '.slab-quantity', function () {
+            let $row = $(this).closest('.formset-form');
+            if (!$(this).val()) {
+                $row.find('.cs-quantity, .kg, .usd-rate-item, .usd-rate-item-inr').val('');
+            }
+        });
 
-            $('.formset-form:visible').each(function () {
-                // Skip deleted forms
-                if ($(this).find('[name$="DELETE"]').is(':checked')) {
-                    return;
-                }
+        // Clear dependent fields when USD rate per kg is cleared
+        $(document).on('input', '.usd-rate-per-kg', function () {
+            let $row = $(this).closest('.formset-form');
+            if (!$(this).val()) {
+                $row.find('.usd-rate-item, .usd-rate-item-inr').val('');
+            }
+        });
 
-                const getVal = (name) => {
-                    const val = parseFloat($(this).find(`[name$="${name}"]`).val());
-                    return isNaN(val) ? 0 : val;
-                };
+        // Initialize existing forms with calculation classes
+        $('.formset-form').each(function() {
+            $(this).find('[name*="slab_quantity"]').addClass('slab-quantity');
+            $(this).find('[name*="c_s_quantity"]').addClass('cs-quantity');
+            $(this).find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
+            $(this).find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
+            $(this).find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
+            $(this).find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
+            $(this).find('[name*="unit"]').addClass('unit-select');
+        });
+    });
+    </script>
 
-                const yieldPercentage = getVal('yield_percentage');
-                const usdRate = getVal('usd_rate_item');
-                const inrRate = getVal('usd_rate_item_to_inr');
-                const slabQty = getVal('slab_quantity');
-                const csQty = getVal('c_s_quantity');
-                const kgWeight = getVal('kg');
-
-                if (yieldPercentage > 0) {
-                    totalYield += yieldPercentage;
-                }
-                
-                totalUSD += usdRate;
-                totalINR += inrRate;
-                totalSlab += slabQty;
-                totalCS += csQty;
-                totalKG += kgWeight;
-            });
-
-            // Update the total fields
-            $('#id_total_yield_percentage').val(totalYield.toFixed(2));
-            $('#id_total_usd').val(totalUSD.toFixed(2));
-            $('#id_total_inr').val(totalINR.toFixed(2));
-            $('#id_total_slab').val(totalSlab.toFixed(2));
-            $('#id_total_c_s').val(totalCS.toFixed(2));
-            $('#id_total_kg').val(totalKG.toFixed(2));
-        }
-
-        // Trigger calculation on any input change
-        $(document).on('input change', '.formset-form :input', calculateTotals);
-        $(document).on('change', '.formset-form [name$="DELETE"]', calculateTotals);
-
-        // Populate spots based on date
+    <!-- Populate Spots based on Date -->
+    <script>
         $('#id_spot_purchase_date').on('change', function () {
             const date = $(this).val();
-            if (!date) return;
-
             $.get("{% url 'adminapp:get_spots_by_date' %}", { date: date }, function (data) {
                 const spotSelect = $('#id_spot').empty().append('<option value="">---------</option>');
                 data.spots.forEach(spot => {
@@ -656,8 +864,10 @@
                 });
             });
         });
+    </script>
 
-        // Populate agent & supervisor based on spot
+    <!-- Populate Agent & Supervisor based on Spot -->
+    <script>
         $('#id_spot').on('change', function () {
             const spotId = $(this).val();
             if (!spotId) return;
@@ -677,8 +887,10 @@
                 supervisor.val(data.supervisor_id);
             });
         });
+    </script>
 
-        // Populate sheds and items based on date
+    <!-- Populate Sheds and Items based on Date -->
+    <script>
         $('#id_spot_purchase_date').on('change', function () {
             const selectedDate = $(this).val();
             if (!selectedDate) return;
@@ -693,34 +905,113 @@
                 });
 
                 $('[name$="-shed"]').each(function () {
-                    let currentValue = $(this).val();
                     $(this).empty().append('<option value="">---------</option>');
                     shedSet.forEach(opt => $(this).append(opt));
-                    if (currentValue) $(this).val(currentValue);
                 });
 
                 $('[name$="-item"]').each(function () {
-                    let currentValue = $(this).val();
                     $(this).empty().append('<option value="">---------</option>');
                     itemSet.forEach(opt => $(this).append(opt));
-                    if (currentValue) $(this).val(currentValue);
                 });
             }).fail(() => alert("Failed to load sheds/items for the selected date."));
         });
+    </script>
 
-        // Yield percentage calculation
+    <!-- Total Calculation -->
+    <script>
+        function calculateTotals() {
+            let totalYield = 0, totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0;
+            let validYieldCount = 0;
+
+            $('.formset-form').each(function () {
+                // Skip deleted forms
+                if ($(this).find('[name$="DELETE"]').is(':checked')) {
+                    return;
+                }
+
+                const getVal = (name) => {
+                    const val = parseFloat($(this).find(`[name$="${name}"]`).val());
+                    return isNaN(val) ? 0 : val;
+                };
+
+                const yieldPercentage = getVal('yield_percentage');
+                const usdRate = getVal('usd_rate_item');
+                const inrRate = getVal('usd_rate_item_to_inr');
+                const slabQty = getVal('slab_quantity');
+                const csQty = getVal('c_s_quantity');
+                const kgWeight = getVal('kg');
+
+                if (yieldPercentage > 0) {
+                    totalYield += yieldPercentage;
+                    validYieldCount++;
+                }
+                
+                totalUSD += usdRate;
+                totalINR += inrRate;
+                totalSlab += slabQty;
+                totalCS += csQty;
+                totalKG += kgWeight;
+            });
+
+            $('#id_total_yield_percentage').val(totalYield.toFixed(2));
+            $('#id_total_usd').val(totalUSD.toFixed(2));
+            $('#id_total_inr').val(totalINR.toFixed(2));
+            $('#id_total_slab').val(totalSlab.toFixed(2));
+            $('#id_total_c_s').val(totalCS.toFixed(2));
+            $('#id_total_kg').val(totalKG.toFixed(2));
+        }
+
+        $(document).on('input change', '.formset-form :input', calculateTotals);
+        $(document).on('change', '.formset-form [name$="DELETE"]', calculateTotals);
+        $(document).ready(calculateTotals);
+    </script>
+
+    <!-- Yield percentage calculation -->
+    <script>
+    $(document).ready(function () {
+        let ajaxCall = null;
+
+        function fetchShedData(spotDate) {
+            if (!spotDate) return;
+
+            if (ajaxCall) ajaxCall.abort();
+
+            ajaxCall = $.ajax({
+                url: "/adminapp/ajax/get-sheds-by-date/",
+                data: { date: spotDate },
+                success: function (response) {
+                    console.log(response);
+                },
+                error: function () {
+                    console.log("Error fetching shed data.");
+                }
+            });
+
+            return ajaxCall;
+        }
+
+        $("#id_spot_purchase_date").on("change", function() {
+            let spotDate = $(this).val();
+            if (spotDate) fetchShedData(spotDate);
+        });
+
+        let initialDate = $("#id_spot_purchase_date").val();
+        if (initialDate) fetchShedData(initialDate);
+
         $(document).on("input change", "input[name$='kg'], select[name$='shed']", function () {
             let row = $(this).closest(".formset-form");
+
             let kgField = row.find("input[name$='kg']");
             let yieldField = row.find("input[name$='yield_percentage']");
             let shedSelect = row.find("select[name$='shed']");
             let itemSelect = row.find("select[name$='item']");
+
             let kg = parseFloat(kgField.val()) || 0;
             let spotDate = $("#id_spot_purchase_date").val();
 
             if (shedSelect.val() && itemSelect.val() && spotDate) {
                 $.ajax({
-                    url: "{% url 'adminapp:get_sheds_by_date' %}",
+                    url: "/adminapp/ajax/get-sheds-by-date/",
                     data: { date: spotDate },
                     success: function (response) {
                         let sheds = response.sheds || [];
@@ -742,87 +1033,180 @@
                 });
             }
         });
+    });
+    </script>
 
-        // Load grades for species
-        $(document).on("change", "select[name$='species']", function () {
-            var speciesId = $(this).val();
-            var $gradeSelect = $(this).closest(".formset-form").find("select[name$='grade']");
+    <!-- Load grade -->
+    <script>
+    $(document).on("change", "select[name$='species']", function () {
+        var speciesId = $(this).val();
+        var $gradeSelect = $(this).closest(".formset-form").find("select[name$='grade']");
 
-            if (speciesId) {
-                $.ajax({
-                    url: "{% url 'adminapp:get_grade_for_species' %}",
-                    data: { "species_id": speciesId },
-                    dataType: "json",
-                    success: function (data) {
-                        $gradeSelect.empty();
-                        $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+        if (speciesId) {
+            $.ajax({
+                url: "{% url 'adminapp:get_grade_for_species' %}",
+                data: { "species_id": speciesId },
+                dataType: "json",
+                success: function (data) {
+                    $gradeSelect.empty();
+                    $gradeSelect.append($("<option>", { value: "", text: "---------" }));
 
-                        $.each(data.grades, function (index, grade) {
-                            $gradeSelect.append($("<option>", {
-                                value: grade.id,
-                                text: grade.grade
-                            }));
-                        });
-                    }
-                });
-            } else {
-                $gradeSelect.empty();
-                $gradeSelect.append($("<option>", { value: "", text: "---------" }));
-            }
-        });
+                    $.each(data.grades, function (index, grade) {
+                        $gradeSelect.append($("<option>", {
+                            value: grade.id,
+                            text: grade.grade
+                        }));
+                    });
+                }
+            });
+        } else {
+            $gradeSelect.empty();
+            $gradeSelect.append($("<option>", { value: "", text: "---------" }));
+        }
+    });
+    </script>
 
-        // Load species and peeling types for items
+    <!-- Load peeling and Species -->
+    <script>
+    $(document).ready(function () {
+        console.log("Freezing Entry AJAX ready");
+
         $(document).on("change", ".item-select", function () {
             let itemId = $(this).val();
             let row = $(this).closest(".formset-form");
 
             if (!itemId) return;
 
-            // Fetch Species for this item
             $.ajax({
                 url: "{% url 'adminapp:get_species_for_item' %}",
                 data: { item_id: itemId },
                 success: function (response) {
                     let speciesSelect = row.find(".species-select");
-                    let currentValue = speciesSelect.val();
                     speciesSelect.empty().append('<option value="">---------</option>');
                     $.each(response.species, function (i, species) {
                         speciesSelect.append('<option value="' + species.id + '">' + species.name + '</option>');
                     });
-                    if (currentValue) speciesSelect.val(currentValue);
                 }
             });
 
-            // Fetch Peeling Types for this item
             $.ajax({
                 url: "{% url 'adminapp:get_peeling_for_item' %}",
                 data: { item_id: itemId },
                 success: function (response) {
                     let peelingSelect = row.find(".peeling-select");
-                    let currentValue = peelingSelect.val();
                     peelingSelect.empty().append('<option value="">---------</option>');
                     $.each(response.peeling_types, function (i, peeling) {
                         peelingSelect.append('<option value="' + peeling.id + '">' + peeling.name + '</option>');
                     });
-                    if (currentValue) peelingSelect.val(currentValue);
                 }
             });
         });
+    });
+    </script>
 
-        // Initialize calculations on page load
+    <!-- F1 key shortcut for adding more items -->
+    <script>
         $(document).ready(function() {
-            calculateTotals();
+            $(document).on('keydown', function(e) {
+                if (e.keyCode === 112 || e.which === 112) {
+                    e.preventDefault();
+                    $('#add-more-btn').click();
+                    return false;
+                }
+            });
+        });
+    </script>
+
+    <!-- Delete key shortcut for removing the focused item -->
+    <script>
+    $(document).ready(function () {
+        function removeFormByKey(form) {
+            const deleteCheckbox = form.find("input[type=checkbox][name$='-DELETE']");
             
-            // Load unit details for existing forms
-            $('.unit-select').each(function() {
-                let $row = $(this).closest('.formset-form');
-                let unitId = $(this).val();
-                
-                if (unitId) {
-                    $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
-                        $row.data('precision', data.precision);
-                        $row.data('factor', data.factor);
+            if (deleteCheckbox.length > 0) {
+                if (deleteCheckbox.prop("checked")) {
+                    deleteCheckbox.prop("checked", false);
+                    form.removeClass("to-delete");
+                    form.find('.remove-btn').text("Hide").removeClass("restore");
+                } else {
+                    deleteCheckbox.prop("checked", true);
+                    form.addClass("to-delete");
+                    form.find('.remove-btn').text("Restore").addClass("restore");
+                }
+            } else {
+                if ($(".formset-form").length > 1) {
+                    form.fadeOut(300, function() {
+                        $(this).remove();
+                        let forms = $(".formset-form");
+                        $("#id_form-TOTAL_FORMS").val(forms.length);
+                        forms.each(function (index) {
+                            $(this).find("input, select, label").each(function () {
+                                if ($(this).attr("name")) {
+                                    let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("name", name);
+                                    $(this).attr("id", "id_" + name);
+                                }
+                                if ($(this).attr("for")) {
+                                    let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                                    $(this).attr("for", newFor);
+                                }
+                            });
+                        });
                     });
+                } else {
+                    alert("At least one form is required.");
+                }
+            }
+        }
+
+        $(document).on("keydown", function (e) {
+            if (e.key === "Delete") {
+                let activeElement = $(document.activeElement).closest(".formset-form");
+                if (activeElement.length) {
+                    e.preventDefault();
+                    removeFormByKey(activeElement);
+                }
+            }
+        });
+    });
+    </script>
+
+    <!-- Arrow key navigation for form fields -->
+    <script>
+        $(document).ready(function() {
+            function getFocusableElements() {
+                return $('input:not([type="hidden"]), select, textarea').filter(':visible');
+            }
+
+            $(document).on('keydown', 'input, select, textarea', function(e) {
+                if (e.keyCode === 37 || e.which === 37) {
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === 0)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        if (currentIndex > 0) {
+                            focusableElements.eq(currentIndex - 1).focus();
+                        }
+                        return false;
+                    }
+                }
+                
+                if (e.keyCode === 39 || e.which === 39) {
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === this.value.length)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        if (currentIndex < focusableElements.length - 1) {
+                            focusableElements.eq(currentIndex + 1).focus();
+                        }
+                        return false;
+                    }
                 }
             });
         });

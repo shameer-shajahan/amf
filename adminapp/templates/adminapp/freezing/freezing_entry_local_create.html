@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        body {
+                body {
             font-family: 'Roboto', sans-serif;
             margin: 20px;
             background-color: #f4f4f4;
@@ -81,6 +81,9 @@
             padding: 15px;
             margin-top: 20px;
             background: #f9f9f9;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         legend {
@@ -125,23 +128,6 @@
             background: #a71d2a;
         }
 
-        .total-table {
-            margin-top: 20px;
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .total-table th, .total-table td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-
-        .total-table th {
-            background-color: #007BFF;
-            color: white;
-        }
-
         /* Hide specified fields */
         .hidden {
             display: none;
@@ -151,6 +137,90 @@
         .calculated-field {
             background-color: #f8f9fa;
             color: #6c757d;
+        }
+
+        .entry-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .entry-table th,
+        .entry-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .entry-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .entry-table td input,
+        .entry-table td select {
+            width: 95%;
+            padding: 4px 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .totals-heading {
+            margin-top: 30px;
+            margin-bottom: 12px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0056b3;
+            border-left: 5px solid #0056b3;
+            padding-left: 10px;
+        }
+
+        .total-table {
+            margin-top: 20px;
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .total-table th, .total-table td {
+            padding: 12px 15px;
+            border: 1px solid #e2e6ea;
+            font-size: 0.95rem;
+        }
+
+        .total-table th {
+            background-color: #0056b3;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .total-table td {
+            font-weight: 600;
+            background: #f9fbfd;
+        }
+
+        .total-table td input {
+            font-weight: bold;
+            color: #0d6efd;
+            text-align: center;
+            background: #eef4ff;
+            border: 1px solid #ccdfff;
+            border-radius: 4px;
+            padding: 6px 8px;
         }
 
         @media (max-width: 768px) {
@@ -164,7 +234,119 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Horizontal scroll for items table */
+        .items-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .items-table {
+            width: 100%;
+            min-width: 1200px;
+            table-layout: auto;
+            border-collapse: collapse;
+        }
+
+        /* Optimized column widths to fit better */
+        .col-pr-centre { min-width: 80px; max-width: 100px; }
+        .col-store { min-width: 80px; max-width: 100px; }
+        .col-item { min-width: 120px; max-width: 150px; }
+        .col-unit { min-width: 70px; max-width: 100px; }
+        .col-glaze { min-width: 50px; max-width: 60px; }
+        .col-fr-category { min-width: 100px; max-width: 120px; }
+        .col-brand { min-width: 90px; max-width: 100px; }
+        .col-species { min-width: 80px; max-width: 100px; }
+        .col-type { min-width: 90px; max-width: 110px; }
+        .col-grade { min-width: 80px; max-width: 100px; }
+        .col-slab-qty { min-width: 70px; max-width: 90px; }
+        .col-usd-rate-kg { min-width: 90px; max-width: 110px; }
+        .col-action { min-width: 70px; max-width: 80px; }
+
+        /* Ensure proper text handling */
+        .items-table th,
+        .items-table td {
+            padding: 6px 4px;
+            border: 1px solid #ddd;
+            font-size: 11px;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+
+        .items-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 10px;
+        }
+
+        /* Make inputs and selects fit properly */
+        .items-table td input,
+        .items-table td select {
+            width: 100%;
+            padding: 3px 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 10px;
+            box-sizing: border-box;
+        }
+
+        .data-row td {
+            font-size: 11px;
+        }
+
     </style>
+
+    <!-- Blue outline for focused form fields -->
+    <style>
+        /* Blue outline for focused form fields */
+        input:focus, 
+        select:focus, 
+        textarea:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        /* Specific focus styles for items table fields */
+        .items-table td input:focus,
+        .items-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        /* Focus styles for entry table fields */
+        .entry-table td input:focus,
+        .entry-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        /* Focus styles for total table fields */
+        .total-table td input:focus,
+        .total-table td select:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+    </style>
+    
 </head>
 
 <body>
@@ -175,127 +357,96 @@
     <form method="post" id="freezing-form">
         {% csrf_token %}
 
-        <div class="form-grid">
-            <div class="form-column">
-                <label for="id_freezing_date">Freezing Date</label>
-                {{ form.freezing_date }} {{ form.freezing_date.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_local_purchase_date">Local Purchase Date</label>
-                {{ form.local_purchase_date }} {{ form.local_purchase_date.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_voucher_number">Voucher Number</label>
-                {{ form.voucher_number }} {{ form.voucher_number.errors }}
-            </div>
-            <div class="form-column">
-                <label for="id_party">Party</label>
-                {{ form.party }} {{ form.party.errors }}
-            </div>
-        </div>
+        <table class="entry-table">
+            <tr>
+                <th>Freezing Date</th>
+                <th>Local Purchase Date</th>
+                <th>Voucher Number</th>
+                <th>Party</th>
+            </tr>
+            <tr>
+                <td>{{ form.freezing_date }} {{ form.freezing_date.errors }}</td>
+                <td>{{ form.local_purchase_date }} {{ form.local_purchase_date.errors }}</td>
+                <td>{{ form.voucher_number }} {{ form.voucher_number.errors }}</td>
+                <td>{{ form.party }} {{ form.party.errors }}</td>
+            </tr>
+        </table>
 
         <fieldset>
             <legend>Items</legend>
             {{ formset.management_form }}
-            <div id="formset-container">
-                {% for form in formset %}
-                <div class="formset-form">
-                    <div class="form-grid">
-                        <div class="form-column">
-                            <label for="id_processing_center">Processing Centre</label>
-                            {{ form.processing_center }} {{ form.processing_center.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_store">Store</label>
-                            {{ form.store }} {{ form.store.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_item">Item Name</label>
-                            {{ form.item }} {{ form.item.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_unit">Unit</label>
-                            {{ form.unit }} {{ form.unit.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_glaze">Glaze</label>
-                            {{ form.glaze }} {{ form.glaze.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_freezing_category">Freezing Category</label>
-                            {{ form.freezing_category }} {{ form.freezing_category.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_brand">Brand</label>
-                            {{ form.brand }} {{ form.brand.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="{{ form.species.id_for_label }}">Species</label>
-                            {{ form.species }}
-                            {{ form.species.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="{{ form.peeling_type.id_for_label }}">Peeling Type</label>
-                            {{ form.peeling_type }}
-                            {{ form.peeling_type.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_grade">Grade</label>
-                            {{ form.grade }} {{ form.grade.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_slab_quantity">Slab Quantity</label>
-                            {{ form.slab_quantity }} {{ form.slab_quantity.errors }}
-                        </div>
-                        <div class="form-column hidden">
-                            <label for="id_c_s_quantity">C/S Quantity</label>
-                            {{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}
-                        </div>
-                        <div class="form-column hidden">
-                            <label for="id_kg">Kg</label>
-                            {{ form.kg }} {{ form.kg.errors }}
-                        </div>
-                        <div class="form-column">
-                            <label for="id_usd_rate_per_kg">USD Rate per Kg</label>
-                            {{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}
-                        </div>
-                        <div class="form-column hidden">
-                            <label for="id_usd_rate_item">USD Rate Item (Calculated)</label>
-                            {{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}
-                        </div>
-                        <div class="form-column hidden">
-                            <label for="id_usd_rate_item_to_inr">USD Rate Item to INR (Calculated)</label>
-                            {{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}
-                        </div>
 
-                    </div>
-                    <!-- Remove button for each form -->
-                    <button type="button" class="remove-btn">Remove</button>
-                    {{ form.DELETE }}
-                </div>
-                {% endfor %}
+            <div class="items-container">
+                <table class="entry-table items-table" id="formset-table">
+                    <thead>
+                        <tr>
+                            <th class="col-pr-centre">PR Centre</th>
+                            <th class="col-store">Store</th>
+                            <th class="col-item">Item</th>
+                            <th class="col-unit">Unit</th>
+                            <th class="col-glaze">Glaze</th>
+                            <th class="col-fr-category">FR Category</th>
+                            <th class="col-brand">Brand</th>
+                            <th class="col-species">Species</th>
+                            <th class="col-type">Type</th>
+                            <th class="col-grade">Grade</th>
+                            <th class="col-slab-qty">Slab Qty</th>
+                            <th class="col-usd-rate-kg">USD Rate/Kg</th>
+                            <th class="col-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="formset-container">
+                        {% for form in formset %}
+                        <tr class="formset-form data-row">
+                            <td class="col-pr-centre">{{ form.processing_center }} {{ form.processing_center.errors }}</td>
+                            <td class="col-store">{{ form.store }} {{ form.store.errors }}</td>
+                            <td class="col-item">{{ form.item }} {{ form.item.errors }}</td>
+                            <td class="col-unit">{{ form.unit }} {{ form.unit.errors }}</td>
+                            <td class="col-glaze">{{ form.glaze }} {{ form.glaze.errors }}</td>
+                            <td class="col-fr-category">{{ form.freezing_category }} {{ form.freezing_category.errors }}</td>
+                            <td class="col-brand">{{ form.brand }} {{ form.brand.errors }}</td>
+                            <td class="col-species">{{ form.species }} {{ form.species.errors }}</td>
+                            <td class="col-type">{{ form.peeling_type }} {{ form.peeling_type.errors }}</td>
+                            <td class="col-grade">{{ form.grade }} {{ form.grade.errors }}</td>
+                            <td class="col-slab-qty">{{ form.slab_quantity }} {{ form.slab_quantity.errors }}</td>
+                            <td class="hidden">{{ form.c_s_quantity }} {{ form.c_s_quantity.errors }}</td>
+                            <td class="hidden">{{ form.kg }} {{ form.kg.errors }}</td>
+                            <td class="col-usd-rate-kg">{{ form.usd_rate_per_kg }} {{ form.usd_rate_per_kg.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item }} {{ form.usd_rate_item.errors }}</td>
+                            <td class="hidden">{{ form.usd_rate_item_to_inr }} {{ form.usd_rate_item_to_inr.errors }}</td>
+                            <td class="col-action"><button type="button" class="remove-btn">Remove</button></td>
+                            <td class="hidden">{{ form.DELETE }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+
             <button type="button" id="add-more-btn" class="button">+ Add More Item</button>
         </fieldset>
 
+        <h3 class="totals-heading">Freezing Entry Summary</h3>
         <table class="total-table">
-            <tr>
-                <th>Total USD</th>
-                <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
-                <th>Total INR</th>
-                <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
-                <th>Total Slab</th>
-                <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
-                <th>Freezing Status</th>
-                <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
-            </tr>
-            <tr>
-                <th>Total C/S</th>
-                <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
-                <th>Total KG</th>
-                <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
-                <td colspan="4"></td>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Total USD</th>
+                    <th>Total INR</th>
+                    <th>Total Slab</th>
+                    <th>Total C/S</th>
+                    <th>Total KG</th>
+                    <th>Freezing Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ form.total_usd }} {{ form.total_usd.errors }}</td>
+                    <td>{{ form.total_inr }} {{ form.total_inr.errors }}</td>
+                    <td>{{ form.total_slab }} {{ form.total_slab.errors }}</td>
+                    <td>{{ form.total_c_s }} {{ form.total_c_s.errors }}</td>
+                    <td>{{ form.total_kg }} {{ form.total_kg.errors }}</td>
+                    <td>{{ form.freezing_status }} {{ form.freezing_status.errors }}</td>
+                </tr>
+            </tbody>
         </table>
 
         <br>
@@ -342,10 +493,14 @@
                     'glaze', 'freezing_category', 'brand'
                 ];
 
-                // Fields to reset
-                const fieldsToReset = [
-                    'species', 'peeling_type', 'grade', 'slab_quantity', 'c_s_quantity', 'kg', 
+                // Fields to reset completely
+                const fieldsToCompletelyReset = [
                     'usd_rate_per_kg', 'usd_rate_item', 'usd_rate_item_to_inr'
+                ];
+
+                // Fields to reset normally
+                const fieldsToReset = [
+                    'species', 'peeling_type', 'grade', 'slab_quantity', 'c_s_quantity', 'kg'
                 ];
 
                 // Preserve values from the last form
@@ -355,32 +510,41 @@
                     if (element.length > 0) preservedValues[fieldName] = element.val();
                 });
 
-                newForm.find(':input').each(function () {
+                // Update names, ids, reset values
+                newForm.find(':input').each(function(){
                     let name = $(this).attr('name');
-                    if (name) {
+                    if(name){
                         let oldFieldName = name.split('-').pop();
                         name = name.replace(/-\d+-/, `-${formIndex}-`);
-                        let id = 'id_' + name;
-                        $(this).attr({ name: name, id: id });
+                        let id = 'id_'+name;
+                        $(this).attr({name:name, id:id});
 
-                        if (fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined) {
+                        if(fieldsToPreserve.includes(oldFieldName) && preservedValues[oldFieldName] !== undefined){
                             $(this).val(preservedValues[oldFieldName]);
-                        } else if (fieldsToReset.includes(oldFieldName)) {
-                            if ($(this).is('select')) {
-                                $(this).prop('selectedIndex', 0);
-                            } else {
-                                $(this).val('');
-                            }
-                        }
-
-                        if ($(this).is(':checkbox') || $(this).is(':radio')) {
-                            $(this).prop('checked', false);
+                        } else if(fieldsToReset.includes(oldFieldName)){
+                            if($(this).is('select')) $(this).prop('selectedIndex', 0);
+                            else $(this).val('');
+                        } else if(fieldsToCompletelyReset.includes(oldFieldName)){
+                            $(this).val('');
                         }
                     }
                 });
 
-                // Add calculation classes to new form
-                addCalculationClasses(newForm);
+                // Add calculation classes
+                newForm.find('[name*="slab_quantity"]').addClass('slab-quantity');
+                newForm.find('[name*="c_s_quantity"]').addClass('cs-quantity');
+                newForm.find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
+                newForm.find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
+                newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
+                newForm.find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
+                newForm.find('[name*="unit"]').addClass('unit-select');
+                newForm.find('[name*="item"]').addClass('item-select');
+                newForm.find('[name*="species"]').addClass('species-select');
+                newForm.find('[name*="peeling_type"]').addClass('peeling-select');
+                newForm.find('[name*="grade"]').addClass('grade-select');
+
+                // Reset DELETE field
+                newForm.find('input[name$="-DELETE"]').prop('checked', false);
 
                 // Update item filter for the new form based on current party selection
                 updateItemFilters();
@@ -394,11 +558,21 @@
                     });
                 }
 
+                // Append new form
                 formsetContainer.append(newForm);
                 totalForms.val(formIndex + 1);
 
-                // Focus first reset field
+                // Force clear USD fields
+                setTimeout(function() {
+                    newForm.find('[name*="usd_rate_per_kg"]').val('');
+                    newForm.find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').val('');
+                    newForm.find('[name*="usd_rate_item_to_inr"]').val('');
+                }, 100);
+
+                // Focus first blank field
                 newForm.find('[name*="species"]').focus();
+
+                console.log('New form cloned from last form, USD fields cleared');
             });
         });
     </script>
@@ -746,6 +920,119 @@
             }
         });
     </script>
+
+        <!-- // F1 key shortcut for adding more items -->
+    <script>
+        $(document).ready(function() {
+        $(document).on('keydown', function(e) {
+            // Check if F1 key is pressed (keyCode 112)
+            if (e.keyCode === 112 || e.which === 112) {
+                e.preventDefault(); // Prevent browser's default F1 help
+                $('#add-more-btn').click(); // Trigger the add more button
+                return false;
+            }
+        });
+    });
+    </script>
+
+    <!-- // Delete key shortcut for removing the focused item -->
+    <script>
+    $(document).ready(function () {
+        const formsetContainer = $("#formset-container");
+        const totalForms = $("#id_form-TOTAL_FORMS");
+
+        // Remove (event delegation so it works for new forms too)
+        function removeForm(form) {
+            if ($(".formset-form").length > 1) {
+                form.remove();
+
+                // Re-number forms
+                let forms = $(".formset-form");
+                totalForms.val(forms.length);
+                forms.each(function (index) {
+                    $(this).find("input, select, label").each(function () {
+                        if ($(this).attr("name")) {
+                            let name = $(this).attr("name").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("name", name);
+                            $(this).attr("id", "id_" + name);
+                        }
+                        if ($(this).attr("for")) {
+                            let newFor = $(this).attr("for").replace(/-\d+-/, "-" + index + "-");
+                            $(this).attr("for", newFor);
+                        }
+                    });
+                });
+            } else {
+                alert("At least one form is required.");
+            }
+        }
+
+        // Click delete button
+        $(document).on("click", ".remove-btn", function () {
+            removeForm($(this).closest(".formset-form"));
+        });
+
+        // Keyboard Delete key
+        $(document).on("keydown", function (e) {
+            if (e.key === "Delete") {
+                let activeElement = $(document.activeElement).closest(".formset-form");
+                if (activeElement.length) {
+                    e.preventDefault();
+                    removeForm(activeElement);
+                }
+            }
+        });
+    });
+    </script>
+
+    <!-- // Arrow key navigation for form fields -->
+    <script>
+        $(document).ready(function() {
+            // Get all focusable form elements
+            function getFocusableElements() {
+                return $('input:not([type="hidden"]), select, textarea').filter(':visible');
+            }
+
+            $(document).on('keydown', 'input, select, textarea', function(e) {
+                // Check if left arrow key is pressed (keyCode 37)
+                if (e.keyCode === 37 || e.which === 37) {
+                    // Only trigger if cursor is at the beginning of input or it's a select
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === 0)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        // Move to previous field (left arrow = previous)
+                        if (currentIndex > 0) {
+                            focusableElements.eq(currentIndex - 1).focus();
+                        }
+                        return false;
+                    }
+                }
+                
+                // Check if right arrow key is pressed (keyCode 39)  
+                if (e.keyCode === 39 || e.which === 39) {
+                    // Only trigger if cursor is at the end of input or it's a select
+                    if ($(this).is('select') || 
+                        ($(this).is('input') && this.selectionStart === this.value.length)) {
+                        
+                        e.preventDefault();
+                        let focusableElements = getFocusableElements();
+                        let currentIndex = focusableElements.index(this);
+                        
+                        // Move to next field (right arrow = next)
+                        if (currentIndex < focusableElements.length - 1) {
+                            focusableElements.eq(currentIndex + 1).focus();
+                        }
+                        return false;
+                    }
+                }
+            });
+        });
+    </script>
+    
 
 </body>
 </html>

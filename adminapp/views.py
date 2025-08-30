@@ -1432,103 +1432,74 @@ def freezing_entry_spot_update(request, pk):
 
     if request.method == "POST":
         form = FreezingEntrySpotForm(request.POST, instance=freezing_entry)
-        formset = FreezingEntrySpotItemFormSet(request.POST, instance=freezing_entry, prefix="form")
+        formset = FreezingEntrySpotItemFormSet(
+            request.POST, instance=freezing_entry, prefix="form"
+        )
 
-        # ✅ Ensure spot list loads with all available spots
-        form.fields["spot"].queryset = SpotPurchase.objects.all()
-        
-        # ✅ Set agent and supervisor querysets based on existing data or all available
-        if freezing_entry.spot:
-            form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
-            form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
-        else:
-            form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
-            form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
-
-        # ✅ Ensure shed list loads for each child form
+        # Ensure shed queryset is set for each form in formset
         for f in formset.forms:
-            if "shed" in f.fields:
-                f.fields["shed"].queryset = Shed.objects.all()
+            f.fields["shed"].queryset = Shed.objects.all()
 
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 entry = form.save(commit=False)
 
-                # ---- Aggregate totals ----
-                total_slab = Decimal(0)
-                total_cs = Decimal(0)
                 total_kg = Decimal(0)
+                total_slab = Decimal(0)
+                total_c_s = Decimal(0)
                 total_usd = Decimal(0)
                 total_inr = Decimal(0)
                 yield_percentages = []
 
-                # Process formset items
                 for f in formset:
                     if f.cleaned_data and not f.cleaned_data.get("DELETE", False):
-                        # Get values with proper defaults
-                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
-                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
-                        kg = f.cleaned_data.get('kg') or Decimal(0)
-                        usd = f.cleaned_data.get('usd_rate_item') or Decimal(0)
-                        inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
-                        yield_percent = f.cleaned_data.get('yield_percentage')
+                        slab = f.cleaned_data.get("slab_quantity") or Decimal(0)
+                        cs = f.cleaned_data.get("c_s_quantity") or Decimal(0)
+                        kg = f.cleaned_data.get("kg") or Decimal(0)
+                        usd = f.cleaned_data.get("usd_rate_item") or Decimal(0)
+                        inr = f.cleaned_data.get("usd_rate_item_to_inr") or Decimal(0)
+                        yield_percent = f.cleaned_data.get("yield_percentage")
 
-                        # Add to totals
                         total_slab += slab
-                        total_cs += cs
+                        total_c_s += cs
                         total_kg += kg
                         total_usd += usd
                         total_inr += inr
                         if yield_percent is not None:
                             yield_percentages.append(yield_percent)
 
-                # ---- Save totals back to entry ----
+                # Assign recalculated totals
                 entry.total_slab = total_slab
-                entry.total_c_s = total_cs
+                entry.total_c_s = total_c_s
                 entry.total_kg = total_kg
                 entry.total_usd = total_usd
                 entry.total_inr = total_inr
                 entry.total_yield_percentage = (
                     sum(yield_percentages) if yield_percentages else Decimal(0)
                 )
-                entry.save()
 
-                # Save the formset
+                entry.save()
                 formset.instance = entry
                 formset.save()
 
             return redirect("adminapp:freezing_entry_spot_list")
-
         else:
             print("Form Errors:", form.errors)
             print("Formset Errors:", formset.errors)
-            print("Formset Non-Form Errors:", formset.non_form_errors())
 
     else:
-        # GET request - initialize form and formset
         form = FreezingEntrySpotForm(instance=freezing_entry)
-        formset = FreezingEntrySpotItemFormSet(instance=freezing_entry, prefix="form")
-
-        # ✅ Preload querysets for the form
-        form.fields["spot"].queryset = SpotPurchase.objects.all()
+        # preload dependent dropdowns
         form.fields["spot_agent"].queryset = PurchasingAgent.objects.all()
         form.fields["spot_supervisor"].queryset = PurchasingSupervisor.objects.all()
-
-        # ✅ Preload querysets for formset
-        for f in formset.forms:
-            if "shed" in f.fields:
-                f.fields["shed"].queryset = Shed.objects.all()
-
-    context = {
-        "form": form,
-        "formset": formset,
-        "freezing_entry": freezing_entry,
-    }
+        formset = FreezingEntrySpotItemFormSet(
+            instance=freezing_entry, prefix="form"
+        )
 
     return render(
         request,
         "adminapp/freezing/freezing_entry_spot_update.html",
-        context
+        {"form": form, "formset": formset, "entry": freezing_entry},
     )
 
 
@@ -1675,39 +1646,140 @@ def freezing_entry_local_detail(request, pk):
     return render(request, 'adminapp/freezing/freezing_entry_local_detail.html', context)
 
 def freezing_entry_local_update(request, pk):
-    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
-
-    ItemFormSet = inlineformset_factory(
+    freezing_entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+    FreezingEntryLocalItemFormSet = inlineformset_factory(
         FreezingEntryLocal,
         FreezingEntryLocalItem,
         form=FreezingEntryLocalItemForm,
         extra=0,
-        can_delete=True
+        can_delete=True  # This is crucial for deletion functionality
+    )
+    
+    if request.method == "POST":
+        form = FreezingEntryLocalForm(request.POST, instance=freezing_entry)
+        formset = FreezingEntryLocalItemFormSet(
+            request.POST, instance=freezing_entry, prefix="form"
+        )
+        
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                # Save the main form first
+                freezing_entry = form.save(commit=False)
+                freezing_entry.save()
+
+                # Get dollar rate
+                dollar_rate_to_inr = Decimal(0)
+                try:
+                    from .models import DollarRate
+                    dollar_obj = DollarRate.objects.latest("id")
+                    dollar_rate_to_inr = dollar_obj.rate
+                except:
+                    pass
+
+                # Process each form manually to handle calculations before saving
+                instances = formset.save(commit=False)
+                
+                # Handle deletions first
+                for obj in formset.deleted_objects:
+                    obj.delete()
+                
+                # Process remaining instances
+                for instance in instances:
+                    # Get the corresponding form to access cleaned_data
+                    form_data = None
+                    for form in formset.forms:
+                        if hasattr(form, 'instance') and form.instance == instance:
+                            form_data = form.cleaned_data
+                            break
+                    
+                    if form_data:
+                        # Auto-calculate fields from form data
+                        slab_quantity = form_data.get('slab_quantity') or Decimal(0)
+                        usd_rate_per_kg = form_data.get('usd_rate_per_kg') or Decimal(0)
+                        
+                        # Get unit details for calculations (you might need to adjust this)
+                        unit = form_data.get('unit')
+                        precision = Decimal(2)  # Default precision
+                        factor = Decimal(0.25)  # Default factor
+                        
+                        if unit:
+                            try:
+                                # Fetch unit details if you have a Unit model
+                                # unit_obj = Unit.objects.get(id=unit.id)
+                                # precision = unit_obj.precision
+                                # factor = unit_obj.factor
+                                pass
+                            except:
+                                pass
+                        
+                        # Calculate dependent fields
+                        if slab_quantity and precision:
+                            instance.c_s_quantity = slab_quantity / precision
+                        else:
+                            instance.c_s_quantity = Decimal(0)
+                            
+                        if slab_quantity and factor:
+                            instance.kg = slab_quantity * factor
+                        else:
+                            instance.kg = Decimal(0)
+                        
+                        # Calculate USD amounts
+                        if instance.kg and usd_rate_per_kg:
+                            instance.usd_rate_item = instance.kg * usd_rate_per_kg
+                        else:
+                            instance.usd_rate_item = Decimal(0)
+                        
+                        # Calculate INR amount
+                        if instance.usd_rate_item and dollar_rate_to_inr:
+                            instance.usd_rate_item_to_inr = instance.usd_rate_item * dollar_rate_to_inr
+                        else:
+                            instance.usd_rate_item_to_inr = Decimal(0)
+                    
+                    instance.freezing_entry = freezing_entry
+                    instance.save()
+
+                messages.success(request, "Freezing Entry updated successfully ✅")
+                return redirect("adminapp:freezing_entry_local_list")
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", [f.errors for f in formset.forms if f.errors])
+            print("Formset Non Form Errors:", formset.non_form_errors())
+    else:
+        form = FreezingEntryLocalForm(instance=freezing_entry)
+        formset = FreezingEntryLocalItemFormSet(
+            instance=freezing_entry, prefix="form"
+        )
+        
+    return render(
+        request,
+        "adminapp/freezing/freezing_entry_local_update.html",
+        {"form": form, "formset": formset, "entry": freezing_entry},
     )
 
-    if request.method == "POST":
-        form = FreezingEntryLocalForm(request.POST, instance=entry)
-        formset = ItemFormSet(request.POST, instance=entry)
 
-        if form.is_valid() and formset.is_valid():
-            parent = form.save(commit=False)
-            parent.save()
-            formset.instance = parent  # ✅ Make sure formset links to the saved parent
-            formset.save()
-            return redirect("adminapp:freezing_entry_local_detail", pk=entry.pk)
-        else:
-            print("Form errors:", form.errors)
-            print("Formset errors:", formset.errors)  # ✅ Helps debug why it's not saving
 
-    else:
-        form = FreezingEntryLocalForm(instance=entry)
-        formset = ItemFormSet(instance=entry)
+def get_items_by_local_date(request):
+    date = request.GET.get('date')
+    if not date:
+        return JsonResponse({'items': []})
+    
+    # Adjust this query based on your LocalPurchase model structure
+    items = LocalPurchaseItem.objects.filter(
+        local_purchase__purchase_date=date
+    ).select_related('item').values(
+        'item_id', 
+        'item__name'
+    ).annotate(
+        item_name=F('item__name')
+    ).distinct()
+    
+    return JsonResponse({'items': list(items)})
 
-    return render(request, "adminapp/freezing/freezing_entry_local_update.html", {
-        "form": form,
-        "formset": formset,
-        "entry": entry
-    })
+
+
+
+
+
 
 class FreezingWorkOutView(View):
     template_name = "adminapp/freezing/freezing_workout.html"

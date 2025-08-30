@@ -192,6 +192,7 @@ urlpatterns = [
     path('ajax/get-parties-by-date/', views.get_parties_by_date, name='get_parties_by_date'),
     path('ajax/get-party-details/', views.get_party_details, name='get_party_details'),
     path('ajax/get-unit-details/', views.get_unit_details_local, name='get_unit_details_local'),
+    path('ajax/get-item-details/', views.get_items_by_local_date, name='get_items_by_local_date'),
     path('ajax/get-dollar-rate/', views.get_dollar_rate_local, name='get_dollar_rate_local'),
 
     #  Freezing WorkOut View url
