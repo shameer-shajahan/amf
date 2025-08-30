@@ -1,38 +1,304 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spot Purchase</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
     <style>
-        .formset-row {
-            margin-bottom: 10px;
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        nav {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        nav ul li {
+            display: inline-block;
+        }
+
+        nav ul li a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        nav ul li a:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        h2, h3 {
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+
+        .form-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        input[type="text"], 
+        input[type="number"],
+        input[type="date"],
+        select {
             padding: 10px;
             border: 1px solid #ccc;
-            position: relative;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            width: 100%;
+            box-sizing: border-box;
         }
+
+        input:focus, 
+        select:focus, 
+        textarea:focus {
+            border-color: #007BFF !important;
+            outline: 2px solid #007BFF !important;
+            outline-offset: 0px;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+
+        /* Items table container with horizontal scroll */
+        .items-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            background: white;
+        }
+
+        .items-table {
+            width: 100%;
+            min-width: 800px;
+            table-layout: auto;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        .items-table th,
+        .items-table td {
+            padding: 12px 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 12px;
+        }
+
+        .items-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .items-table td input,
+        .items-table td select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
+
+        .formset-row {
+            background: #fff;
+        }
+
+        .formset-row:nth-child(even) {
+            background: #f9fbfd;
+        }
+
         .delete-row {
-            background-color: #dc3545;
+            background-color: #e74c3c;
             color: white;
             border: none;
-            padding: 5px 10px;
+            padding: 6px 12px;
             cursor: pointer;
-            position: absolute;
-            top: 10px;
-            right: 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            transition: background-color 0.3s;
+            min-width: 70px;
         }
+
+        .delete-row:hover {
+            background-color: #c0392b;
+        }
+
+        .delete-row.marked-for-deletion {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .delete-row.marked-for-deletion:hover {
+            background-color: #229954;
+        }
+
+        .formset-row.marked-for-deletion {
+            opacity: 0.6;
+            background-color: #f8f9fa !important;
+        }
+
+        .formset-row.marked-for-deletion td {
+            text-decoration: line-through;
+        }
+
+        .formset-row.marked-for-deletion .delete-row {
+            text-decoration: none;
+        }
+
         .totals-box {
-            margin-top: 20px;
-            padding: 10px;
-            border: 2px solid #007bff;
-            background: #f9f9f9;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
-        .totals-box span {
+
+        .totals-heading {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0056b3;
+            border-left: 5px solid #0056b3;
+            padding-left: 10px;
+        }
+
+        .total-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .total-table th, .total-table td {
+            padding: 12px 15px;
+            border: 1px solid #e2e6ea;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .total-table th {
+            background-color: #0056b3;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .total-table td {
+            font-weight: 600;
+            background: #f9fbfd;
+        }
+
+        .total-table .total-value {
             font-weight: bold;
+            color: #0d6efd;
         }
-        .form-section {
-            margin-top: 30px;
-            padding: 15px;
-            border: 1px solid #999;
-            background: #f4f4f4;
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -40,7 +306,7 @@
 
 <nav>
     <ul>
-        <li><a href="{% url 'adminapp:spot_purchase_list' %}">List</a></li>
+        <li><a href="{% url 'adminapp:spot_purchase_list' %}">View List</a></li>
     </ul>
 </nav>
 
@@ -50,83 +316,217 @@
     {% csrf_token %}
     {{ item_formset.management_form }}
 
-    {{ purchase_form.non_field_errors }}
-    {% for field in purchase_form %}
-      {{ field.errors }}
-    {% endfor %}
-
-    {{ expense_form.non_field_errors }}
-    {% for field in expense_form %}
-      {{ field.errors }}
-    {% endfor %}
-
-    {% for form in item_formset %}
-      {{ form.non_field_errors }}
-      {% for field in form %}
-        {{ field.errors }}
-      {% endfor %}
-    {% endfor %}
-
     <div class="form-section">
         <h3>Purchase Details</h3>
-        {{ purchase_form.as_p }}
+        <div class="form-grid">
+            <div class="form-column">
+                {{ purchase_form.date.label_tag }}
+                {{ purchase_form.date }}
+                {% if purchase_form.date.errors %}
+                    <div class="error">{{ purchase_form.date.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-column">
+                {{ purchase_form.voucher_number.label_tag }}
+                {{ purchase_form.voucher_number }}
+                {% if purchase_form.voucher_number.errors %}
+                    <div class="error">{{ purchase_form.voucher_number.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-column">
+                {{ purchase_form.spot.label_tag }}
+                {{ purchase_form.spot }}
+                {% if purchase_form.spot.errors %}
+                    <div class="error">{{ purchase_form.spot.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-column">
+                {{ purchase_form.supervisor.label_tag }}
+                {{ purchase_form.supervisor }}
+                {% if purchase_form.supervisor.errors %}
+                    <div class="error">{{ purchase_form.supervisor.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-column">
+                {{ purchase_form.agent.label_tag }}
+                {{ purchase_form.agent }}
+                {% if purchase_form.agent.errors %}
+                    <div class="error">{{ purchase_form.agent.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <div class="form-section">
         <h3>Purchase Items</h3>
-        <div id="formset-container">
-            {% for form in item_formset %}
-                <div class="formset-row">
-                    {{ form.id }}  <!-- ✅ Required hidden ID field -->
-
-                    {% for field in form.visible_fields %}
-                        <div>
-                            {{ field.label_tag }} {{ field }}
-                            {% if field.errors %}
-                                <div class="text-danger">{{ field.errors }}</div>
+        <div class="items-container">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Rate</th>
+                        <th>Boxes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="formset-container">
+                    {% for form in item_formset %}
+                        <tr class="formset-row" data-form-index="{{ forloop.counter0 }}">
+                            <!-- Include all hidden fields (including ID) -->
+                            {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                            
+                            <td>
+                                {{ form.item }}
+                                {% if form.item.errors %}
+                                    <div class="error">{{ form.item.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.quantity }}
+                                {% if form.quantity.errors %}
+                                    <div class="error">{{ form.quantity.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.rate }}
+                                {% if form.rate.errors %}
+                                    <div class="error">{{ form.rate.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ form.boxes }}
+                                {% if form.boxes.errors %}
+                                    <div class="error">{{ form.boxes.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if form.instance.pk %}
+                                    <div style="display: none;">{{ form.DELETE }}</div>
+                                    <button type="button" class="delete-row" onclick="toggleDelete(this)">DELETE</button>
+                                {% else %}
+                                    <button type="button" class="delete-row">DELETE</button>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Display any non-field errors -->
+                            {% if form.non_field_errors %}
+                                <tr><td colspan="5"><div class="error">{{ form.non_field_errors }}</div></td></tr>
                             {% endif %}
-                        </div>
+                        </tr>
                     {% endfor %}
-
-                    {{ form.DELETE }}  <!-- Optional delete checkbox -->
-                    <button type="button" class="delete-row">Delete</button>
-                </div>
-            {% endfor %}
+                </tbody>
+            </table>
         </div>
         <button type="button" id="add-more">+ Add More</button>
     </div>
 
-    <div class="totals-box">
-        <p>Total Quantity: <span id="total-quantity">0.00</span></p>
-        <p>Total Amount: <span id="total-amount">0.00</span></p>
-        <p>Total Items: <span id="total-items">0</span></p>
+    <div class="form-section">
+        <h3 class="totals-heading">Purchase Summary</h3>
+        <table class="total-table">
+            <thead>
+                <tr>
+                    <th>Total Quantity</th>
+                    <th>Total Amount</th>
+                    <th>Total Items</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span id="total-quantity" class="total-value">0.00</span></td>
+                    <td><span id="total-amount" class="total-value">0.00</span></td>
+                    <td><span id="total-items" class="total-value">0</span></td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="form-section">
         <h3>Expenses</h3>
-        {{ expense_form.as_p }}
-        <p>Total Expense: <span id="total-expense">0.00</span></p>
+        <div class="items-container">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Ice Expense</th>
+                        <th>Vehicle Rent</th>
+                        <th>Loading & Unloading</th>
+                        <th>Peeling Charge</th>
+                        <th>Other Expense</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="formset-row">
+                        <td>
+                            {{ expense_form.ice_expense }}
+                            {% if expense_form.ice_expense.errors %}
+                                <div class="error">{{ expense_form.ice_expense.errors }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ expense_form.vehicle_rent }}
+                            {% if expense_form.vehicle_rent.errors %}
+                                <div class="error">{{ expense_form.vehicle_rent.errors }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ expense_form.loading_and_unloading }}
+                            {% if expense_form.loading_and_unloading.errors %}
+                                <div class="error">{{ expense_form.loading_and_unloading.errors }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ expense_form.peeling_charge }}
+                            {% if expense_form.peeling_charge.errors %}
+                                <div class="error">{{ expense_form.peeling_charge.errors }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ expense_form.other_expense }}
+                            {% if expense_form.other_expense.errors %}
+                                <div class="error">{{ expense_form.other_expense.errors }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 15px;">
+            <strong>Total Expense: <span id="total-expense" class="total-value" style="color: #0d6efd;">0.00</span></strong>
+        </div>
     </div>
 
-    <br>
-    <button type="submit">Save</button>
+    <div style="text-align: center; margin-top: 30px;">
+        <button type="submit">Save Purchase</button>
+    </div>
 </form>
 
 <!-- Hidden empty form template -->
 <template id="empty-form-template">
-    <div class="formset-row">
+    <tr class="formset-row">
         {% with item_formset.empty_form as form %}
-            {{ form.id }}  <!-- ✅ Include hidden ID field -->
-
-            {% for field in form.visible_fields %}
-                <div>
-                    {{ field.label_tag }} {{ field.as_widget }}
-                </div>
-            {% endfor %}
-            {{ form.DELETE }}  <!-- Optional checkbox for deletions -->
+            <td>
+                {{ form.item }}
+            </td>
+            <td>
+                {{ form.quantity }}
+            </td>
+            <td>
+                {{ form.rate }}
+            </td>
+            <td>
+                {{ form.boxes }}
+            </td>
         {% endwith %}
-        <button type="button" class="delete-row">Delete</button>
-    </div>
+        <td>
+            <button type="button" class="delete-row">DELETE</button>
+        </td>
+    </tr>
 </template>
 
 <script>
@@ -138,6 +538,12 @@ function calculateTotals() {
     const formRows = document.querySelectorAll('.formset-row');
 
     formRows.forEach(row => {
+        // Skip rows that are marked for deletion
+        const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+        if (deleteCheckbox && deleteCheckbox.checked) {
+            return;
+        }
+
         const quantityInput = row.querySelector('input[name$="-quantity"]');
         const rateInput = row.querySelector('input[name$="-rate"]');
 
@@ -196,48 +602,79 @@ document.addEventListener('input', function (e) {
     }
 });
 
-// Add delete button handler
+// Toggle delete function for existing items
+function toggleDelete(button) {
+    const row = button.closest('.formset-row');
+    const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+    
+    if (deleteCheckbox) {
+        deleteCheckbox.checked = !deleteCheckbox.checked;
+        
+        if (deleteCheckbox.checked) {
+            row.classList.add('marked-for-deletion');
+            button.textContent = 'RESTORE';
+            button.classList.add('marked-for-deletion');
+        } else {
+            row.classList.remove('marked-for-deletion');
+            button.textContent = 'DELETE';
+            button.classList.remove('marked-for-deletion');
+        }
+        
+        calculateTotals();
+    }
+}
+
+// Handle delete button clicks and checkbox changes
 document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('delete-row')) {
+    if (e.target.classList.contains('delete-row') && e.target.tagName === 'BUTTON') {
         const row = e.target.closest('.formset-row');
         if (row) {
-            // Mark as deleted instead of removing
-            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            // Check if this row has a delete checkbox (existing item)
+            const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
             if (deleteCheckbox) {
-                deleteCheckbox.checked = true;
-                row.style.display = 'none';
+                // This is handled by toggleDelete function
+                return;
             } else {
-                row.remove();  // fallback if DELETE field not present
-                updateTotalForms(-1);
+                // This is a new item, remove it completely
+                if (document.querySelectorAll('.formset-row').length > 1) {
+                    row.remove();
+                    updateTotalForms(-1);
+                    calculateTotals();
+                } else {
+                    alert("At least one item is required.");
+                }
             }
-            calculateTotals();
         }
+    }
+});
+
+// Handle delete checkbox changes (for existing items)
+document.addEventListener('change', function (e) {
+    if (e.target.name && e.target.name.includes('-DELETE')) {
+        calculateTotals();
     }
 });
 
 // Add more button functionality
 document.getElementById('add-more').addEventListener('click', function () {
     const container = document.getElementById('formset-container');
-    const totalFormsInput = container.querySelector('input[name$="-TOTAL_FORMS"]');
+    const totalFormsInput = container.closest('form').querySelector('input[name$="-TOTAL_FORMS"]');
     const formCount = parseInt(totalFormsInput.value);
 
     const template = document.getElementById('empty-form-template').innerHTML;
     const newFormHtml = template.replace(/__prefix__/g, formCount);
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = newFormHtml;
-    const newForm = tempDiv.firstElementChild;
-
-    container.appendChild(newForm);
+    const tbody = document.querySelector('#formset-container');
+    tbody.insertAdjacentHTML('beforeend', newFormHtml);
     totalFormsInput.value = formCount + 1;
 
     calculateTotals();
 });
 
-// Helper to update TOTAL_FORMS when deleting (if physically removing rows)
+// Helper to update TOTAL_FORMS when deleting
 function updateTotalForms(change) {
     const container = document.getElementById('formset-container');
-    const totalFormsInput = container.querySelector('input[name$="-TOTAL_FORMS"]');
+    const totalFormsInput = container.closest('form').querySelector('input[name$="-TOTAL_FORMS"]');
     const currentValue = parseInt(totalFormsInput.value);
     totalFormsInput.value = currentValue + change;
 }
@@ -245,6 +682,109 @@ function updateTotalForms(change) {
 // Call on page load
 calculateTotals();
 calculateExpenseTotal();
+
+// F1 key shortcut for adding more items
+$(document).ready(function() {
+    $(document).on('keydown', function(e) {
+        if (e.keyCode === 112 || e.which === 112) {
+            e.preventDefault();
+            $('#add-more').click();
+            return false;
+        }
+    });
+});
+
+// Delete key shortcut for removing the focused item
+$(document).ready(function () {
+    function removeForm(form) {
+        if ($(".formset-row").length > 1) {
+            // Check if this is an existing form (has an ID field with value)
+            const idInput = form.find('input[name$="-id"]');
+            if (idInput.length && idInput.val()) {
+                // Mark for deletion instead of removing
+                const deleteCheckbox = form.find('input[name$="-DELETE"]');
+                const deleteButton = form.find('.delete-row');
+                
+                if (deleteCheckbox.length) {
+                    if (!deleteCheckbox.prop('checked')) {
+                        deleteCheckbox.prop('checked', true);
+                        form.addClass('marked-for-deletion');
+                        deleteButton.text('RESTORE').addClass('marked-for-deletion');
+                    }
+                } else {
+                    form.remove();
+                    updateTotalForms(-1);
+                }
+            } else {
+                form.remove();
+                updateTotalForms(-1);
+            }
+            calculateTotals();
+        } else {
+            alert("At least one item is required.");
+        }
+    }
+
+    $(document).on("keydown", function (e) {
+        if (e.key === "Delete") {
+            let activeElement = $(document.activeElement).closest(".formset-row");
+            if (activeElement.length) {
+                e.preventDefault();
+                removeForm(activeElement);
+            }
+        }
+    });
+});
+
+// Arrow key navigation for form fields
+$(document).ready(function() {
+    function getFocusableElements() {
+        return $('input:not([type="hidden"]), select, textarea').filter(':visible');
+    }
+
+    $(document).on('keydown', 'input, select, textarea', function(e) {
+        if (e.keyCode === 37 || e.which === 37) {
+            if ($(this).is('select') || 
+                ($(this).is('input') && this.selectionStart === 0)) {
+                
+                e.preventDefault();
+                let focusableElements = getFocusableElements();
+                let currentIndex = focusableElements.index(this);
+                
+                if (currentIndex > 0) {
+                    focusableElements.eq(currentIndex - 1).focus();
+                }
+                return false;
+            }
+        }
+        
+        if (e.keyCode === 39 || e.which === 39) {
+            if ($(this).is('select') || 
+                ($(this).is('input') && this.selectionStart === this.value.length)) {
+                
+                e.preventDefault();
+                let focusableElements = getFocusableElements();
+                let currentIndex = focusableElements.index(this);
+                
+                if (currentIndex < focusableElements.length - 1) {
+                    focusableElements.eq(currentIndex + 1).focus();
+                }
+                return false;
+            }
+        }
+    });
+});
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    flatpickr(".datepicker", {
+        dateFormat: "d/m/Y",
+        defaultDate: "today"
+    });
+});
 </script>
 
 </body>

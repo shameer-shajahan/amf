@@ -724,6 +724,13 @@ def create_spot_purchase(request):
 
 def edit_spot_purchase(request, pk):
     purchase = get_object_or_404(SpotPurchase, pk=pk)
+    SpotPurchaseItemFormSet = inlineformset_factory(
+    SpotPurchase,
+    SpotPurchaseItem,
+    form=SpotPurchaseItemForm,
+    extra=0,
+    can_delete=True
+)
 
     # Get expense or set to None if it doesn't exist
     try:
@@ -1177,6 +1184,13 @@ class PeelingShedSupplyDetailView(DetailView):
 
 def update_peeling_shed_supply(request, pk):
     supply = get_object_or_404(PeelingShedSupply, pk=pk)
+    FreezingEntrySpotItemFormSet = inlineformset_factory(
+    FreezingEntrySpot,
+    FreezingEntrySpotItem,
+    form=FreezingEntrySpotItemForm,
+    extra=0,
+    can_delete=True
+)
 
     if request.method == 'POST':
         form = PeelingShedSupplyForm(request.POST, instance=supply)
@@ -1755,8 +1769,6 @@ def freezing_entry_local_update(request, pk):
         "adminapp/freezing/freezing_entry_local_update.html",
         {"form": form, "formset": formset, "entry": freezing_entry},
     )
-
-
 
 def get_items_by_local_date(request):
     date = request.GET.get('date')
