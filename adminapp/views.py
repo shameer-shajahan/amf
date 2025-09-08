@@ -25,6 +25,10 @@ from datetime import datetime, timedelta
 import csv
 import io
 from django.db.models import Sum, Avg, F, Value, CharField, DecimalField, FloatField
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from .models import ItemQuality
 
 # nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
 # item category ennu parayunne elam item quality anu  model name itemQuality
@@ -513,16 +517,38 @@ class ItemTypeDeleteView(DeleteView):
 # Financial & Expense Masters
 # ----------------------------
 
+
+
 class TenantCreateView(CreateView):
     model = Tenant
     form_class = TenantForm
     template_name = 'adminapp/forms/tenant_form.html'
-    success_url = reverse_lazy('adminapp:tenant_create')
+    success_url = reverse_lazy('adminapp:tenant_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['formset'] = TenantFreezingTariffFormSet(self.request.POST)
+        else:
+            context['formset'] = TenantFreezingTariffFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['formset']
+        if form.is_valid() and formset.is_valid():
+            tenant = form.save()
+            formset.instance = tenant
+            formset.save()
+            return redirect(self.success_url)
+        return self.render_to_response(self.get_context_data(form=form))
+
 
 class TenantListView(ListView):
     model = Tenant
     template_name = 'adminapp/list/tenant_list.html'
     context_object_name = 'tenants'
+
 
 class TenantUpdateView(UpdateView):
     model = Tenant
@@ -530,10 +556,33 @@ class TenantUpdateView(UpdateView):
     template_name = 'adminapp/forms/tenant_form.html'
     success_url = reverse_lazy('adminapp:tenant_list')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['formset'] = TenantFreezingTariffFormSet(self.request.POST, instance=self.object)
+        else:
+            context['formset'] = TenantFreezingTariffFormSet(instance=self.object)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['formset']
+        if form.is_valid() and formset.is_valid():
+            tenant = form.save()
+            formset.instance = tenant
+            formset.save()
+            return redirect(self.success_url)
+        return self.render_to_response(self.get_context_data(form=form))
+
+
 class TenantDeleteView(DeleteView):
     model = Tenant
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:tenant_list')
+
+
+
+
 
 class PurchaseOverheadCreateView(CreateView):
     model = PurchaseOverhead
@@ -1144,7 +1193,7 @@ def get_spot_purchase_item_details(request):
         data = {
             'total_boxes': float(item.boxes or 0),
             'quantity': float(item.quantity),
-            'average_weight': round(avg_weight, 2)
+            'average_weight': avg_weight
         }
     except SpotPurchaseItem.DoesNotExist:
         data = {
@@ -1517,6 +1566,10 @@ def freezing_entry_spot_update(request, pk):
     )
 
 
+
+
+
+
 # Create Freezing Entry Local
 def create_freezing_entry_local(request):
     if request.method == 'POST':
@@ -1596,6 +1649,8 @@ def get_party_details(request):
             'grade__id',
             'grade__grade',             # grade text
             'grade__species__name',     # ✅ species name
+            'item_quality__quality',   # ✅ correct field
+            'item_quality__code',      
         )
 
         data = {
@@ -1787,10 +1842,30 @@ def get_items_by_local_date(request):
     
     return JsonResponse({'items': list(items)})
 
+@require_http_methods(["GET"])
+@csrf_exempt  # Remove this if CSRF protection is needed
+def get_item_qualities(request):
+    item_id = request.GET.get("item_id")
+    
+    # If item_id is missing, return empty JSON array
+    if not item_id:
+        return JsonResponse([], safe=False)
+    
+    # Validate item_id is not empty (allow alphanumeric IDs)
+    item_id = item_id.strip()
+    if not item_id:
+        return JsonResponse({"error": "Invalid item_id"}, status=400)
 
-
-
-
+    try:
+        # Filter qualities for the given item
+        qualities = ItemQuality.objects.filter(item_id=item_id).values("id", "quality")
+        
+        # Return as JSON
+        return JsonResponse(list(qualities), safe=False)
+    
+    except Exception as e:
+        # Handle any database errors
+        return JsonResponse({"error": "Database error occurred"}, status=500)
 
 
 class FreezingWorkOutView(View):

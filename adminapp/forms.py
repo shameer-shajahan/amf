@@ -63,6 +63,10 @@ class PurchasingSpotForm(forms.ModelForm):
 
 # Personnel
 class PurchasingSupervisorForm(forms.ModelForm):
+    joining_date = forms.DateField(
+        input_formats=['%d/%m/%Y'],   # accepts DD/MM/YYYY
+        widget=forms.DateInput(format='%d/%m/%Y', attrs={'placeholder': 'DD/MM/YYYY'})
+    )
     class Meta:
         model = PurchasingSupervisor
         fields = '__all__'
@@ -151,11 +155,28 @@ class ItemTypeForm(forms.ModelForm):
 
         self.fields['item'].queryset = Item.objects.filter(is_peeling=True)
 
+
+
 # Financial & Expense
 class TenantForm(forms.ModelForm):
     class Meta:
         model = Tenant
         fields = '__all__'
+
+class TenantFreezingTariffForm(forms.ModelForm):
+    class Meta:
+        model = TenantFreezingTariff
+        fields = ['category', 'tariff']
+
+TenantFreezingTariffFormSet = inlineformset_factory(
+    Tenant,
+    TenantFreezingTariff,
+    form=TenantFreezingTariffForm,
+    extra=1,
+    can_delete=True
+)
+
+
 
 class PurchaseOverheadForm(forms.ModelForm):
     class Meta:
@@ -265,7 +286,7 @@ class LocalPurchaseItemForm(forms.ModelForm):
         exclude = ['purchase', 'amount']
         widgets = {
             'item': forms.Select(attrs={'class': 'form-control'}),
-            'quality': forms.Select(attrs={'class': 'form-control'}),
+            'item_quality': forms.Select(attrs={'class': 'form-control', 'id': 'id_item_quality'}),
             'species': forms.Select(attrs={'class': 'form-control'}),
             'grade': forms.Select(attrs={'class': 'form-control'}),
             'item_type': forms.Select(attrs={'class': 'form-control'}),
@@ -280,6 +301,11 @@ LocalPurchaseItemFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+
+
+
 
 # Peeling Shed Supply Form
 class PeelingShedSupplyForm(forms.ModelForm):
@@ -397,8 +423,8 @@ class FreezingEntryLocalItemForm(forms.ModelForm):
 
             'processing_center': forms.Select(attrs={'class': 'form-control'}),
             'store': forms.Select(attrs={'class': 'form-control'}),
-            'item': forms.Select(attrs={'class': 'form-control'}),
-            'item_quality': forms.Select(attrs={'class': 'form-control'}),
+            "item": forms.Select(attrs={"class": "form-control item-select"}),
+            "item_quality": forms.Select(attrs={"class": "form-control quality-select"}),
             'unit': forms.Select(attrs={'class': 'form-control unit-select', 'data-units': '{}'}),
             'glaze': forms.Select(attrs={'class': 'form-control'}),
             'freezing_category': forms.Select(attrs={'class': 'form-control'}),
@@ -415,6 +441,12 @@ class FreezingEntryLocalItemForm(forms.ModelForm):
             'usd_rate_item': forms.NumberInput(attrs={'class': 'form-control usd-rate-item'}),
             'usd_rate_item_to_inr': forms.NumberInput(attrs={'class': 'form-control usd-rate-item-inr'}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure item_quality shows qualities, not item names
+        self.fields['item_quality'].queryset = ItemQuality.objects.all().select_related('item')
+        self.fields['item_quality'].label_from_instance = lambda obj: f"{obj.quality} ({obj.item.name})"
+
 
 # Inline formset to attach items to a main entry
 FreezingEntryLocalItemFormSet = inlineformset_factory(

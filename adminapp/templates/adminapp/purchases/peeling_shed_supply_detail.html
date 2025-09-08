@@ -59,11 +59,11 @@
         <p><strong>Spot Purchase Date:</strong> {{ supply.spot_purchase_date }}</p>
         <p><strong>Spot Purchase:</strong> {{ supply.spot_purchase.voucher_number }}</p>
         <p><strong>Spot Purchase Item:</strong> {{ supply.spot_purchase_item.item.name }}</p>
-        <p><strong>Total Boxes (Spot Purchase):</strong> {{ supply.SpotPurchase_total_boxes }}</p>
-        <p><strong>Total Quantity (Spot Purchase):</strong> {{ supply.SpotPurchase_quantity }}</p>
-        <p><strong>Average Box Weight:</strong> {{ supply.SpotPurchase_average_box_weight }}</p>
-        <p><strong>Boxes Received in Shed:</strong> {{ supply.boxes_received_shed }}</p>
-        <p><strong>Quantity Received in Shed:</strong> {{ supply.quantity_received_shed }}</p>
+        <p><strong>Total Boxes (Spot Purchase):</strong> {{ supply.SpotPurchase_total_boxes| floatformat:2  }}</p>
+        <p><strong>Total Quantity (Spot Purchase):</strong> {{ supply.SpotPurchase_quantity| floatformat:2  }}</p>
+        <p><strong>Average Box Weight:</strong> {{ supply.SpotPurchase_average_box_weight| floatformat:2  }}</p>
+        <p><strong>Boxes Received in Shed:</strong> {{ supply.boxes_received_shed| floatformat:2  }}</p>
+        <p><strong>Quantity Received in Shed:</strong> {{ supply.quantity_received_shed | floatformat:2 }}</p>
     </div>
 
 

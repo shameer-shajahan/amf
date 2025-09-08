@@ -383,6 +383,7 @@
                             <th class="col-pr-centre">PR Centre</th>
                             <th class="col-store">Store</th>
                             <th class="col-item">Item</th>
+                            <th class="col-quality">Quality</th>
                             <th class="col-unit">Unit</th>
                             <th class="col-glaze">Glaze</th>
                             <th class="col-fr-category">FR Category</th>
@@ -401,6 +402,7 @@
                             <td class="col-pr-centre">{{ form.processing_center }} {{ form.processing_center.errors }}</td>
                             <td class="col-store">{{ form.store }} {{ form.store.errors }}</td>
                             <td class="col-item">{{ form.item }} {{ form.item.errors }}</td>
+                            <td class="col-quality">{{ form.item_quality }} {{ form.item_quality.errors }}</td>
                             <td class="col-unit">{{ form.unit }} {{ form.unit.errors }}</td>
                             <td class="col-glaze">{{ form.glaze }} {{ form.glaze.errors }}</td>
                             <td class="col-fr-category">{{ form.freezing_category }} {{ form.freezing_category.errors }}</td>
@@ -489,7 +491,7 @@
 
                 // Fields to preserve from last form
                 const fieldsToPreserve = [
-                    'processing_center', 'store', 'item', 'unit',
+                    'processing_center', 'store', 'item', 'unit','item_quality',
                     'glaze', 'freezing_category', 'brand'
                 ];
 
@@ -620,13 +622,12 @@
 
         $('#id_local_purchase_date').on('change', function () {
             const date = $(this).val();
-            
-            // Clear party and reset party items
+
             $('#id_party').empty().append('<option value="">---------</option>');
             $('#id_voucher_number').val('');
             partyItems = [];
             updateItemFilters();
-            
+
             if (date) {
                 $.get("{% url 'adminapp:get_parties_by_date' %}", { date: date }, function (data) {
                     const partySelect = $('#id_party');
@@ -636,58 +637,71 @@
                 });
             }
         });
+        function updateItemFilters() {
+        
+        }
+    </script>
 
-        $('#id_party').on('change', function () {
-            const partyId = $(this).val();
-            
-            // Clear voucher number and items
-            $('#id_voucher_number').val('');
-            partyItems = [];
-            updateItemFilters();
-            
-            if (partyId) {
-                $.get("{% url 'adminapp:get_party_details' %}", { party_id: partyId }, function (data) {
-                    $('#id_voucher_number').val(data.voucher_number);
-                    partyItems = data.items || [];
-                    updateItemFilters();
-                }).fail(function() {
-                    alert('Error loading party details');
+
+
+
+
+
+<!-- Load Item Qualities when Item changes - Version 6 -->
+    <script>
+        $(document).on("change", ".item-select:not(.quality-select)", function () {
+            var itemId = $(this).val();
+            var $qualitySelect = $(this).closest(".formset-form").find(".quality-select");
+
+            if (itemId) {
+                $.ajax({
+                    url: "{% url 'adminapp:get_item_qualities' %}",
+                    data: { "item_id": itemId },
+                    dataType: "json",
+                    success: function (data) {
+                        $qualitySelect.empty();
+                        $qualitySelect.append($("<option>", { value: "", text: "---------" }));
+
+                        // Handle both array and object responses
+                        var qualities = Array.isArray(data) ? data : data.qualities || [];
+
+                        if (qualities.length === 0) {
+                            $qualitySelect.append($("<option>", { value: "", text: "No qualities found" }));
+                        } else {
+                            $.each(qualities, function (index, quality) {
+                                $qualitySelect.append($("<option>", {
+                                    value: quality.id,
+                                    text: quality.quality
+                                }));
+                            });
+                        }
+
+                        // Trigger change event to ensure form recognizes the new options
+                        $qualitySelect.trigger('change');
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Error loading qualities for item " + itemId);
+                        console.log("Error details:", xhr.responseJSON);
+                        
+                        // Clear the select and add error option
+                        $qualitySelect.empty();
+                        $qualitySelect.append($("<option>", { value: "", text: "Error loading qualities" }));
+                    }
                 });
+            } else {
+                $qualitySelect.empty();
+                $qualitySelect.append($("<option>", { value: "", text: "---------" }));
             }
         });
-
-        // Function to update item filters in all formset forms
-        function updateItemFilters() {
-            $('.formset-form').each(function() {
-                const itemSelect = $(this).find('.item-select');
-                const currentValue = itemSelect.val();
-
-                // Clear and add default option
-                itemSelect.empty().append('<option value="">---------</option>');
-
-                if (partyItems.length > 0) {
-                    // Add items with grade
-                        partyItems.forEach(item => {
-                            itemSelect.append(`
-                                <option value="${item.item__id}" 
-                                    data-quantity="${item.quantity}" 
-                                    data-rate="${item.rate}" 
-                                    data-amount="${item.amount}">
-                                    ${item.item__name} - ${item.grade__species__name} - ${item.grade__grade}
-                                </option>
-                            `);
-                        });
-                    // Restore selection if valid
-                    if (currentValue && partyItems.some(item => item.item__id == currentValue)) {
-                        itemSelect.val(currentValue);
-                    }
-                } else {
-                    console.log('No party selected - items filtered');
-                }
-            });
-        }
-
     </script>
+
+
+
+
+
+
+
+
 
     <!-- Unit calculation -->
     <script>
@@ -824,68 +838,6 @@
         $(document).on('input change', '.formset-form :input', calculateTotals);
         $(document).on('change', '.formset-form [name$="DELETE"]', calculateTotals);
         $(document).ready(calculateTotals);
-    </script>
-
-    <!-- Load Species and Peeling Types when Item changes -->
-    <script>
-        $(document).ready(function () {
-            console.log("Freezing Entry AJAX ready");
-
-            // Listen for item change inside each formset row
-            $(document).on("change", ".item-select", function () {
-                let itemId = $(this).val();
-                let row = $(this).closest(".formset-form");
-
-                if (!itemId) {
-                    // Clear dependent fields
-                    row.find(".species-select").empty().append('<option value="">---------</option>');
-                    row.find(".peeling-select").empty().append('<option value="">---------</option>');
-                    row.find(".grade-select").empty().append('<option value="">---------</option>');
-                    return;
-                }
-
-                // Get item details from party items if available
-                const selectedOption = $(this).find('option:selected');
-                const quantity = selectedOption.data('quantity');
-                const rate = selectedOption.data('rate');
-                const amount = selectedOption.data('amount');
-
-                // You can use these values if needed for pre-filling fields
-                console.log('Selected item details:', { itemId, quantity, rate, amount });
-
-                // 1. Fetch Species for this item
-                $.ajax({
-                    url: "{% url 'adminapp:get_species_for_item' %}",
-                    data: { item_id: itemId },
-                    success: function (response) {
-                        let speciesSelect = row.find(".species-select");
-                        speciesSelect.empty().append('<option value="">---------</option>');
-                        $.each(response.species, function (i, species) {
-                            speciesSelect.append('<option value="' + species.id + '">' + species.name + '</option>');
-                        });
-                    },
-                    error: function() {
-                        console.log("Error loading species for item " + itemId);
-                    }
-                });
-
-                // 2. Fetch Peeling Types for this item
-                $.ajax({
-                    url: "{% url 'adminapp:get_peeling_for_item' %}",
-                    data: { item_id: itemId },
-                    success: function (response) {
-                        let peelingSelect = row.find(".peeling-select");
-                        peelingSelect.empty().append('<option value="">---------</option>');
-                        $.each(response.peeling_types, function (i, peeling) {
-                            peelingSelect.append('<option value="' + peeling.id + '">' + peeling.name + '</option>');
-                        });
-                    },
-                    error: function() {
-                        console.log("Error loading peeling types for item " + itemId);
-                    }
-                });
-            });
-        });
     </script>
 
     <!-- Load Grades when Species changes -->

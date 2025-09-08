@@ -26,8 +26,8 @@
                 <td>{{ supply.voucher_number }}</td>
                 <td>{{ supply.spot_purchase }}</td>
                 <td>{{ supply.shed }}</td>
-                <td>{{ supply.total_quantity }}</td>
-                <td>{{ supply.total_amount }}</td>
+                <td>{{ supply.total_quantity| floatformat:2  }}</td>
+                <td>{{ supply.total_amount| floatformat:2  }}</td>
                 <td>
                     <a href="{% url 'adminapp:peeling_shed_supply_detail' supply.pk %}">Detail</a>
                     <a href="{% url 'adminapp:peeling_shed_supply_delete' supply.pk %}">Delete</a>

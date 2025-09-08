@@ -252,8 +252,8 @@
             <td>{{ row.item__category__name }}</td>
             <td>{{ row.item__species__name }}</td>
             <td>{{ row.purchase__party_name }}</td>
-            <td>{{ row.total_qty }}</td>
-            <td>{{ row.total_amount }}</td>
+            <td>{{ row.total_qty | floatformat:2 }}</td>
+            <td>{{ row.total_amount | floatformat:2 }}</td>
             <td>{{ row.avg_rate|floatformat:2 }}</td>
         </tr>
         {% empty %}

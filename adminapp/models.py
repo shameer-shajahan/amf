@@ -81,7 +81,7 @@ class BaseModel(models.Model):
 class ProcessingCenter(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
-    contact_number = models.CharField(max_length=15, blank=True)
+    contact_number = models.CharField(max_length=15, blank=True, unique=True)
     code=models.CharField(null=True,blank=True,unique=True,max_length=15)
     is_active = models.BooleanField(default=True)
 
@@ -91,7 +91,7 @@ class ProcessingCenter(BaseModel):
 class Store(BaseModel):
     name = models.CharField(max_length=150)
     address = models.TextField()
-    contact_number = models.CharField(max_length=15, blank=True)
+    contact_number = models.CharField(max_length=15, blank=True, unique=True)
     code=models.CharField(null=True,blank=True,unique=True,max_length=100)
     store_type = models.CharField(max_length=100, choices=[('Retail', 'Retail'), ('Warehouse', 'Warehouse')])
     is_active = models.BooleanField(default=True)
@@ -100,7 +100,7 @@ class Store(BaseModel):
         return f"{self.name} - {self.code}"
 
 class PurchasingSpot(BaseModel):
-    location_name = models.CharField(max_length=150)
+    location_name = models.CharField(max_length=150, unique=True)
     district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     code = models.CharField(null=True,blank=True,unique=True,max_length=100)
@@ -132,7 +132,7 @@ class PurchasingAgent(BaseModel):
 # Item & Product Masters
 
 class ItemCategory(BaseModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     code = models.CharField(null=True,blank=True, unique=True,max_length=100)
 
@@ -141,7 +141,7 @@ class ItemCategory(BaseModel):
 
 class Item(BaseModel):
     category = models.ForeignKey(ItemCategory, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=50, unique=True)
     is_peeling = models.BooleanField(default=False)
     peeling_method = models.CharField(max_length=100, blank=True)
@@ -151,7 +151,7 @@ class Item(BaseModel):
 
 class ItemQuality(BaseModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    quality = models.CharField(max_length=100)
+    quality = models.CharField(max_length=100 , unique=True)
     code = models.CharField(null=True, blank=True, unique=True,max_length=100)
 
     def __str__(self):
@@ -191,8 +191,8 @@ class PackingUnit(BaseModel):
         ('LTR', 'Liter'),
         # Add more as needed
     ], default='KG')
-    precision = models.DecimalField(max_digits=10, decimal_places=2)  # e.g., 10.00
-    factor = models.DecimalField(max_digits=10, decimal_places=5)     # e.g., 0.35
+    precision = models.DecimalField(max_digits=100, decimal_places=2)  # e.g., 10.00
+    factor = models.DecimalField(max_digits=100, decimal_places=5)     # e.g., 0.35
     description = models.CharField(max_length=100)
 
     def __str__(self):
@@ -222,42 +222,55 @@ class ItemType(BaseModel):
 
 #  Financial & Expense Masters
 
-class Tenant(BaseModel):
-    company_name = models.CharField(max_length=150)
-    address = models.TextField(blank= True, null=True)
-    contact_person = models.CharField(max_length=100)
-    email = models.EmailField(blank= True, null=True)
-    phone = models.CharField(max_length=15,blank= True, null=True)
-    freezing_tariff = models.PositiveIntegerField(null=True, blank=True)
+class Tenant(models.Model):
+    company_name = models.CharField(max_length=150, null=True, blank=True)
+    address = models.TextField(blank=True, null=True)
+    contact_person = models.CharField(max_length=100, null=True, blank=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+
+    def __str__(self):
+        return self.company_name or "Unnamed Tenant"
 
     def __str__(self):
         return self.company_name
+    
+class TenantFreezingTariff(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="freezing_tariffs")
+    category = models.ForeignKey(FreezingCategory, on_delete=models.CASCADE, related_name="tenant_tariffs")
+    tariff = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("tenant", "category")  # one tariff per tenant-category
+
+    def __str__(self):
+        return f"{self.tenant} - {self.category} : {self.tariff}"
 
 class PurchaseOverhead(BaseModel):
     category_name = models.CharField(max_length=100)
-    other_expenses = models.DecimalField(max_digits=10, decimal_places=2)
+    other_expenses = models.DecimalField(max_digits=100, decimal_places=2)
 
 class PeelingOverhead(BaseModel):
     category_name = models.CharField(max_length=100)
-    other_expenses = models.DecimalField(max_digits=10, decimal_places=2)
+    other_expenses = models.DecimalField(max_digits=100, decimal_places=2)
 
 class ProcessingOverhead(BaseModel):
     category_name = models.CharField(max_length=100)
-    freezing_expense = models.DecimalField(max_digits=10, decimal_places=2)
-    other_expense = models.DecimalField(max_digits=10, decimal_places=2)
+    freezing_expense = models.DecimalField(max_digits=100, decimal_places=2)
+    other_expense = models.DecimalField(max_digits=100, decimal_places=2)
 
 class ShipmentOverhead(BaseModel):
-    documentation_charges = models.DecimalField(max_digits=10, decimal_places=2)
-    logistics_expense = models.DecimalField(max_digits=10, decimal_places=2)
-    vehicle_rent = models.DecimalField(max_digits=10, decimal_places=2)
-    buyers_agent_commission = models.DecimalField(max_digits=10, decimal_places=2)
-    other_expense = models.DecimalField(max_digits=10, decimal_places=2)
+    documentation_charges = models.DecimalField(max_digits=100, decimal_places=2)
+    logistics_expense = models.DecimalField(max_digits=100, decimal_places=2)
+    vehicle_rent = models.DecimalField(max_digits=100, decimal_places=2)
+    buyers_agent_commission = models.DecimalField(max_digits=100, decimal_places=2)
+    other_expense = models.DecimalField(max_digits=100, decimal_places=2)
 
 
 # settings
 class Settings(BaseModel):
-    dollar_rate_to_inr = models.DecimalField(max_digits=10, decimal_places=2)
-    vehicle_rent_km = models.DecimalField(max_digits=10, decimal_places=2)
+    dollar_rate_to_inr = models.DecimalField(max_digits=100, decimal_places=2)
+    vehicle_rent_km = models.DecimalField(max_digits=100, decimal_places=2)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)  # ✅ uses current datetime
 
@@ -268,7 +281,7 @@ class Shed(models.Model):
     code = models.CharField(max_length=50, unique=True)
     address = models.TextField()
     contact_number = models.CharField(max_length=20)
-    capacity_per_day_kg = models.DecimalField(max_digits=10, decimal_places=2)
+    capacity_per_day_kg = models.DecimalField(max_digits=100, decimal_places=2)
 
     def __str__(self):
         return self.name
@@ -277,7 +290,7 @@ class ShedItem(models.Model):
     shed = models.ForeignKey(Shed, on_delete=models.CASCADE, related_name='shed_items')
     item = models.ForeignKey(Item, on_delete=models.CASCADE, limit_choices_to={'is_peeling': True})
     item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=100, decimal_places=2)
     unit = models.CharField(max_length=50, default='kg')
 
     def __str__(self):
@@ -299,8 +312,8 @@ class SpotPurchase(BaseModel):
     supervisor = models.ForeignKey('PurchasingSupervisor', on_delete=models.CASCADE)
     agent = models.ForeignKey('PurchasingAgent', on_delete=models.CASCADE)
 
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_quantity = models.DecimalField(max_digits=100, decimal_places=2, default=0)
     total_items = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -316,22 +329,22 @@ class SpotPurchase(BaseModel):
 class SpotPurchaseItem(BaseModel):
     purchase = models.ForeignKey(SpotPurchase, on_delete=models.CASCADE, related_name='items')
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    boxes = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    rate = models.DecimalField(max_digits=10, decimal_places=2)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    quantity = models.DecimalField(max_digits=100, decimal_places=2)
+    boxes = models.DecimalField(max_digits=100, decimal_places=2, null=True, blank=True)
+    rate = models.DecimalField(max_digits=100, decimal_places=2)
+    amount = models.DecimalField(max_digits=100, decimal_places=2)
 
     def __str__(self):
         return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
 
 class SpotPurchaseExpense(BaseModel):
     purchase = models.OneToOneField(SpotPurchase, on_delete=models.CASCADE, related_name='expense')
-    ice_expense = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    vehicle_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    loading_and_unloading = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    peeling_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    other_expense = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_expense = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    ice_expense = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    vehicle_rent = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    loading_and_unloading = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    peeling_charge = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    other_expense = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_expense = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
     def save(self, *args, **kwargs):
         self.total_expense = (
@@ -352,8 +365,8 @@ class LocalPurchase(BaseModel):
     date = models.DateField()
     voucher_number = models.CharField(max_length=20, unique=True)
     party_name = models.CharField(max_length=150)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_quantity = models.DecimalField(max_digits=100, decimal_places=2, default=0)
     total_items = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -366,9 +379,9 @@ class LocalPurchaseItem(BaseModel):
     species = models.ForeignKey(Species, on_delete=models.CASCADE,null=True, blank=True)
     item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
     grade = models.ForeignKey(ItemGrade, on_delete=models.CASCADE, null=True, blank=True)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    rate = models.DecimalField(max_digits=10, decimal_places=2)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    quantity = models.DecimalField(max_digits=100, decimal_places=2)
+    rate = models.DecimalField(max_digits=100, decimal_places=2)
+    amount = models.DecimalField(max_digits=100, decimal_places=2)
 
     def __str__(self):
         return f"{self.item.name} - {self.quantity}kg @ {self.rate}"
@@ -385,10 +398,10 @@ class PeelingShedSupply(models.Model):
     spot_purchase = models.ForeignKey('SpotPurchase', on_delete=models.CASCADE)
     spot_purchase_item = models.ForeignKey('SpotPurchaseItem', on_delete=models.CASCADE)
     SpotPurchase_total_boxes = models.PositiveIntegerField()
-    SpotPurchase_quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    SpotPurchase_average_box_weight = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    SpotPurchase_quantity = models.DecimalField(max_digits=100, decimal_places=2)
+    SpotPurchase_average_box_weight = models.DecimalField(max_digits=100, decimal_places=50, default=0)
     boxes_received_shed = models.PositiveIntegerField(default=0)
-    quantity_received_shed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantity_received_shed = models.DecimalField(max_digits=100, decimal_places=10, default=0)
 
 
     def __str__(self):
@@ -398,7 +411,7 @@ class PeelingShedPeelingType(models.Model):
     supply = models.ForeignKey(PeelingShedSupply, on_delete=models.CASCADE, related_name='peeling_types')
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=100, decimal_places=2)
     unit = models.CharField(max_length=50)
 
 
@@ -419,12 +432,12 @@ class FreezingEntrySpot(BaseModel):
     spot = models.ForeignKey('SpotPurchase', on_delete=models.CASCADE, related_name='freezing_entries')
     spot_agent = models.ForeignKey('PurchasingAgent', on_delete=models.CASCADE, related_name='freezing_entries')
     spot_supervisor = models.ForeignKey('PurchasingSupervisor', on_delete=models.CASCADE, related_name='freezing_entries')
-    total_yield_percentage = models.DecimalField(max_digits=10, decimal_places=2)
-    total_usd = models.DecimalField(max_digits=10, decimal_places=2)
-    total_inr = models.DecimalField(max_digits=10, decimal_places=2)
-    total_slab = models.DecimalField(max_digits=10, decimal_places=2)
-    total_c_s = models.DecimalField(max_digits=10, decimal_places=2)
-    total_kg = models.DecimalField(max_digits=10, decimal_places=2)
+    total_yield_percentage = models.DecimalField(max_digits=100, decimal_places=2)
+    total_usd = models.DecimalField(max_digits=100, decimal_places=2)
+    total_inr = models.DecimalField(max_digits=100, decimal_places=2)
+    total_slab = models.DecimalField(max_digits=100, decimal_places=2)
+    total_c_s = models.DecimalField(max_digits=100, decimal_places=2)
+    total_kg = models.DecimalField(max_digits=100, decimal_places=2)
 
     FREEZING_STATUS_CHOICES = [
         ('complete', 'Complete'),
@@ -450,13 +463,13 @@ class FreezingEntrySpotItem(BaseModel):
     species = models.ForeignKey('Species', on_delete=models.CASCADE)
     peeling_type = models.ForeignKey('ItemType', on_delete=models.CASCADE)
     grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
-    slab_quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    c_s_quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    kg = models.DecimalField(max_digits=10, decimal_places=2)
-    usd_rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    usd_rate_item = models.DecimalField(max_digits=10, decimal_places=2)
-    usd_rate_item_to_inr = models.DecimalField(max_digits=10, decimal_places=2)
-    yield_percentage = models.DecimalField(max_digits=10, decimal_places=2)
+    slab_quantity = models.DecimalField(max_digits=100, decimal_places=2)
+    c_s_quantity = models.DecimalField(max_digits=100, decimal_places=2)
+    kg = models.DecimalField(max_digits=100, decimal_places=2)
+    usd_rate_per_kg = models.DecimalField(max_digits=100, decimal_places=2)
+    usd_rate_item = models.DecimalField(max_digits=100, decimal_places=2)
+    usd_rate_item_to_inr = models.DecimalField(max_digits=100, decimal_places=2)
+    yield_percentage = models.DecimalField(max_digits=100, decimal_places=2)
 
     def __str__(self):
         return f"{self.item} - {self.kg} KG"
@@ -474,11 +487,11 @@ class FreezingEntryLocal(BaseModel):
 
     local_purchase_date = models.DateField(null=True, blank=True)
     party = models.ForeignKey('LocalPurchase', on_delete=models.CASCADE)
-    total_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_slab = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_c_s = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_usd = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_inr = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_slab = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_c_s = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    total_kg = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
     FREEZING_STATUS_CHOICES = [
         ('complete', 'Complete'),
@@ -512,15 +525,73 @@ class FreezingEntryLocalItem(BaseModel):
     peeling_type = models.ForeignKey('ItemType', on_delete=models.CASCADE)
     grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
 
-    slab_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    c_s_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item_to_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    slab_quantity = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    c_s_quantity = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    kg = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_per_kg = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item_to_inr = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
     def __str__(self):
         return f"{self.item} - {self.kg} KG"
+
+
+
+class FreezingEntryTenant(BaseModel):
+    freezing_date = models.DateField()
+    voucher_number = models.CharField(max_length=50, unique=True)
+    tenant_company_name = models.ForeignKey('Tenant', on_delete=models.CASCADE)
+
+    total_slab = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_c_s = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    FREEZING_STATUS_CHOICES = [
+        ('complete', 'Complete'),
+        ('incomplete', 'Incomplete'),
+    ]
+    freezing_status = models.CharField(
+        max_length=50,
+        choices=FREEZING_STATUS_CHOICES,
+        default='complete'
+    )
+
+    def __str__(self):
+        return f"Freezing Entry Tenant - {self.freezing_date} - {self.voucher_number}"
+
+class FreezingEntryTenantItem(BaseModel):
+    freezing_entry = models.ForeignKey(
+        FreezingEntryTenant,   # fixed here
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+
+    processing_center = models.ForeignKey('ProcessingCenter', on_delete=models.CASCADE, null=True, blank=True)
+    store = models.ForeignKey('Store', on_delete=models.CASCADE, null=True, blank=True)
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True, default=None)
+    unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)
+    glaze = models.ForeignKey('GlazePercentage', on_delete=models.CASCADE)
+    freezing_category = models.ForeignKey('FreezingCategory', on_delete=models.CASCADE)
+    brand = models.ForeignKey('ItemBrand', on_delete=models.CASCADE)
+    species = models.ForeignKey('Species', on_delete=models.CASCADE)
+    grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
+
+    slab_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    c_s_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.item} - {self.kg} KG"
+
+
+
+
+
+
+
+
 
 
 # PRE SHIPMENT WORK OUT model
@@ -540,21 +611,21 @@ class PreShipmentWorkOutItem(BaseModel):
     species = models.ForeignKey('Species', on_delete=models.CASCADE)
     peeling_type = models.ForeignKey('ItemType', on_delete=models.CASCADE)
     grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
-    cartons = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cartons = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    quantity = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
     # we want rate
-    usd_rate_per_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item_to_inr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_per_kg = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item_to_inr = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
     # we get rate
-    usd_rate_per_kg_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    usd_rate_item_to_inr_get = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    usd_rate_per_kg_get = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item_get = models.DecimalField(max_digits=100, decimal_places=2, default=0)
+    usd_rate_item_to_inr_get = models.DecimalField(max_digits=100, decimal_places=2, default=0)
 
-    profit = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
-    loss = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
+    profit = models.DecimalField(max_digits=100, decimal_places=2, default=0, blank=True, null=True)
+    loss = models.DecimalField(max_digits=100, decimal_places=2, default=0, blank=True, null=True)
 
     @property
     def profit_amount(self):

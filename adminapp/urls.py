@@ -19,7 +19,7 @@ urlpatterns = [
 
     path('login/', views.admin_login, name='admin_login'),
     
-    path('logout/', views.admin_logout, name='admin_logout'),
+    path('', views.admin_logout, name='admin_logout'),
 
     path('create-user/', views.create_user_view, name='create_user'),
     
@@ -194,6 +194,8 @@ urlpatterns = [
     path('ajax/get-unit-details/', views.get_unit_details_local, name='get_unit_details_local'),
     path('ajax/get-item-details/', views.get_items_by_local_date, name='get_items_by_local_date'),
     path('ajax/get-dollar-rate/', views.get_dollar_rate_local, name='get_dollar_rate_local'),
+    path("ajax/get-item-qualities/", views.get_item_qualities, name="get_item_qualities"),
+
 
     #  Freezing WorkOut View url
     path('freezing-workout/', views.FreezingWorkOutView.as_view(), name='freezing_workout'),
