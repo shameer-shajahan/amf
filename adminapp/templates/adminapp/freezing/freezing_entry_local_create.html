@@ -1,13 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <title>Freezing Entry Local Form</title>
+{% extends 'admin_base.html' %}
+{%block title%} Admin Panel{%endblock%}
+{% block content %}
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
-    <style>
+
+        <style>
                 body {
             font-family: 'Roboto', sans-serif;
             margin: 20px;
@@ -346,13 +346,6 @@
             box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
         }
     </style>
-    
-</head>
-
-<body>
-
-    <h2>Create Freezing Entry Local</h2>
-    <a href="{% url 'adminapp:freezing_entry_local_list' %}">Back to List</a>
 
     <form method="post" id="freezing-form">
         {% csrf_token %}
@@ -699,10 +692,6 @@
 
 
 
-
-
-
-
     <!-- Unit calculation -->
     <script>
         $(document).ready(function () {
@@ -984,7 +973,5 @@
             });
         });
     </script>
-    
 
-</body>
-</html>
+{%endblock%}

@@ -1,7 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Spot Purchase Workout Summary</title>
+{% extends 'admin_base.html' %}
+{% block title %} Spot Purchase Workout Summary {% endblock %}
+{% block content %}
+
     <style>
         * {
             margin: 0;
@@ -665,12 +665,10 @@
             }
         }
     </style>
-</head>
-<body>
+
     <div class="container">
         <div class="page-header">
             <h2>📊 Spot Purchase Workout Summary</h2>
-            <p>Comprehensive analysis and filtering dashboard</p>
         </div>
 
         <div class="filter-card">
@@ -1093,5 +1091,4 @@ function updateExportLinks() {
 
 
 
-</body>
-</html>
+{%endblock%}

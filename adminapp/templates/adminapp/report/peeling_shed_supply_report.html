@@ -1,7 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Peeling Shed Supply Report</title>
+{% extends 'admin_base.html' %}
+{% block title %} Peeling Shed Supply Report {% endblock %}
+{% block content %}
     <style>
         * {
             margin: 0;
@@ -417,12 +416,11 @@
             }
         }
     </style>
-</head>
-<body>
+
     <div class="container">
         <div class="page-header">
             <h2>🏭 Peeling Shed Supply Report</h2>
-            <p>Comprehensive supply tracking and analysis dashboard</p>
+            <!-- <p>Comprehensive supply tracking and analysis dashboard</p> -->
         </div>
 
         <!-- Filters Card -->
@@ -778,5 +776,5 @@
             updateSummaryStats();
         });
     </script>
-</body>
-</html>
+
+{%endblock%}

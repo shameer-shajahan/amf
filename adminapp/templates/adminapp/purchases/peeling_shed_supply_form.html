@@ -1,226 +1,734 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Peeling Shed Supply</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% extends 'admin_base.html' %}
+{% block title %} Peeling Shed Supply Create{% endblock %}
+{% block content %}
+<div class="workout-detail-container" style="margin-top: 7rem;">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        .workout-detail-container {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
+            position: relative;
         }
 
-        h2 {
-            color: #333;
+        .workout-detail-container::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 0 8px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-title {
+            color: #1e293b;
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+        }
+
+        .page-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border-radius: 2px;
         }
 
         .back-button {
             text-decoration: none;
             color: white;
-            background-color: #007BFF;
-            padding: 10px 15px;
-            border-radius: 4px;
-            float: right;
-            margin-bottom: 20px;
-            font-weight: bold;
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 500;
             border: none;
             cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .back-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .back-button:hover::before {
+            left: 100%;
         }
 
         .back-button:hover {
-            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
         }
 
-        form {
-            background: #fff;
-            padding: 30px; /* Increased padding for more space */
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+        .main-form {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.1),
+                0 0 0 1px rgba(255, 255, 255, 0.8);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-section {
+            border-bottom: 1px solid rgba(241, 245, 249, 0.6);
+            padding: 40px;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+
+        .form-section:hover {
+            background-color: rgba(248, 250, 252, 0.5);
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #1e293b;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid transparent;
+            background: linear-gradient(90deg, #f1f5f9, #f1f5f9) padding-box,
+                       linear-gradient(90deg, #3b82f6, #8b5cf6) border-box;
+            border-bottom: 2px solid;
+            border-image: linear-gradient(90deg, #3b82f6, #8b5cf6) 1;
+        }
+
+        .section-icon {
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+
+        .form-row.single-column {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
 
         label {
-            display: block;
-            margin: 15px 0 5px; /* Increased margin for better spacing */
-            font-weight: bold;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 15px;
+            letter-spacing: 0.025em;
+            position: relative;
+            padding-left: 8px;
+        }
+
+        label::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 2px;
         }
 
         input[type="text"],
+        input[type="date"],
         select {
             width: 100%;
-            padding: 12px; /* Increased padding for larger input fields */
-            margin-bottom: 20px; /* Increased margin for better spacing */
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 16px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
             box-sizing: border-box;
-            font-size: 16px; /* Increased font size for better readability */
-        }
-
-        /* Specific styles for the SpotPurchase fields */
-        #id_SpotPurchase_total_boxes,
-        #id_SpotPurchase_quantity,
-        #id_SpotPurchase_average_box_weight {
-            width: 100%; /* Set to 100% for full width */
-            padding: 12px; /* Increased padding for better usability */
-            font-size: 16px; /* Increased font size for better readability */
-        }
-
-        /* Date picker styling */
-        input[type="date"] {
-            padding: 12px; /* Increased padding for date input */
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 100%;
-            font-size: 16px; /* Increased font size for better readability */
-        }
-
-        button {
-            background-color: #007BFF;
-            color: white;
-            padding: 12px 15px; /* Increased padding for button */
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
             font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+            position: relative;
         }
 
-        button:hover {
-            background-color: #0056b3;
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        select:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 
+                0 0 0 4px rgba(59, 130, 246, 0.1),
+                0 4px 12px rgba(59, 130, 246, 0.2);
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        input[readonly] {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            color: #6b7280;
+            cursor: not-allowed;
+            border-color: #d1d5db;
+        }
+
+        .formset-section {
+            background: linear-gradient(135deg, rgba(248, 250, 252, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%);
+            border: 2px solid rgba(226, 232, 240, 0.6);
+            border-radius: 20px;
+            padding: 0;
+            margin-top: 32px;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .formset-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 24px 32px;
+            border-bottom: 2px solid rgba(226, 232, 240, 0.6);
+            position: relative;
+        }
+
+        .formset-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        }
+
+        .formset-header .section-header {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        .formset-container {
+            padding: 32px;
         }
 
         .formset-row {
-            background: #f9f9f9;
-            padding: 15px; /* Increased padding for formset rows */
-            margin: 15px 0; /* Increased margin for better spacing */
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 32px;
+            margin: 20px 0;
+            border-radius: 16px;
+            border: 2px solid rgba(226, 232, 240, 0.6);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .formset-row::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+        }
+
+        .formset-row:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .submit-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 32px 40px;
+            text-align: center;
+            border-top: 2px solid rgba(226, 232, 240, 0.6);
+            position: relative;
+        }
+
+        .submit-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #059669, #10b981, #34d399);
+        }
+
+        .submit-button {
+            background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+            color: white;
+            padding: 18px 48px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.025em;
+        }
+
+        .submit-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s;
+        }
+
+        .submit-button:hover::before {
+            left: 100%;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(5, 150, 105, 0.4);
+        }
+
+        .submit-button:active {
+            transform: translateY(-1px);
+        }
+
+        /* Enhanced Loading state */
+        .loading {
+            position: relative;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Enhanced select styling */
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 16px center;
+            background-repeat: no-repeat;
+            background-size: 20px;
+            appearance: none;
+        }
+
+        /* Floating animation for icons */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .section-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .section-icon:nth-child(1) { animation-delay: 0s; }
+        .section-icon:nth-child(2) { animation-delay: 1s; }
+        .section-icon:nth-child(3) { animation-delay: 2s; }
+
+        /* Alert styling */
+        .alert {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(8px);
+            border: 2px solid transparent;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, rgba(209, 250, 229, 0.9), rgba(167, 243, 208, 0.7));
+            border-color: rgba(167, 243, 208, 0.8);
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, rgba(254, 226, 226, 0.9), rgba(252, 165, 165, 0.7));
+            border-color: rgba(252, 165, 165, 0.8);
+            color: #991b1b;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .workout-detail-container {
+                padding: 16px;
+            }
+            
+            .page-header {
+                flex-direction: column;
+                gap: 20px;
+                align-items: flex-start;
+            }
+            
+            .page-title {
+                font-size: 24px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .form-section {
+                padding: 24px 20px;
+            }
+            
+            .formset-container {
+                padding: 20px;
+            }
+            
+            .formset-row {
+                padding: 20px;
+            }
+            
+            .submit-section {
+                padding: 24px 20px;
+            }
+        }
+
+        /* Micro-interactions */
+        .form-group {
+            transition: transform 0.2s ease;
+        }
+
+        .form-group:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Custom scrollbar */
+        .workout-detail-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .workout-detail-container::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.6);
             border-radius: 4px;
-            border: 1px solid #ddd;
         }
 
-        .formset-row input[type="text"],
-        .formset-row select {
-            width: calc(100% - 20px);
-            display: inline-block;
-            margin-right: 10px;
+        .workout-detail-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 4px;
         }
 
-        .formset-row label {
-            display: inline-block;
-            margin: 0 10px 0 0;
-        }
-
-        h4 {
-            margin-top: 20px;
-            color: #333;
-        }
-
-        #formset-container {
-            margin-top: 20px;
+        .workout-detail-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
         }
     </style>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-</head>
 
-<body>
+    <div class="page-header">
+        <h1 class="page-title">Create Peeling Shed Supply</h1>
+    </div>
 
-    <a href="{% url 'adminapp:peeling_shed_supply_list' %}" class="back-button">Back to List</a>
-    <h2>Create Peeling Shed Supply</h2>
-
-    <form method="post">
+    <form method="post" class="main-form">
         {% csrf_token %}
 
-        {{ form.date.label_tag }} {{ form.date }}<br>
-        {{ form.voucher_number.label_tag }} {{ form.voucher_number }}<br>
-        {{ form.shed.label_tag }} {{ form.shed }}<br>
-        {{ form.vehicle_number.label_tag }} {{ form.vehicle_number }}<br>
-
-        {{ form.spot_purchase_date.label_tag }} {{ form.spot_purchase_date }}<br>
-
-        {{ form.spot_purchase.label_tag }}
-        <select id="id_spot_purchase" name="spot_purchase">
-            <option value="">---------</option>
-        </select><br>
-
-        {{ form.spot_purchase_item.label_tag }}
-        <select id="id_spot_purchase_item" name="spot_purchase_item">
-            <option value="">---------</option>
-        </select><br>
-
-        {{ form.SpotPurchase_total_boxes.label_tag }} 
-        <input type="text" id="id_SpotPurchase_total_boxes" name="SpotPurchase_total_boxes"><br>
-
-        {{ form.SpotPurchase_quantity.label_tag }} 
-        <input type="text" id="id_SpotPurchase_quantity" name="SpotPurchase_quantity"><br>
-
-        {{ form.SpotPurchase_average_box_weight.label_tag }} 
-        <input type="text" id="id_SpotPurchase_average_box_weight" name="SpotPurchase_average_box_weight"><br>
-
-        <label for="id_boxes_received_shed">Boxes Received Shed</label>
-        <input type="text" name="boxes_received_shed" id="id_boxes_received_shed"><br>
-
-        <label for="id_quantity_received_shed">Quantity Received Shed</label>
-        <input type="text" name="quantity_received_shed" id="id_quantity_received_shed" readonly><br>
-
-        {{ form.peeling_type.label_tag }} {{ form.peeling_type }}<br>
-        {{ form.amount.label_tag }} {{ form.amount }}<br>
-
-        <h4>Peeling Charges</h4>
-        <div id="formset-container">
-            {{ formset.management_form }}
-            {% for form in formset %}
-            <div class="formset-row">
-                {{ form.id }}
-                {{ form.item.label_tag }} {{ form.item }}
-                {{ form.item_type.label_tag }} {{ form.item_type }}
-                {{ form.amount.label_tag }} {{ form.amount }}
-                {{ form.unit.label_tag }} {{ form.unit }}
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon">📅</div>
+                <span>Basic Information</span>
             </div>
-            {% endfor %}
+            
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.date.label_tag }} 
+                    {{ form.date }}
+                </div>
+                <div class="form-group">
+                    {{ form.voucher_number.label_tag }} 
+                    {{ form.voucher_number }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.shed.label_tag }} 
+                    {{ form.shed }}
+                </div>
+                <div class="form-group">
+                    {{ form.vehicle_number.label_tag }} 
+                    {{ form.vehicle_number }}
+                </div>
+            </div>
         </div>
 
-        <button type="submit">Submit</button>
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon">🛒</div>
+                <span>Spot Purchase Information</span>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.spot_purchase_date.label_tag }} 
+                    {{ form.spot_purchase_date }}
+                </div>
+                <div class="form-group">
+                    {{ form.spot_purchase.label_tag }}
+                    <select id="id_spot_purchase" name="spot_purchase">
+                        <option value="">Select Spot Purchase...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.spot_purchase_item.label_tag }}
+                    <select id="id_spot_purchase_item" name="spot_purchase_item">
+                        <option value="">Select Purchase Item...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    {{ form.SpotPurchase_total_boxes.label_tag }} 
+                    <input type="text" id="id_SpotPurchase_total_boxes" name="SpotPurchase_total_boxes">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.SpotPurchase_quantity.label_tag }} 
+                    <input type="text" id="id_SpotPurchase_quantity" name="SpotPurchase_quantity">
+                </div>
+                <div class="form-group">
+                    {{ form.SpotPurchase_average_box_weight.label_tag }} 
+                    <input type="text" id="id_SpotPurchase_average_box_weight" name="SpotPurchase_average_box_weight">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon">📦</div>
+                <span>Shed Reception Details</span>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_boxes_received_shed">Boxes Received Shed</label>
+                    <input type="text" name="boxes_received_shed" id="id_boxes_received_shed">
+                </div>
+                <div class="form-group">
+                    <label for="id_quantity_received_shed">Quantity Received Shed</label>
+                    <input type="text" name="quantity_received_shed" id="id_quantity_received_shed" >
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.peeling_type.label_tag }} 
+                    {{ form.peeling_type }}
+                </div>
+                <div class="form-group">
+                    {{ form.amount.label_tag }} 
+                    {{ form.amount }}
+                </div>
+            </div>
+        </div>
+
+        <div class="formset-section">
+            <div class="formset-header">
+                <div class="section-header">
+                    <div class="section-icon">💰</div>
+                    <span>Peeling Charges</span>
+                </div>
+            </div>
+            
+            <div class="formset-container">
+                <div id="formset-container">
+                    {{ formset.management_form }}
+                    {% for form in formset %}
+                    <div class="formset-row">
+                        {{ form.id }}
+                        <div class="form-row">
+                            <div class="form-group">
+                                {{ form.item.label_tag }} 
+                                {{ form.item }}
+                            </div>
+                            <div class="form-group">
+                                {{ form.item_type.label_tag }} 
+                                {{ form.item_type }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                {{ form.amount.label_tag }} 
+                                {{ form.amount }}
+                            </div>
+                            <div class="form-group">
+                                {{ form.unit.label_tag }} 
+                                {{ form.unit }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="submit-section">
+            <button type="submit" class="submit-button">
+                ✅ Submit Workout Details
+            </button>
+        </div>
     </form>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        // Add loading animation helper
+        function showLoading(element) {
+            $(element).addClass('loading');
+        }
+        
+        function hideLoading(element) {
+            $(element).removeClass('loading');
+        }
+
         // 1. Spot Purchase Date -> Spot Purchases
         $('#id_spot_purchase_date').on('change', function () {
+            const dateInput = this;
+            showLoading('#id_spot_purchase');
+            
             $.get("{% url 'adminapp:get_spot_purchases_by_date' %}", {
                 'date': $(this).val()
             }, function (data) {
                 const select = $('#id_spot_purchase');
-                select.empty().append('<option value="">---------</option>');
+                select.empty().append('<option value="">Select Spot Purchase...</option>');
                 data.forEach(p => select.append(`<option value="${p.id}">${p.name}</option>`));
-                $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+                $('#id_spot_purchase_item').empty().append('<option value="">Select Purchase Item...</option>');
+                hideLoading('#id_spot_purchase');
+            }).fail(function() {
+                hideLoading('#id_spot_purchase');
+                alert('Error loading spot purchases. Please try again.');
             });
         });
 
         // 2. Spot Purchase -> Items
         $('#id_spot_purchase').on('change', function () {
+            showLoading('#id_spot_purchase_item');
+            
             $.get("{% url 'adminapp:get_spot_purchase_items' %}", {
                 'spot_purchase_id': $(this).val()
             }, function (data) {
-                const select = $('#id_spot_purchase_item').empty().append('<option value="">---------</option>');
+                const select = $('#id_spot_purchase_item').empty().append('<option value="">Select Purchase Item...</option>');
                 data.forEach(i => select.append(`<option value="${i.id}">${i.name}</option>`));
+                hideLoading('#id_spot_purchase_item');
+            }).fail(function() {
+                hideLoading('#id_spot_purchase_item');
+                alert('Error loading purchase items. Please try again.');
             });
         });
 
         // 3. Item -> Auto-fill details
         $('#id_spot_purchase_item').on('change', function () {
+            const fields = ['#id_SpotPurchase_total_boxes', '#id_SpotPurchase_quantity', '#id_SpotPurchase_average_box_weight'];
+            fields.forEach(field => showLoading(field));
+            
             $.get("{% url 'adminapp:get_spot_purchase_item_details' %}", {
                 'item_id': $(this).val()
             }, function (data) {
                 $('#id_SpotPurchase_total_boxes').val(data.total_boxes);
                 $('#id_SpotPurchase_quantity').val(data.quantity);
                 $('#id_SpotPurchase_average_box_weight').val(data.average_weight);
+                fields.forEach(field => hideLoading(field));
+            }).fail(function() {
+                fields.forEach(field => hideLoading(field));
+                alert('Error loading item details. Please try again.');
             });
         });
-    </script>
 
-    <!-- shed box Received quantity calculation script -->
-    <script>
+        // Shed box Received quantity calculation script
         function calculateQuantityReceivedShed() {
             let boxesReceived = parseFloat($("#id_boxes_received_shed").val()) || 0;
             let avgWeight = parseFloat($("#id_SpotPurchase_average_box_weight").val()) || 0;
@@ -239,9 +747,7 @@
                 calculateQuantityReceivedShed();
             });
         });
-    </script>
 
-    <script>
         $('#id_shed').change(function () {
             var shedId = $(this).val();
             if (shedId) {
@@ -261,10 +767,22 @@
                         <div class="formset-row">
                             <input type="hidden" name="peelings-${index}-item" value="${type.item_id}">
                             <input type="hidden" name="peelings-${index}-item_type" value="${type.item_type_id}">
-                            <input type="text" value="${type.item_name}" readonly>
-                            <input type="text" value="${type.item_type_name}" readonly>
-                            <input type="text" name="peelings-${index}-amount" value="${type.amount}">
-                            <input type="text" name="peelings-${index}-unit" value="${type.unit}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <input type="text" value="${type.item_name}" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" value="${type.item_type_name}" readonly>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <input type="text" name="peelings-${index}-amount" value="${type.amount}">
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" name="peelings-${index}-unit" value="${type.unit}">
+                                </div>
+                            </div>
                         </div>
                     `;
                             formsetDiv.append(formHtml);
@@ -275,9 +793,7 @@
                 });
             }
         });
-    </script>
 
-    <script>
         function updatePeelingCharges(peelingTypes) {
             const container = $('#formset-container');
             const totalForms = $('#id_form-TOTAL_FORMS');
@@ -292,21 +808,30 @@
                 const newForm = $(`
                     <div class="formset-row">
                         <input type="hidden" name="form-${index}-id" id="id_form-${index}-id">
-                        <label for="id_form-${index}-item">Item:</label>
-                        <select name="form-${index}-item" id="id_form-${index}-item">
-                            <option value="${pt.item_id}" selected>${pt.item_name}</option>
-                        </select>
-
-                        <label for="id_form-${index}-item_type">Type:</label>
-                        <select name="form-${index}-item_type" id="id_form-${index}-item_type">
-                            ${pt.item_type_id ? `<option value="${pt.item_type_id}" selected>${pt.item_type_name}</option>` : `<option value="">------</option>`}
-                        </select>
-
-                        <label for="id_form-${index}-amount">Amount:</label>
-                        <input type="text" name="form-${index}-amount" id="id_form-${index}-amount" value="${pt.amount}">
-
-                        <label for="id_form-${index}-unit">Unit:</label>
-                        <input type="text" name="form-${index}-unit" id="id_form-${index}-unit" value="${pt.unit}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="id_form-${index}-item">Item:</label>
+                                <select name="form-${index}-item" id="id_form-${index}-item">
+                                    <option value="${pt.item_id}" selected>${pt.item_name}</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="id_form-${index}-item_type">Type:</label>
+                                <select name="form-${index}-item_type" id="id_form-${index}-item_type">
+                                    ${pt.item_type_id ? `<option value="${pt.item_type_id}" selected>${pt.item_type_name}</option>` : `<option value="">------</option>`}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="id_form-${index}-amount">Amount:</label>
+                                <input type="text" name="form-${index}-amount" id="id_form-${index}-amount" value="${pt.amount}">
+                            </div>
+                            <div class="form-group">
+                                <label for="id_form-${index}-unit">Unit:</label>
+                                <input type="text" name="form-${index}-unit" id="id_form-${index}-unit" value="${pt.unit}">
+                            </div>
+                        </div>
                     </div>
                 `);
                 container.append(newForm);
@@ -331,7 +856,5 @@
             });
         });
     </script>
-
-</body>
-
-</html>
+</div>
+{% endblock %}

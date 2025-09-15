@@ -447,8 +447,6 @@ class FreezingEntryLocalItemForm(forms.ModelForm):
         self.fields['item_quality'].queryset = ItemQuality.objects.all().select_related('item')
         self.fields['item_quality'].label_from_instance = lambda obj: f"{obj.quality} ({obj.item.name})"
 
-
-# Inline formset to attach items to a main entry
 FreezingEntryLocalItemFormSet = inlineformset_factory(
     FreezingEntryLocal,
     FreezingEntryLocalItem,
@@ -524,4 +522,327 @@ PreShipmentWorkOutItemFormSet = inlineformset_factory(
 
 
 
+
+# Freezing Entry Tenant Form
+
+class FreezingEntryTenantForm(forms.ModelForm):
+
+    class Meta:
+        model = FreezingEntryTenant
+        fields = "__all__"
+        exclude = ['total_amount']  
+        widgets = {
+            'freezing_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'tenant_company_name': forms.Select(attrs={'class': 'form-control'}),
+
+            'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+
+            'freezing_status': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class FreezingEntryTenantItemForm(forms.ModelForm):
+    class Meta:
+        model = FreezingEntryTenantItem
+        fields = "__all__"
+        widgets = {
+            'processing_center': forms.Select(attrs={'class': 'form-control'}),
+            'store': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 For AJAX population
+            'item': forms.Select(attrs={'class': 'form-control item-select'}),
+            'item_quality': forms.Select(attrs={'class': 'form-control'}),
+
+            'unit': forms.Select(attrs={'class': 'form-control unit-select'}),
+            'glaze': forms.Select(attrs={'class': 'form-control'}),
+            'freezing_category': forms.Select(attrs={'class': 'form-control'}),
+            'brand': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 Add "species-select" for dependent dropdowns
+            'species': forms.Select(attrs={'class': 'form-control species-select'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+
+            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control slab-quantity'}),
+            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control cs-quantity'}),
+            'kg': forms.NumberInput(attrs={'class': 'form-control kg'}),
+        }
+
+FreezingEntryTenantItemFormSet = inlineformset_factory(
+    FreezingEntryTenant,
+    FreezingEntryTenantItem,
+    form=FreezingEntryTenantItemForm,
+    extra=1,
+    can_delete=True
+)
+
+
+# return to Tenant Forms
+
+
+class ReturnTenantForm(forms.ModelForm):
+    class Meta:
+        model = ReturnTenant
+        fields = "__all__"
+        exclude = ['total_amount']  # Exclude if calculated automatically
+        widgets = {
+            'return_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),  # Fixed field name
+            'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'tenant_company_name': forms.Select(attrs={'class': 'form-control'}),
+
+            'total_slab': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_c_s': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            'total_kg': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+
+            'return_status': forms.Select(attrs={'class': 'form-control'}),  # Fixed field name
+        }
+
+class ReturnTenantItemForm(forms.ModelForm):
+    class Meta:
+        model = ReturnTenantItem
+        fields = "__all__"
+        widgets = {
+            'original_item': forms.Select(attrs={'class': 'form-control original-item-select'}),  # Added for traceability
+            'processing_center': forms.Select(attrs={'class': 'form-control'}),
+            'store': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 For AJAX population
+            'item': forms.Select(attrs={'class': 'form-control item-select'}),
+            'item_quality': forms.Select(attrs={'class': 'form-control'}),
+
+            'unit': forms.Select(attrs={'class': 'form-control unit-select'}),
+            'glaze': forms.Select(attrs={'class': 'form-control'}),
+            'freezing_category': forms.Select(attrs={'class': 'form-control'}),
+            'brand': forms.Select(attrs={'class': 'form-control'}),
+
+            # 🔹 Add "species-select" for dependent dropdowns
+            'species': forms.Select(attrs={'class': 'form-control species-select'}),
+            'grade': forms.Select(attrs={'class': 'form-control'}),
+
+            'slab_quantity': forms.NumberInput(attrs={'class': 'form-control slab-quantity'}),
+            'c_s_quantity': forms.NumberInput(attrs={'class': 'form-control cs-quantity'}),
+            'kg': forms.NumberInput(attrs={'class': 'form-control kg'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Filter original_item to show only items from the same tenant
+        if 'tenant_company_name' in self.initial:
+            tenant = self.initial['tenant_company_name']
+            self.fields['original_item'].queryset = FreezingEntryTenantItem.objects.filter(
+                freezing_entry__tenant_company_name=tenant
+            ).select_related('item', 'freezing_entry')
+        
+        # Make original_item optional but helpful
+        self.fields['original_item'].required = False
+        self.fields['original_item'].help_text = "Link to original stock lot (optional)"
+
+ReturnTenantItemFormSet = inlineformset_factory(
+    ReturnTenant,
+    ReturnTenantItem,
+    form=ReturnTenantItemForm,
+    extra=1,
+    can_delete=True
+)
+
+
+
+
+
+# forms.py
+
+from django import forms
+from django.forms import modelformset_factory
+
+class TenantBillingConfigurationForm(forms.ModelForm):
+    class Meta:
+        model = TenantBillingConfiguration
+        fields = ['tenant', 'billing_start_date', 'billing_frequency_days', 'is_active']
+        widgets = {
+            'billing_start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'billing_frequency_days': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'tenant': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['billing_frequency_days'].help_text = "Enter number of days (e.g., 2 for every 2 days, 7 for weekly)"
+
+class BillGenerationForm(forms.Form):
+    tenant = forms.ModelChoiceField(
+        queryset=Tenant.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        empty_label="Select Tenant"
+    )
+    from_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+    to_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+
+class TenantBillForm(forms.ModelForm):
+    class Meta:
+        model = TenantBill
+        fields = ['tenant', 'from_date', 'to_date', 'status']
+        widgets = {
+            'tenant': forms.Select(attrs={'class': 'form-control'}),
+            'from_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'to_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+
+
+
+
+
+# forms.py - Updated forms with better validation
+
+from django import forms
+from django.forms import inlineformset_factory
+from django.core.exceptions import ValidationError
+from .models import StoreTransfer, StoreTransferItem, Stock
+from collections import defaultdict
+from decimal import Decimal
+
+
+class StoreTransferForm(forms.ModelForm):
+    class Meta:
+        model = StoreTransfer
+        fields = ["voucher_no", "date", "from_store", "to_store"]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'voucher_no': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
+            'from_store': forms.Select(attrs={'class': 'form-control', 'required': True}),
+            'to_store': forms.Select(attrs={'class': 'form-control', 'required': True}),
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        from_store = cleaned_data.get('from_store')
+        to_store = cleaned_data.get('to_store')
+        
+        if from_store and to_store and from_store == to_store:
+            raise ValidationError("From store and To store cannot be the same.")
+        
+        return cleaned_data
+
+
+class StoreTransferItemForm(forms.ModelForm):
+    class Meta:
+        model = StoreTransferItem
+        exclude = ['plus_qty','minus_qty']
+        fields = ["stock", "item_grade", "cs_quantity", "kg_quantity"]
+        widgets = {
+            'stock': forms.Select(attrs={'class': 'form-control stock-select'}),
+            'item_grade': forms.TextInput(attrs={'class': 'form-control'}),
+            'cs_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'kg_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        from_store = kwargs.pop('from_store', None)
+        super().__init__(*args, **kwargs)
+        
+        if from_store:
+            self.fields['stock'].queryset = Stock.objects.filter(
+                store=from_store
+            ).select_related('item', 'brand', 'category')
+        else:
+            self.fields['stock'].queryset = Stock.objects.none()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        stock = cleaned_data.get('stock')
+        cs_quantity = cleaned_data.get('cs_quantity', 0)
+        kg_quantity = cleaned_data.get('kg_quantity', 0)
+        
+        if not stock:
+            return cleaned_data
+        
+        # Validate that transfer quantities don't exceed available stock
+        if cs_quantity and cs_quantity > stock.cs_quantity:
+            raise ValidationError({
+                'cs_quantity': f'CS quantity ({cs_quantity}) exceeds available stock ({stock.cs_quantity})'
+            })
+        
+        if kg_quantity and kg_quantity > stock.kg_quantity:
+            raise ValidationError({
+                'kg_quantity': f'KG quantity ({kg_quantity}) exceeds available stock ({stock.kg_quantity})'
+            })
+        
+        # Ensure at least one quantity is provided
+        if not cs_quantity and not kg_quantity:
+            raise ValidationError("Either CS quantity or KG quantity must be provided.")
+        
+        return cleaned_data
+
+
+# Custom formset with validation for duplicate handling
+class StoreTransferItemFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        """
+        Custom validation to check for duplicate stocks and validate total quantities
+        """
+        if any(self.errors):
+            return
+        
+        if not self.forms:
+            raise ValidationError("At least one item must be added to the transfer.")
+        
+        # Track stock quantities for validation
+        stock_quantities = defaultdict(lambda: {'cs': Decimal('0'), 'kg': Decimal('0')})
+        
+        for form in self.forms:
+            if not form.cleaned_data or form.cleaned_data.get('DELETE', False):
+                continue
+            
+            stock = form.cleaned_data.get('stock')
+            item_grade = form.cleaned_data.get('item_grade', '')
+            cs_quantity = form.cleaned_data.get('cs_quantity', Decimal('0'))
+            kg_quantity = form.cleaned_data.get('kg_quantity', Decimal('0'))
+            
+            if not stock:
+                continue
+            
+            # Create key for tracking (stock + grade combination)
+            key = (stock.id, item_grade or '')
+            stock_quantities[key]['cs'] += cs_quantity
+            stock_quantities[key]['kg'] += kg_quantity
+        
+        # Validate against available stock quantities
+        for (stock_id, item_grade), quantities in stock_quantities.items():
+            try:
+                stock = Stock.objects.get(id=stock_id)
+                
+                if quantities['cs'] > stock.cs_quantity:
+                    raise ValidationError(
+                        f"Total CS quantity for {stock.item.name} ({quantities['cs']}) "
+                        f"exceeds available stock ({stock.cs_quantity})"
+                    )
+                
+                if quantities['kg'] > stock.kg_quantity:
+                    raise ValidationError(
+                        f"Total KG quantity for {stock.item.name} ({quantities['kg']}) "
+                        f"exceeds available stock ({stock.kg_quantity})"
+                    )
+            except Stock.DoesNotExist:
+                raise ValidationError(f"Stock with ID {stock_id} not found")
+
+
+# Create the formset with custom validation
+StoreTransferItemFormSet = inlineformset_factory(
+    StoreTransfer,
+    StoreTransferItem,
+    form=StoreTransferItemForm,
+    formset=StoreTransferItemFormSet,
+    fields=["stock", "item_grade", "plus_qty", "minus_qty", "cs_quantity", "kg_quantity"],
+    extra=1,
+    can_delete=True,
+    min_num=1,
+    validate_min=True
+)
 

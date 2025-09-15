@@ -1,77 +1,576 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Peeling Shed Supply - {{ supply.voucher_number }}</title>
+{% extends 'admin_base.html' %}
+{% block title %} Peeling Shed Supply Detail {% endblock %}
+{% block content %}
+
+<div class="myclass" style="margin-top: 7rem;">
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        .myclass {
+            font-family: 'Roboto', sans-serif;
             margin: 20px;
-        }
-        h2, h3 {
-            margin-bottom: 10px;
+            background-color: #f4f4f4;
             color: #333;
         }
-        .supply-details {
+
+        .back-link {
+            color: #007BFF;
+            text-decoration: none;
+            font-weight: 500;
             margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.3s;
         }
-        .supply-details p {
-            margin: 4px 0;
+
+        .back-link:hover {
+            color: #0056b3;
+            text-decoration: none;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+
+        .back-link::before {
+            content: "←";
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        h2 {
+            color: #007BFF;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        h3 {
+            color: #0056b3;
+            margin: 30px 0 15px 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e6ea;
+            padding-bottom: 8px;
+        }
+
+        .header-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
             margin-top: 15px;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007BFF;
         }
-        th {
-            background: #f4f4f4;
+
+        .summary-item strong {
+            color: #0056b3;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
-        .actions {
+
+        .summary-item span {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .spot-purchase-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border-left: 4px solid #28a745;
+        }
+
+        .spot-purchase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .spot-purchase-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: #e8f5e8;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        .spot-purchase-item strong {
+            color: #155724;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .spot-purchase-item span {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #28a745;
+        }
+
+        .shed-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .shed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .shed-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .shed-item strong {
+            color: #856404;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .shed-item span {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #856404;
+        }
+
+        .action-buttons {
             margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        .actions a {
-            display: inline-block;
-            padding: 6px 12px;
-            margin-right: 8px;
-            background: #007bff;
-            color: #fff;
+
+        .action-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
             text-decoration: none;
-            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .actions a.delete {
+
+        .btn-back {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-update {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-update:hover {
+            background: #218838;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-delete {
             background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+            color: white;
+        }
+
+        .btn-print {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-print:hover {
+            background: #138496;
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Focus styles */
+        .action-btn:focus,
+        .back-link:focus {
+            outline: 2px solid #007BFF;
+            outline-offset: 2px;
+        }
+
+        .btn-delete:focus {
+            outline: 2px solid #dc3545;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                margin: 0;
+            }
+
+            .action-buttons,
+            .back-link {
+                display: none;
+            }
+
+            .header-section,
+            .summary,
+            .spot-purchase-section,
+            .shed-section {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .myclass {
+                margin: 10px;
+            }
+
+            .summary-grid,
+            .spot-purchase-grid,
+            .shed-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-btn {
+                justify-content: center;
+            }
         }
     </style>
-</head>
-<body>
 
-    <h2>Peeling Shed Supply - {{ supply.voucher_number }}</h2>
 
-    <div class="supply-details">
-        <p><strong>Date:</strong> {{ supply.date }}</p>
-        <p><strong>Shed:</strong> {{ supply.shed.name }}</p>
-        <p><strong>Vehicle Number:</strong> {{ supply.vehicle_number }}</p>
-        <p><strong>Spot Purchase Date:</strong> {{ supply.spot_purchase_date }}</p>
-        <p><strong>Spot Purchase:</strong> {{ supply.spot_purchase.voucher_number }}</p>
-        <p><strong>Spot Purchase Item:</strong> {{ supply.spot_purchase_item.item.name }}</p>
-        <p><strong>Total Boxes (Spot Purchase):</strong> {{ supply.SpotPurchase_total_boxes| floatformat:2  }}</p>
-        <p><strong>Total Quantity (Spot Purchase):</strong> {{ supply.SpotPurchase_quantity| floatformat:2  }}</p>
-        <p><strong>Average Box Weight:</strong> {{ supply.SpotPurchase_average_box_weight| floatformat:2  }}</p>
-        <p><strong>Boxes Received in Shed:</strong> {{ supply.boxes_received_shed| floatformat:2  }}</p>
-        <p><strong>Quantity Received in Shed:</strong> {{ supply.quantity_received_shed | floatformat:2 }}</p>
+
+    <div class="header-section">
+        <h2>Peeling Shed Supply Details</h2>
     </div>
 
-
-    <div class="actions">
-        <a href="{% url 'adminapp:peeling_shed_supply_list' %}">Back to List</a>
-        <a href="{% url 'adminapp:peeling_shed_supply_update' supply.pk %}">Edit</a>
-        <a href="{% url 'adminapp:peeling_shed_supply_delete' supply.pk %}" class="delete">Delete</a>
+    <div class="summary">
+        <h3>Basic Information</h3>
+        <div class="summary-grid">
+            <div class="summary-item">
+                <strong>Date</strong>
+                <span>{{ supply.date }}</span>
+            </div>
+            <div class="summary-item">
+                <strong>Shed</strong>
+                <span>{{ supply.shed.name }}</span>
+            </div>
+            <div class="summary-item">
+                <strong>Vehicle Number</strong>
+                <span>{{ supply.vehicle_number }}</span>
+            </div>
+        </div>
     </div>
 
-</body>
-</html>
+    <div class="spot-purchase-section">
+        <h3>Spot Purchase Information</h3>
+        <div class="spot-purchase-grid">
+            <div class="spot-purchase-item">
+                <strong>Purchase Date</strong>
+                <span>{{ supply.spot_purchase_date }}</span>
+            </div>
+            <div class="spot-purchase-item">
+                <strong>Voucher Number</strong>
+                <span>{{ supply.spot_purchase.voucher_number }}</span>
+            </div>
+            <div class="spot-purchase-item">
+                <strong>Item Name</strong>
+                <span>{{ supply.spot_purchase_item.item.name }}</span>
+            </div>
+            <div class="spot-purchase-item">
+                <strong>Total Boxes</strong>
+                <span>{{ supply.SpotPurchase_total_boxes| floatformat:2 }}</span>
+            </div>
+            <div class="spot-purchase-item">
+                <strong>Total Quantity</strong>
+                <span>{{ supply.SpotPurchase_quantity| floatformat:2 }}</span>
+            </div>
+            <div class="spot-purchase-item">
+                <strong>Average Box Weight</strong>
+                <span>{{ supply.SpotPurchase_average_box_weight| floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="shed-section">
+        <h3>Shed Reception Information</h3>
+        <div class="shed-grid">
+            <div class="shed-item">
+                <strong>Boxes Received</strong>
+                <span>{{ supply.boxes_received_shed| floatformat:2 }}</span>
+            </div>
+            <div class="shed-item">
+                <strong>Quantity Received</strong>
+                <span>{{ supply.quantity_received_shed | floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <button onclick="printSupplyDetails()" class="action-btn btn-print">
+            Print Details
+        </button>
+        <a href="{% url 'adminapp:peeling_shed_supply_update' supply.pk %}" class="action-btn btn-update">
+            Edit Supply
+        </a>
+        <form method="post" action="{% url 'adminapp:peeling_shed_supply_delete' supply.pk %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="action-btn btn-delete" onclick="return confirmDelete()">
+                Delete Supply
+            </button>
+        </form>
+    </div>
+
+    <script>
+        function confirmDelete() {
+            const shed = '{{ supply.shed.name }}';
+            const date = '{{ supply.date }}';
+            const vehicleNumber = '{{ supply.vehicle_number }}';
+
+            const confirmMessage = `Are you sure you want to delete this peeling shed supply?\n\nShed: ${shed}\nDate: ${date}\nVehicle: ${vehicleNumber}\n\nThis action will permanently delete the supply record. This cannot be undone.`;
+
+            return confirm(confirmMessage);
+        }
+
+        function printSupplyDetails() {
+            // Clone the myclass element
+            const myclassElement = document.querySelector('.myclass');
+            const clonedContent = myclassElement.cloneNode(true);
+
+            // Remove action buttons from cloned content
+            const actionButtons = clonedContent.querySelector('.action-buttons');
+            if (actionButtons) {
+                actionButtons.remove();
+            }
+
+            // Remove back link from cloned content
+            const backLink = clonedContent.querySelector('.back-link');
+            if (backLink) {
+                backLink.remove();
+            }
+
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Peeling Shed Supply Details - Print</title>
+                    <meta charset="utf-8">
+                    <style>
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        
+                        @page {
+                            margin: 0.5in;
+                            size: A4;
+                        }
+                        
+                        body {
+                            font-family: 'Roboto', Arial, sans-serif;
+                            margin: 0;
+                            padding: 0;
+                            background: white;
+                            color: #333;
+                            font-size: 14px;
+                            line-height: 1.4;
+                        }
+                        
+                        .print-container {
+                            width: 100%;
+                            max-width: none;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        
+                        h2 {
+                            color: #007BFF;
+                            margin-bottom: 15px;
+                            font-size: 1.8rem;
+                            font-weight: 700;
+                            text-align: center;
+                        }
+
+                        h3 {
+                            color: #0056b3;
+                            margin: 20px 0 10px 0;
+                            font-size: 1.2rem;
+                            font-weight: 600;
+                            border-bottom: 2px solid #e2e6ea;
+                            padding-bottom: 5px;
+                        }
+
+                        .header-section,
+                        .summary,
+                        .spot-purchase-section,
+                        .shed-section {
+                            background: white;
+                            padding: 15px;
+                            border: 1px solid #ddd;
+                            margin-bottom: 20px;
+                        }
+
+                        .summary-grid,
+                        .spot-purchase-grid,
+                        .shed-grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                            gap: 10px;
+                            margin-top: 10px;
+                        }
+
+                        .summary-item,
+                        .spot-purchase-item,
+                        .shed-item {
+                            display: flex;
+                            flex-direction: column;
+                            padding: 10px;
+                            border-radius: 4px;
+                        }
+
+                        .summary-item {
+                            background: #f8f9fa;
+                            border-left: 3px solid #007BFF;
+                        }
+
+                        .spot-purchase-item {
+                            background: #e8f5e8;
+                            border-left: 3px solid #28a745;
+                        }
+
+                        .shed-item {
+                            background: #fff3cd;
+                            border-left: 3px solid #ffc107;
+                        }
+
+                        .summary-item strong,
+                        .spot-purchase-item strong,
+                        .shed-item strong {
+                            font-size: 0.8rem;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                            margin-bottom: 3px;
+                        }
+
+                        .summary-item strong {
+                            color: #0056b3;
+                        }
+
+                        .spot-purchase-item strong {
+                            color: #155724;
+                        }
+
+                        .shed-item strong {
+                            color: #856404;
+                        }
+
+                        .summary-item span,
+                        .spot-purchase-item span,
+                        .shed-item span {
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            color: #333;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-container">
+                        ${clonedContent.innerHTML}
+                    </div>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+
+            // Wait for content to load, then print
+            printWindow.onload = function () {
+                setTimeout(() => {
+                    printWindow.focus();
+                    printWindow.print();
+
+                    // Close after printing
+                    printWindow.onafterprint = function () {
+                        printWindow.close();
+                    };
+                }, 500);
+            };
+        }
+
+        // Add keyboard navigation
+        $(document).ready(function () {
+            // Make summary items focusable for accessibility
+            $('.summary-item, .spot-purchase-item, .shed-item').attr('tabindex', '0');
+
+            // Add keyboard support for action buttons
+            $('.action-btn').on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    $(this).click();
+                }
+            });
+        });
+    </script>
+</div>
+
+{% endblock %}

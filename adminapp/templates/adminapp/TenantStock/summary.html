@@ -1,0 +1,323 @@
+{% extends 'admin_base.html' %}
+{% block title %} Tenant Stock Summary {% endblock %}
+{% block content %}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .stock-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stock-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .stock-metric {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 2px 0;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        
+        .balance-positive {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .balance-zero {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+        
+        .quick-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        .action-btn {
+            border-radius: 20px;
+            padding: 6px 12px;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .page-header {
+            background: white;
+            padding: 20px 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        @media (max-width: 768px) {
+            .col-lg-4 {
+                margin-bottom: 20px;
+            }
+            
+            .metric-value {
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">📊 Tenant Stock Overview</h2>
+                            <p class="text-muted mb-0">Monitor and manage tenant inventory levels</p>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'adminapp:tenant_stock_balance' %}" class="btn btn-outline-info action-btn">
+                                <i class="fas fa-list"></i> Detailed View
+                            </a>
+                            <a href="{% url 'adminapp:create_freezing_entry_tenant' %}" class="btn btn-success action-btn">
+                                <i class="fas fa-plus"></i> Add Stock
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                {% if tenant_summary %}
+                    <!-- Quick Statistics -->
+                    <div class="quick-stats">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h4 class="mb-1">{{ tenant_summary|length }}</h4>
+                                <small>Total Tenants</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h4 class="mb-1">{{ tenant_summary|length }}</h4>
+                                <small>Active Accounts</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h4 class="mb-1">
+                                    {% for summary in tenant_summary %}
+                                        {% if summary.has_stock %}{{ forloop.counter }}{% endif %}
+                                    {% endfor %}
+                                </h4>
+                                <small>With Stock</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h4 class="mb-1">
+                                    {{ tenant_summary|length }}
+                                    {% for summary in tenant_summary %}
+                                        {% if summary.has_stock %}{{ forloop.counter }}{% endif %}
+                                    {% endfor %}
+                                </h4>
+                                <small>Empty Accounts</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tenant Cards -->
+                    <div class="row">
+                        {% for summary in tenant_summary %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card stock-card h-100 {% if summary.has_stock %}border-success{% else %}border-secondary{% endif %}">
+                                <!-- Card Header -->
+                                <div class="card-header {% if summary.has_stock %}bg-success{% else %}bg-secondary{% endif %} text-white d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">
+                                            <i class="fas fa-building"></i> 
+                                            {{ summary.tenant.company_name|truncatechars:25 }}
+                                        </h6>
+                                        {% if summary.tenant.contact_person %}
+                                            <small class="opacity-75">{{ summary.tenant.contact_person }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <span class="status-badge {% if summary.has_stock %}bg-light text-success{% else %}bg-light text-secondary{% endif %}">
+                                        {% if summary.has_stock %}In Stock{% else %}Empty{% endif %}
+                                    </span>
+                                </div>
+                                
+                                <!-- Card Body -->
+                                <div class="card-body">
+                                    <!-- Summary Stats -->
+                                    <div class="row text-center mb-3">
+                                        <div class="col-4">
+                                            <div class="metric-label text-muted">Items</div>
+                                            <div class="metric-value text-primary">{{ summary.item_count }}</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-label text-muted">Total KG</div>
+                                            <div class="metric-value text-info">{{ summary.kg_balance|floatformat:1 }}</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-label text-muted">Actions</div>
+                                            <a href="{% url 'adminapp:tenant_stock_detail' summary.tenant.id %}" 
+                                               class="btn btn-sm btn-outline-primary action-btn">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    
+                                    <hr class="my-3">
+                                    
+                                    <!-- Stock Details -->
+                                    <div class="mb-3">
+                                        <div class="metric-label text-muted mb-2">📦 Stock Received</div>
+                                        <div class="row small">
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">Slab</div>
+                                                <strong>{{ summary.freezing_totals.total_slab|default:0|floatformat:0 }}</strong>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">C/S</div>
+                                                <strong>{{ summary.freezing_totals.total_cs|default:0|floatformat:0 }}</strong>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">KG</div>
+                                                <strong>{{ summary.freezing_totals.total_kg|default:0|floatformat:1 }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <div class="metric-label text-muted mb-2">📤 Stock Returned</div>
+                                        <div class="row small">
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">Slab</div>
+                                                <strong class="text-warning">{{ summary.return_totals.total_slab|default:0|floatformat:0 }}</strong>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">C/S</div>
+                                                <strong class="text-warning">{{ summary.return_totals.total_cs|default:0|floatformat:0 }}</strong>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div class="text-muted">KG</div>
+                                                <strong class="text-warning">{{ summary.return_totals.total_kg|default:0|floatformat:1 }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Current Balance -->
+                                    <div class="stock-metric {% if summary.has_stock %}balance-positive{% else %}balance-zero{% endif %}">
+                                        <div class="metric-label mb-2">💰 Current Balance</div>
+                                        <div class="row small">
+                                            <div class="col-4 text-center">
+                                                <div>Slab</div>
+                                                <div class="metric-value">{{ summary.slab_balance|floatformat:0 }}</div>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div>C/S</div>
+                                                <div class="metric-value">{{ summary.cs_balance|floatformat:0 }}</div>
+                                            </div>
+                                            <div class="col-4 text-center">
+                                                <div>KG</div>
+                                                <div class="metric-value">{{ summary.kg_balance|floatformat:1 }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Card Footer -->
+                                <div class="card-footer bg-light text-center border-top-0">
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> 
+                                        Last activity: 
+                                        {% if summary.tenant.updated_at %}
+                                            {{ summary.tenant.updated_at|date:"M d, Y" }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="empty-state">
+                                <i class="fas fa-warehouse fa-4x mb-4 text-muted"></i>
+                                <h4 class="text-muted">No Tenant Companies Found</h4>
+                                <p class="text-muted mb-4">
+                                    Get started by registering your first tenant company to begin tracking stock levels.
+                                </p>
+                                <a href="{% url 'adminapp:create_tenant_company' %}" class="btn btn-primary btn-lg action-btn">
+                                    <i class="fas fa-plus"></i> Add First Tenant Company
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JavaScript for enhanced interactions -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add loading states for action buttons
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        const originalClass = icon.className;
+                        icon.className = 'fas fa-spinner fa-spin';
+                        
+                        setTimeout(() => {
+                            icon.className = originalClass;
+                        }, 2000);
+                    }
+                });
+            });
+            
+            // Add visual feedback for zero values
+            const metricValues = document.querySelectorAll('.metric-value');
+            metricValues.forEach(value => {
+                if (value.textContent.trim() === '0' || value.textContent.trim() === '0.0') {
+                    value.style.opacity = '0.5';
+                }
+            });
+        });
+    </script>
+
+{%endblock%}

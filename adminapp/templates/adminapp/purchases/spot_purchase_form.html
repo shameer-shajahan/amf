@@ -1,37 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spot Purchase</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+{%extends 'admin_base.html'%}
 
+{%block content%}
     <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-
-        nav {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        nav ul {
+        .main-navigation ul {
             list-style-type: none;
             padding: 0;
             margin: 0;
         }
 
-        nav ul li {
+        .main-navigation ul li {
             display: inline-block;
         }
 
-        nav ul li a {
+        .main-navigation ul li a {
             display: inline-block;
             padding: 10px 20px;
             background-color: #007bff;
@@ -43,18 +24,18 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        nav ul li a:hover {
+        .main-navigation ul li a:hover {
             background-color: #0069d9;
             transform: translateY(-1px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        h2, h3 {
+        .section-heading, .subsection-title {
             color: #007BFF;
             margin-bottom: 20px;
         }
 
-        .form-section {
+        .input-section {
             background: white;
             padding: 20px;
             border-radius: 8px;
@@ -62,28 +43,28 @@
             margin-bottom: 20px;
         }
 
-        .form-grid {
+        .field-layout {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
 
-        .form-column {
+        .field-wrapper {
             display: flex;
             flex-direction: column;
         }
 
-        label {
+        .field-label {
             font-weight: bold;
             margin-bottom: 5px;
             color: #333;
         }
 
-        input[type="text"], 
-        input[type="number"],
-        input[type="date"],
-        select {
+        .text-field, 
+        .number-field,
+        .date-field,
+        .dropdown-field {
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -94,16 +75,17 @@
             box-sizing: border-box;
         }
 
-        input:focus, 
-        select:focus, 
-        textarea:focus {
+        .text-field:focus, 
+        .dropdown-field:focus, 
+        .number-field:focus,
+        .date-field:focus {
             border-color: #007BFF !important;
             outline: 2px solid #007BFF !important;
             outline-offset: 0px;
             box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
         }
 
-        select {
+        .dropdown-field {
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
@@ -114,7 +96,7 @@
         }
 
         /* Items table container with horizontal scroll */
-        .items-container {
+        .table-wrapper {
             width: 100%;
             max-width: 100%;
             overflow-x: auto;
@@ -126,7 +108,7 @@
             background: white;
         }
 
-        .items-table {
+        .data-table {
             width: 100%;
             min-width: 800px;
             table-layout: auto;
@@ -134,8 +116,8 @@
             background: #fff;
         }
 
-        .items-table th,
-        .items-table td {
+        .data-table .table-header,
+        .data-table .table-cell {
             padding: 12px 8px;
             border: 1px solid #ddd;
             text-align: center;
@@ -143,7 +125,7 @@
             font-size: 12px;
         }
 
-        .items-table th {
+        .data-table .table-header {
             background: #f5f7fa;
             font-weight: 600;
             color: #333;
@@ -154,8 +136,8 @@
             font-size: 11px;
         }
 
-        .items-table td input,
-        .items-table td select {
+        .data-table .table-cell .text-field,
+        .data-table .table-cell .dropdown-field {
             width: 100%;
             padding: 6px 8px;
             border: 1px solid #ccc;
@@ -164,15 +146,15 @@
             box-sizing: border-box;
         }
 
-        .formset-row {
+        .item-row {
             background: #fff;
         }
 
-        .formset-row:nth-child(even) {
+        .item-row:nth-child(even) {
             background: #f9fbfd;
         }
 
-        .delete-row {
+        .remove-button {
             background-color: #e74c3c;
             color: white;
             border: none;
@@ -183,11 +165,11 @@
             transition: background-color 0.3s;
         }
 
-        .delete-row:hover {
+        .remove-button:hover {
             background-color: #c0392b;
         }
 
-        .totals-box {
+        .summary-container {
             background: white;
             padding: 20px;
             border-radius: 8px;
@@ -195,7 +177,7 @@
             margin-bottom: 20px;
         }
 
-        .totals-heading {
+        .summary-header {
             margin-bottom: 15px;
             font-size: 1.3rem;
             font-weight: 700;
@@ -204,7 +186,7 @@
             padding-left: 10px;
         }
 
-        .total-table {
+        .summary-table {
             width: 100%;
             border-collapse: collapse;
             background: #fff;
@@ -213,14 +195,14 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
-        .total-table th, .total-table td {
+        .summary-table .table-header, .summary-table .table-cell {
             padding: 12px 15px;
             border: 1px solid #e2e6ea;
             font-size: 0.95rem;
             text-align: center;
         }
 
-        .total-table th {
+        .summary-table .table-header {
             background-color: #0056b3;
             color: white;
             font-weight: 600;
@@ -228,17 +210,17 @@
             font-size: 0.85rem;
         }
 
-        .total-table td {
+        .summary-table .table-cell {
             font-weight: 600;
             background: #f9fbfd;
         }
 
-        .total-table .total-value {
+        .summary-table .calculated-value {
             font-weight: bold;
             color: #0d6efd;
         }
 
-        button {
+        .submit-button, .add-button {
             padding: 10px 20px;
             border: none;
             border-radius: 6px;
@@ -250,208 +232,197 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        button:hover {
+        .submit-button:hover, .add-button:hover {
             background-color: #0069d9;
             transform: translateY(-1px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        button:active {
+        .submit-button:active, .add-button:active {
             transform: translateY(0);
         }
 
-        .error {
+        .validation-error {
             color: #e74c3c;
             font-size: 0.9em;
             margin-top: 5px;
         }
 
         @media (max-width: 768px) {
-            .form-grid {
+            .field-layout {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
 
         @media (max-width: 480px) {
-            .form-grid {
+            .field-layout {
                 grid-template-columns: 1fr;
             }
         }
     </style>
-</head>
-<body>
-
-<nav>
-    <ul>
-        <li><a href="{% url 'adminapp:spot_purchase_list' %}">View List</a></li>
-    </ul>
-</nav>
-
-<h2>Spot Purchase Entry</h2>
-
-<form method="post">
+<form method="post" style="margin-top: 10rem;">
     {% csrf_token %}
     {{ item_formset.management_form }}
 
-    <div class="form-section">
-        <h3>Purchase Details</h3>
-        <div class="form-grid">
-            <div class="form-column">
+    <div class="input-section">
+        <h3 class="subsection-title">Purchase Details</h3>
+        <div class="field-layout">
+            <div class="field-wrapper">
                 {{ purchase_form.date.label_tag }}
                 {{ purchase_form.date }}
                 {% if purchase_form.date.errors %}
-                    <div class="error">{{ purchase_form.date.errors }}</div>
+                    <div class="validation-error">{{ purchase_form.date.errors }}</div>
                 {% endif %}
             </div>
 
-            <div class="form-column">
+            <div class="field-wrapper">
                 {{ purchase_form.voucher_number.label_tag }}
                 {{ purchase_form.voucher_number }}
                 {% if purchase_form.voucher_number.errors %}
-                    <div class="error">{{ purchase_form.voucher_number.errors }}</div>
+                    <div class="validation-error">{{ purchase_form.voucher_number.errors }}</div>
                 {% endif %}
             </div>
 
-            <div class="form-column">
+            <div class="field-wrapper">
                 {{ purchase_form.spot.label_tag }}
                 {{ purchase_form.spot }}
                 {% if purchase_form.spot.errors %}
-                    <div class="error">{{ purchase_form.spot.errors }}</div>
+                    <div class="validation-error">{{ purchase_form.spot.errors }}</div>
                 {% endif %}
             </div>
 
-            <div class="form-column">
+            <div class="field-wrapper">
                 {{ purchase_form.supervisor.label_tag }}
                 {{ purchase_form.supervisor }}
                 {% if purchase_form.supervisor.errors %}
-                    <div class="error">{{ purchase_form.supervisor.errors }}</div>
+                    <div class="validation-error">{{ purchase_form.supervisor.errors }}</div>
                 {% endif %}
             </div>
 
-            <div class="form-column">
+            <div class="field-wrapper">
                 {{ purchase_form.agent.label_tag }}
                 {{ purchase_form.agent }}
                 {% if purchase_form.agent.errors %}
-                    <div class="error">{{ purchase_form.agent.errors }}</div>
+                    <div class="validation-error">{{ purchase_form.agent.errors }}</div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="form-section">
-        <h3>Purchase Items</h3>
-        <div class="items-container">
-            <table class="items-table">
+    <div class="input-section">
+        <h3 class="subsection-title">Purchase Items</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Item</th>
-                        <th>Quantity</th>
-                        <th>Rate</th>
-                        <th>Boxes</th>
-                        <th>Action</th>
+                        <th class="table-header">Item</th>
+                        <th class="table-header">Quantity</th>
+                        <th class="table-header">Rate</th>
+                        <th class="table-header">Boxes</th>
+                        <th class="table-header">Action</th>
                     </tr>
                 </thead>
-                <tbody id="formset-container">
+                <tbody id="item-container">
                     {% for form in item_formset %}
-                        <tr class="formset-row">
-                            <td>
+                        <tr class="item-row">
+                            <td class="table-cell">
                                 {{ form.item.as_widget }}
                                 {% if form.item.errors %}
-                                    <div class="error">{{ form.item.errors }}</div>
+                                    <div class="validation-error">{{ form.item.errors }}</div>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="table-cell">
                                 {{ form.quantity.as_widget }}
                                 {% if form.quantity.errors %}
-                                    <div class="error">{{ form.quantity.errors }}</div>
+                                    <div class="validation-error">{{ form.quantity.errors }}</div>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="table-cell">
                                 {{ form.rate.as_widget }}
                                 {% if form.rate.errors %}
-                                    <div class="error">{{ form.rate.errors }}</div>
+                                    <div class="validation-error">{{ form.rate.errors }}</div>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="table-cell">
                                 {{ form.boxes.as_widget }}
                                 {% if form.boxes.errors %}
-                                    <div class="error">{{ form.boxes.errors }}</div>
+                                    <div class="validation-error">{{ form.boxes.errors }}</div>
                                 {% endif %}
                             </td>
-                            <td>
-                                <button type="button" class="delete-row">DELETE</button>
+                            <td class="table-cell">
+                                <button type="button" class="remove-button">DELETE</button>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <button type="button" id="add-more">+ Add More</button>
+        <button type="button" id="add-more-items" class="add-button">+ Add More</button>
     </div>
 
-    <div class="form-section">
-        <h3 class="totals-heading">Purchase Summary</h3>
-        <table class="total-table">
+    <div class="input-section">
+        <h3 class="summary-header">Purchase Summary</h3>
+        <table class="summary-table">
             <thead>
                 <tr>
-                    <th>Total Quantity</th>
-                    <th>Total Amount</th>
-                    <th>Total Items</th>
+                    <th class="table-header">Total Quantity</th>
+                    <th class="table-header">Total Amount</th>
+                    <th class="table-header">Total Items</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><span id="total-quantity" class="total-value">0.00</span></td>
-                    <td><span id="total-amount" class="total-value">0.00</span></td>
-                    <td><span id="total-items" class="total-value">0</span></td>
+                    <td class="table-cell"><span id="quantity-total" class="calculated-value">0.00</span></td>
+                    <td class="table-cell"><span id="amount-total" class="calculated-value">0.00</span></td>
+                    <td class="table-cell"><span id="items-count" class="calculated-value">0</span></td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <div class="form-section">
-        <h3>Expenses</h3>
-        <div class="items-container">
-            <table class="items-table">
+    <div class="input-section">
+        <h3 class="subsection-title">Expenses</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Ice Expense</th>
-                        <th>Vehicle Rent</th>
-                        <th>Loading & Unloading</th>
-                        <th>Peeling Charge</th>
-                        <th>Other Expense</th>
+                        <th class="table-header">Ice Expense</th>
+                        <th class="table-header">Vehicle Rent</th>
+                        <th class="table-header">Loading & Unloading</th>
+                        <th class="table-header">Peeling Charge</th>
+                        <th class="table-header">Other Expense</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="formset-row">
-                        <td>
+                    <tr class="item-row">
+                        <td class="table-cell">
                             {{ expense_form.ice_expense }}
                             {% if expense_form.ice_expense.errors %}
-                                <div class="error">{{ expense_form.ice_expense.errors }}</div>
+                                <div class="validation-error">{{ expense_form.ice_expense.errors }}</div>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="table-cell">
                             {{ expense_form.vehicle_rent }}
                             {% if expense_form.vehicle_rent.errors %}
-                                <div class="error">{{ expense_form.vehicle_rent.errors }}</div>
+                                <div class="validation-error">{{ expense_form.vehicle_rent.errors }}</div>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="table-cell">
                             {{ expense_form.loading_and_unloading }}
                             {% if expense_form.loading_and_unloading.errors %}
-                                <div class="error">{{ expense_form.loading_and_unloading.errors }}</div>
+                                <div class="validation-error">{{ expense_form.loading_and_unloading.errors }}</div>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="table-cell">
                             {{ expense_form.peeling_charge }}
                             {% if expense_form.peeling_charge.errors %}
-                                <div class="error">{{ expense_form.peeling_charge.errors }}</div>
+                                <div class="validation-error">{{ expense_form.peeling_charge.errors }}</div>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="table-cell">
                             {{ expense_form.other_expense }}
                             {% if expense_form.other_expense.errors %}
-                                <div class="error">{{ expense_form.other_expense.errors }}</div>
+                                <div class="validation-error">{{ expense_form.other_expense.errors }}</div>
                             {% endif %}
                         </td>
                     </tr>
@@ -459,47 +430,47 @@
             </table>
         </div>
         <div style="margin-top: 15px;">
-            <strong>Total Expense: <span id="total-expense" class="total-value" style="color: #0d6efd;">0.00</span></strong>
+            <strong>Total Expense: <span id="expense-total" class="calculated-value" style="color: #0d6efd;">0.00</span></strong>
         </div>
     </div>
 
     <div style="text-align: center; margin-top: 30px;">
-        <button type="submit">Save Purchase</button>
+        <button type="submit" class="submit-button">Save Purchase</button>
     </div>
 </form>
 
 <!-- Hidden empty form template -->
-<template id="empty-form-template">
-    <tr class="formset-row">
+<template id="row-template">
+    <tr class="item-row">
         {% with item_formset.empty_form as form %}
-            <td>
+            <td class="table-cell">
                 {{ form.item.as_widget }}
             </td>
-            <td>
+            <td class="table-cell">
                 {{ form.quantity.as_widget }}
             </td>
-            <td>
+            <td class="table-cell">
                 {{ form.rate.as_widget }}
             </td>
-            <td>
+            <td class="table-cell">
                 {{ form.boxes.as_widget }}
             </td>
         {% endwith %}
-        <td>
-            <button type="button" class="delete-row">DELETE</button>
+        <td class="table-cell">
+            <button type="button" class="remove-button">DELETE</button>
         </td>
     </tr>
 </template>
 
 <script>
-function calculateTotals() {
+function calculatePurchaseTotals() {
     let totalAmount = 0;
     let totalQuantity = 0;
     let totalItems = 0;
 
-    const formRows = document.querySelectorAll('.formset-row');
+    const itemRows = document.querySelectorAll('.item-row');
 
-    formRows.forEach(row => {
+    itemRows.forEach(row => {
         const quantityInput = row.querySelector('input[name$="-quantity"]');
         const rateInput = row.querySelector('input[name$="-rate"]');
 
@@ -513,13 +484,13 @@ function calculateTotals() {
         }
     });
 
-    document.getElementById('total-quantity').textContent = totalQuantity.toFixed(2);
-    document.getElementById('total-amount').textContent = totalAmount.toFixed(2);
-    document.getElementById('total-items').textContent = totalItems;
+    document.getElementById('quantity-total').textContent = totalQuantity.toFixed(2);
+    document.getElementById('amount-total').textContent = totalAmount.toFixed(2);
+    document.getElementById('items-count').textContent = totalItems;
 }
 
-function calculateExpenseTotal() {
-    const fields = [
+function calculateExpenseTotals() {
+    const expenseFields = [
         'ice_expense',
         'vehicle_rent',
         'loading_and_unloading',
@@ -529,21 +500,21 @@ function calculateExpenseTotal() {
 
     let totalExpense = 0;
 
-    fields.forEach(field => {
+    expenseFields.forEach(field => {
         const input = document.querySelector(`[name$="${field}"]`);
         if (input) {
             totalExpense += parseFloat(input.value) || 0;
         }
     });
 
-    document.getElementById('total-expense').textContent = totalExpense.toFixed(2);
+    document.getElementById('expense-total').textContent = totalExpense.toFixed(2);
 }
 
 // Update totals on input change
 document.addEventListener('input', function (e) {
     if (e.target.name) {
         if (e.target.name.includes('quantity') || e.target.name.includes('rate')) {
-            calculateTotals();
+            calculatePurchaseTotals();
         }
 
         if (
@@ -553,20 +524,20 @@ document.addEventListener('input', function (e) {
             e.target.name.includes('peeling_charge') ||
             e.target.name.includes('other_expense')
         ) {
-            calculateExpenseTotal();
+            calculateExpenseTotals();
         }
     }
 });
 
 // Add delete button handler
 document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('delete-row')) {
-        const row = e.target.closest('.formset-row');
+    if (e.target.classList.contains('remove-button')) {
+        const row = e.target.closest('.item-row');
         if (row) {
-            if (document.querySelectorAll('.formset-row').length > 1) {
+            if (document.querySelectorAll('.item-row').length > 1) {
                 row.remove();
-                updateTotalForms(-1);
-                calculateTotals();
+                updateFormCount(-1);
+                calculatePurchaseTotals();
             } else {
                 alert("At least one item is required.");
             }
@@ -575,39 +546,39 @@ document.addEventListener('click', function (e) {
 });
 
 // Add more button functionality
-document.getElementById('add-more').addEventListener('click', function () {
-    const container = document.getElementById('formset-container');
+document.getElementById('add-more-items').addEventListener('click', function () {
+    const container = document.getElementById('item-container');
     const totalFormsInput = container.closest('form').querySelector('input[name$="-TOTAL_FORMS"]');
     const formCount = parseInt(totalFormsInput.value);
 
-    const template = document.getElementById('empty-form-template').innerHTML;
+    const template = document.getElementById('row-template').innerHTML;
     const newFormHtml = template.replace(/__prefix__/g, formCount);
 
-    const tbody = document.querySelector('#formset-container');
+    const tbody = document.querySelector('#item-container');
     tbody.insertAdjacentHTML('beforeend', newFormHtml);
     totalFormsInput.value = formCount + 1;
 
-    calculateTotals();
+    calculatePurchaseTotals();
 });
 
 // Helper to update TOTAL_FORMS when deleting
-function updateTotalForms(change) {
-    const container = document.getElementById('formset-container');
+function updateFormCount(change) {
+    const container = document.getElementById('item-container');
     const totalFormsInput = container.closest('form').querySelector('input[name$="-TOTAL_FORMS"]');
     const currentValue = parseInt(totalFormsInput.value);
     totalFormsInput.value = currentValue + change;
 }
 
 // Call on page load
-calculateTotals();
-calculateExpenseTotal();
+calculatePurchaseTotals();
+calculateExpenseTotals();
 
 // F1 key shortcut for adding more items
 $(document).ready(function() {
     $(document).on('keydown', function(e) {
         if (e.keyCode === 112 || e.which === 112) {
             e.preventDefault();
-            $('#add-more').click();
+            $('#add-more-items').click();
             return false;
         }
     });
@@ -615,11 +586,11 @@ $(document).ready(function() {
 
 // Delete key shortcut for removing the focused item
 $(document).ready(function () {
-    function removeForm(form) {
-        if ($(".formset-row").length > 1) {
+    function removeItemRow(form) {
+        if ($(".item-row").length > 1) {
             form.remove();
-            updateTotalForms(-1);
-            calculateTotals();
+            updateFormCount(-1);
+            calculatePurchaseTotals();
         } else {
             alert("At least one item is required.");
         }
@@ -627,10 +598,10 @@ $(document).ready(function () {
 
     $(document).on("keydown", function (e) {
         if (e.key === "Delete") {
-            let activeElement = $(document.activeElement).closest(".formset-row");
+            let activeElement = $(document.activeElement).closest(".item-row");
             if (activeElement.length) {
                 e.preventDefault();
-                removeForm(activeElement);
+                removeItemRow(activeElement);
             }
         }
     });
@@ -638,7 +609,7 @@ $(document).ready(function () {
 
 // Arrow key navigation for form fields
 $(document).ready(function() {
-    function getFocusableElements() {
+    function getNavigableElements() {
         return $('input:not([type="hidden"]), select, textarea').filter(':visible');
     }
 
@@ -648,11 +619,11 @@ $(document).ready(function() {
                 ($(this).is('input') && this.selectionStart === 0)) {
                 
                 e.preventDefault();
-                let focusableElements = getFocusableElements();
-                let currentIndex = focusableElements.index(this);
+                let navigableElements = getNavigableElements();
+                let currentIndex = navigableElements.index(this);
                 
                 if (currentIndex > 0) {
-                    focusableElements.eq(currentIndex - 1).focus();
+                    navigableElements.eq(currentIndex - 1).focus();
                 }
                 return false;
             }
@@ -663,11 +634,11 @@ $(document).ready(function() {
                 ($(this).is('input') && this.selectionStart === this.value.length)) {
                 
                 e.preventDefault();
-                let focusableElements = getFocusableElements();
-                let currentIndex = focusableElements.index(this);
+                let navigableElements = getNavigableElements();
+                let currentIndex = navigableElements.index(this);
                 
-                if (currentIndex < focusableElements.length - 1) {
-                    focusableElements.eq(currentIndex + 1).focus();
+                if (currentIndex < navigableElements.length - 1) {
+                    navigableElements.eq(currentIndex + 1).focus();
                 }
                 return false;
             }
@@ -687,7 +658,6 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
-
         <!-- // F1 key shortcut for adding more items -->
     <script>
         $(document).ready(function() {
@@ -705,16 +675,16 @@ document.addEventListener("DOMContentLoaded", function() {
     <!-- // Delete key shortcut for removing the focused item -->
     <script>
     $(document).ready(function () {
-        const formsetContainer = $("#formset-container");
+        const itemContainer = $("#item-container");
         const totalForms = $("#id_form-TOTAL_FORMS");
 
         // Remove (event delegation so it works for new forms too)
-        function removeForm(form) {
-            if ($(".formset-form").length > 1) {
+        function removeItemForm(form) {
+            if ($(".purchase-form").length > 1) {
                 form.remove();
 
                 // Re-number forms
-                let forms = $(".formset-form");
+                let forms = $(".purchase-form");
                 totalForms.val(forms.length);
                 forms.each(function (index) {
                     $(this).find("input, select, label").each(function () {
@@ -735,17 +705,17 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         // Click delete button
-        $(document).on("click", ".remove-btn", function () {
-            removeForm($(this).closest(".formset-form"));
+        $(document).on("click", ".delete-btn", function () {
+            removeItemForm($(this).closest(".purchase-form"));
         });
 
         // Keyboard Delete key
         $(document).on("keydown", function (e) {
             if (e.key === "Delete") {
-                let activeElement = $(document.activeElement).closest(".formset-form");
+                let activeElement = $(document.activeElement).closest(".purchase-form");
                 if (activeElement.length) {
                     e.preventDefault();
-                    removeForm(activeElement);
+                    removeItemForm(activeElement);
                 }
             }
         });
@@ -756,7 +726,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <script>
         $(document).ready(function() {
             // Get all focusable form elements
-            function getFocusableElements() {
+            function getActiveElements() {
                 return $('input:not([type="hidden"]), select, textarea').filter(':visible');
             }
 
@@ -768,12 +738,12 @@ document.addEventListener("DOMContentLoaded", function() {
                         ($(this).is('input') && this.selectionStart === 0)) {
                         
                         e.preventDefault();
-                        let focusableElements = getFocusableElements();
-                        let currentIndex = focusableElements.index(this);
+                        let activeElements = getActiveElements();
+                        let currentIndex = activeElements.index(this);
                         
                         // Move to previous field (left arrow = previous)
                         if (currentIndex > 0) {
-                            focusableElements.eq(currentIndex - 1).focus();
+                            activeElements.eq(currentIndex - 1).focus();
                         }
                         return false;
                     }
@@ -786,12 +756,12 @@ document.addEventListener("DOMContentLoaded", function() {
                         ($(this).is('input') && this.selectionStart === this.value.length)) {
                         
                         e.preventDefault();
-                        let focusableElements = getFocusableElements();
-                        let currentIndex = focusableElements.index(this);
+                        let activeElements = getActiveElements();
+                        let currentIndex = activeElements.index(this);
                         
                         // Move to next field (right arrow = next)
-                        if (currentIndex < focusableElements.length - 1) {
-                            focusableElements.eq(currentIndex + 1).focus();
+                        if (currentIndex < activeElements.length - 1) {
+                            activeElements.eq(currentIndex + 1).focus();
                         }
                         return false;
                     }
@@ -799,6 +769,4 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         });
     </script>
-
-</body>
-</html>
+{%endblock%}

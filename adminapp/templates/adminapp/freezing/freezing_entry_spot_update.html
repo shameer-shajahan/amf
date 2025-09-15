@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <title>Update Freezing Entry</title>
+{% extends 'admin_base.html' %}
+{%block title%} Update Freezing Entry{%endblock%}
+{% block content %}
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
@@ -408,12 +407,10 @@
             box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
         }
     </style>
-</head>
 
-<body>
 
     <h2>Update Freezing Entry</h2>
-    <a href="{% url 'adminapp:freezing_entry_spot_list' %}">Back to List</a>
+    <!-- <a href="{% url 'adminapp:freezing_entry_spot_list' %}">Back to List</a> -->
 
     <form method="post">
         {% csrf_token %}
@@ -1248,5 +1245,4 @@
         });
     </script>
 
-</body>
-</html>
+{%endblock%}

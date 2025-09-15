@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Enhanced Sectioned Freezing Report</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% extends 'admin_base.html' %}
+{% block title %} Enhanced Sectioned Freezing Report {% endblock %}
+{% block content %}
     
     <!-- Load required libraries from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -570,8 +567,7 @@
             }
         }
     </style>
-</head>
-<body>
+
     <!-- Filter Form -->
     <div class="filter-form">
         <form method="GET" id="filterForm">
@@ -1407,5 +1403,4 @@ window.addEventListener('afterprint', function() {
 });
 </script>
 
-</body>
-</html>
+{%endblock%}

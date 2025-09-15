@@ -1,0 +1,465 @@
+{% extends 'admin_base.html' %}
+{% block title %} Tenant Stock Balance {% endblock %}
+{% block content %}
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    
+    <style>
+        .stock-badge {
+            font-size: 0.75rem;
+            margin: 1px 0;
+        }
+        .balance-cell {
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+            border-left: 3px solid #28a745;
+        }
+        .low-stock {
+            background-color: #fff3cd !important;
+            border-left-color: #ffc107 !important;
+        }
+        .out-of-stock {
+            background-color: #f8d7da !important;
+            border-left-color: #dc3545 !important;
+        }
+        .tenant-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .actions-column {
+            min-width: 120px;
+        }
+        .summary-cards {
+            margin-bottom: 2rem;
+        }
+        .summary-card {
+            border-left: 4px solid #007bff;
+            transition: transform 0.2s;
+        }
+        .summary-card:hover {
+            transform: translateY(-2px);
+        }
+        .export-buttons {
+            margin-bottom: 1rem;
+        }
+        .filter-section {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .table-wrapper {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+    </style>
+
+    <div class="container-fluid py-4">
+        <!-- Header Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-1"><i class="fas fa-warehouse text-primary"></i> Tenant Stock Balance</h2>
+                        <p class="text-muted mb-0">Comprehensive stock management dashboard</p>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'adminapp:tenant_stock_summary' %}" class="btn btn-info">
+                            <i class="fas fa-chart-pie"></i> Summary View
+                        </a>
+                        <a href="{% url 'adminapp:list_freezing_entry_tenant' %}" class="btn btn-primary">
+                            <i class="fas fa-snowflake"></i> Freezing Entries
+                        </a>
+                        <a href="{% url 'adminapp:list_return_tenant' %}" class="btn btn-warning">
+                            <i class="fas fa-undo"></i> Return Entries
+                        </a>
+                        <a href="{% url 'adminapp:create_freezing_entry_tenant' %}" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Add Entry
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row summary-cards">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card summary-card border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Total Items</h6>
+                                <h4 class="card-title mb-0">{{ total_items|default:0 }}</h4>
+                            </div>
+                            <div class="text-primary">
+                                <i class="fas fa-boxes fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card summary-card border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Active Tenants</h6>
+                                <h4 class="card-title mb-0">{{ total_tenants|default:0 }}</h4>
+                            </div>
+                            <div class="text-success">
+                                <i class="fas fa-users fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card summary-card border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Low Stock Items</h6>
+                                <h4 class="card-title mb-0 text-warning">{{ low_stock_count|default:0 }}</h4>
+                            </div>
+                            <div class="text-warning">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card summary-card border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Out of Stock</h6>
+                                <h4 class="card-title mb-0 text-danger">{{ out_of_stock_count|default:0 }}</h4>
+                            </div>
+                            <div class="text-danger">
+                                <i class="fas fa-times-circle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Export Section -->
+        <div class="card border-0">
+            <div class="card-body">
+                <div class="filter-section">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Filter by Tenant</label>
+                            <select class="form-select form-select-sm" id="tenantFilter">
+                                <option value="">All Tenants</option>
+                                {% for tenant in tenants %}
+                                <option value="{{ tenant.name }}">{{ tenant.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Filter by Species</label>
+                            <select class="form-select form-select-sm" id="speciesFilter">
+                                <option value="">All Species</option>
+                                {% for species in species_list %}
+                                <option value="{{ species }}">{{ species }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Stock Status</label>
+                            <select class="form-select form-select-sm" id="stockStatusFilter">
+                                <option value="">All Status</option>
+                                <option value="in-stock">In Stock</option>
+                                <option value="low-stock">Low Stock</option>
+                                <option value="out-of-stock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Quick Search</label>
+                            <input type="text" class="form-control form-control-sm" id="quickSearch" 
+                                   placeholder="Search items, grades...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-buttons d-flex justify-content-between align-items-center">
+                    <div>
+                        <button class="btn btn-outline-success btn-sm" id="exportExcel">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" id="exportPDF">
+                            <i class="fas fa-file-pdf"></i> Export PDF
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="printTable">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                    <div class="text-muted small">
+                        <i class="fas fa-info-circle"></i> 
+                        Showing <span id="recordsCount">{{ total_items }}</span> items with remaining stock
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="card border-0 table-wrapper">
+            <div class="card-body p-0">
+                {% if stock_balance %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="stockTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>
+                                    <i class="fas fa-user"></i> Tenant
+                                </th>
+                                <th>
+                                    <i class="fas fa-box"></i> Item Details
+                                </th>
+                                <th class="text-center">
+                                    <i class="fas fa-arrow-down text-info"></i> Stock In
+                                </th>
+                                <th class="text-center">
+                                    <i class="fas fa-arrow-up text-warning"></i> Returned
+                                </th>
+                                <th class="text-center">
+                                    <i class="fas fa-balance-scale text-success"></i> Current Balance
+                                </th>
+                                <th class="text-center actions-column">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in stock_balance %}
+                            <tr data-tenant="{{ item.tenant_name }}" 
+                                data-species="{{ item.species }}"
+                                data-stock-status="{% if item.kg_balance <= 0 %}out-of-stock{% elif item.kg_balance < 10 %}low-stock{% else %}in-stock{% endif %}">
+                                
+                                <!-- Tenant Column -->
+                                <td>
+                                    <div class="tenant-name">{{ item.tenant_name }}</div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-store"></i> {{ item.store|default:"No Store" }}
+                                    </small>
+                                </td>
+                                
+                                <!-- Item Details Column -->
+                                <td>
+                                    <div class="fw-semibold">{{ item.item_name }}</div>
+                                    <small class="d-block text-muted">
+                                        <i class="fas fa-fish"></i> {{ item.species }}
+                                    </small>
+                                    <small class="d-block">
+                                        <span class="badge bg-secondary">Grade: {{ item.grade|default:"N/A" }}</span>
+                                    </small>
+                                </td>
+                                
+                                <!-- Stock In Column -->
+                                <td class="text-center">
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge bg-info stock-badge">
+                                            <i class="fas fa-layer-group"></i> {{ item.slab_in|default:0 }} Slab
+                                        </span>
+                                        <span class="badge bg-primary stock-badge">
+                                            <i class="fas fa-box"></i> {{ item.cs_in|default:0 }} C/S
+                                        </span>
+                                        <span class="badge bg-dark stock-badge">
+                                            <i class="fas fa-weight"></i> {{ item.kg_in|default:0 }} KG
+                                        </span>
+                                    </div>
+                                </td>
+                                
+                                <!-- Returned Column -->
+                                <td class="text-center">
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge bg-danger stock-badge">
+                                            <i class="fas fa-layer-group"></i> {{ item.slab_out|default:0 }} Slab
+                                        </span>
+                                        <span class="badge bg-danger stock-badge">
+                                            <i class="fas fa-box"></i> {{ item.cs_out|default:0 }} C/S
+                                        </span>
+                                        <span class="badge bg-danger stock-badge">
+                                            <i class="fas fa-weight"></i> {{ item.kg_out|default:0 }} KG
+                                        </span>
+                                    </div>
+                                </td>
+                                
+                                <!-- Balance Column -->
+                                <td class="text-center balance-cell {% if item.kg_balance <= 0 %}out-of-stock{% elif item.kg_balance < 10 %}low-stock{% endif %}">
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge bg-success stock-badge">
+                                            <i class="fas fa-layer-group"></i> {{ item.slab_balance|default:0 }} Slab
+                                        </span>
+                                        <span class="badge bg-success stock-badge">
+                                            <i class="fas fa-box"></i> {{ item.cs_balance|default:0 }} C/S
+                                        </span>
+                                        <span class="badge bg-success stock-badge fw-bold">
+                                            <i class="fas fa-weight"></i> {{ item.kg_balance|default:0 }} KG
+                                        </span>
+                                    </div>
+                                    {% if item.kg_balance <= 0 %}
+                                    <small class="text-danger d-block mt-1">
+                                        <i class="fas fa-exclamation-triangle"></i> Out of Stock
+                                    </small>
+                                    {% elif item.kg_balance < 10 %}
+                                    <small class="text-warning d-block mt-1">
+                                        <i class="fas fa-exclamation-triangle"></i> Low Stock
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Actions Column -->
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'adminapp:tenant_stock_detail' item.tenant_id %}" 
+                                           class="btn btn-outline-primary" 
+                                           title="View Details"
+                                           data-bs-toggle="tooltip">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="#" 
+                                           class="btn btn-outline-info" 
+                                           title="Edit Stock"
+                                           data-bs-toggle="tooltip">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-success" 
+                                                title="Add Return Entry"
+                                                data-bs-toggle="tooltip"
+                                                onclick="openReturnModal('{{ item.tenant_id }}', '{{ item.item_name }}')">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <!-- Empty State -->
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-boxes fa-4x text-muted"></i>
+                    </div>
+                    <h4 class="text-muted">No Stock Data Available</h4>
+                    <p class="text-muted mb-4">There are no tenant stock entries to display at the moment.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{% url 'adminapp:create_freezing_entry_tenant' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Freezing Entry
+                        </a>
+                        <a href="{% url 'adminapp:tenant_stock_summary' %}" class="btn btn-outline-info">
+                            <i class="fas fa-chart-pie"></i> View Summary
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize DataTables
+            var table = $('#stockTable').DataTable({
+                responsive: true,
+                pageLength: 25,
+                order: [[4, 'desc']], // Sort by balance column
+                columnDefs: [
+                    { orderable: false, targets: [5] }, // Disable ordering on actions column
+                    { className: 'text-center', targets: [2, 3, 4, 5] }
+                ],
+                language: {
+                    search: "",
+                    searchPlaceholder: "Search table...",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                    emptyTable: "No stock data available"
+                },
+                dom: 'lrtip' // Remove default search box since we have custom filters
+            });
+
+            // Custom filtering functions
+            function applyFilters() {
+                var tenantFilter = $('#tenantFilter').val();
+                var speciesFilter = $('#speciesFilter').val();
+                var statusFilter = $('#stockStatusFilter').val();
+                var quickSearch = $('#quickSearch').val();
+
+                // Apply DataTables search
+                table.search(quickSearch).draw();
+
+                // Apply custom filters
+                $('#stockTable tbody tr').each(function() {
+                    var row = $(this);
+                    var showRow = true;
+
+                    if (tenantFilter && row.data('tenant') !== tenantFilter) {
+                        showRow = false;
+                    }
+
+                    if (speciesFilter && row.data('species') !== speciesFilter) {
+                        showRow = false;
+                    }
+
+                    if (statusFilter && row.data('stock-status') !== statusFilter) {
+                        showRow = false;
+                    }
+
+                    row.toggle(showRow);
+                });
+
+                updateRecordCount();
+            }
+
+            // Update record count
+            function updateRecordCount() {
+                var visibleRows = $('#stockTable tbody tr:visible').length;
+                $('#recordsCount').text(visibleRows);
+            }
+
+            // Filter event listeners
+            $('#tenantFilter, #speciesFilter, #stockStatusFilter').on('change', applyFilters);
+            $('#quickSearch').on('keyup', applyFilters);
+
+            // Export functions
+            $('#exportExcel').on('click', function() {
+                // Implement Excel export logic
+                alert('Excel export functionality to be implemented');
+            });
+
+            $('#exportPDF').on('click', function() {
+                // Implement PDF export logic
+                alert('PDF export functionality to be implemented');
+            });
+
+            $('#printTable').on('click', function() {
+                window.print();
+            });
+        });
+
+        // Function to open return modal (to be implemented)
+        function openReturnModal(tenantId, itemName) {
+            alert(`Open return entry modal for Tenant ID: ${tenantId}, Item: ${itemName}`);
+        }
+    </script>
+
+{%endblock%}

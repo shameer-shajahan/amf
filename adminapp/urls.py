@@ -19,9 +19,12 @@ urlpatterns = [
 
     path('login/', views.admin_login, name='admin_login'),
     
-    path('', views.admin_logout, name='admin_logout'),
+    path('logout/', views.admin_logout, name='admin_logout'),
 
     path('create-user/', views.create_user_view, name='create_user'),
+    path('users-list/', views.users_list_view, name='users_list'),
+    path('user/delete/<str:pk>/', views.UserDeleteView.as_view(), name='user_delete'),
+
     
     # Operational & Location Masters
     path('processing-center/create/', views.ProcessingCenterCreateView.as_view(), name='processing_center_create'),
@@ -235,7 +238,78 @@ urlpatterns = [
     
     # Separate print view
     path('reports/freezing/print/', views.freezing_report_print, name='freezing_report_print'),
+
+
+    # 🔹 Freezing Tenant 
+    path("tenant-freezing/", views.tenant_freezing_list, name="list_freezing_entry_tenant"),
+    path("tenant-freezing/create/", views.tenant_freezing_create, name="create_freezing_entry_tenant"),
+    path("tenant-freezing/<int:pk>/", views.tenant_freezing_detail, name="detail_freezing_entry_tenant"),
+    path("tenant-freezing/<int:pk>/update/", views.tenant_freezing_update, name="update_freezing_entry_tenant"),
+    path("tenant-freezing/<int:pk>/delete/", views.tenant_freezing_delete, name="delete_freezing_entry_tenant"),
+
+    path('tenant/freezing/<int:pk>/pdf/', views.tenant_freezing_detail_pdf, name='tenant_freezing_detail_pdf'),
+
+    # 🔹 return Tenant
+    path("return-tenant/", views.return_tenant_list, name="list_return_tenant"),
+    path("return-tenant/create/", views.return_tenant_create, name="create_return_tenant"),
+    path("return-tenant/<int:pk>/", views.return_tenant_detail, name="detail_return_tenant"),
+    path('return-tenant/<int:pk>/pdf/', views.generate_return_tenant_pdf, name='return_tenant_pdf'),
+    path("return-tenant/<int:pk>/update/", views.return_tenant_update, name="update_return_tenant"),
+    path("return-tenant/<int:pk>/delete/", views.return_tenant_delete, name="delete_return_tenant"),
+
+    path('ajax/get-tenant-original-items/', views.get_tenant_original_items, name='get_tenant_original_items'),
+    path('ajax/get-tenant-tariff/', views.get_tenant_tariff, name='get_tenant_tariff'),
     
+
+#  Tenant Stock Management URLs
+    path('tenant-stock/balance/', views.tenant_stock_balance, name='tenant_stock_balance'),
+    path('tenant-stock/summary/', views.tenant_stock_summary, name='tenant_stock_summary'), 
+    path('tenant-stock/detail/<int:tenant_id>/', views.tenant_stock_detail, name='tenant_stock_detail'),
+    path("ajax/get-tenant-companies/", views.get_tenant_companies, name="get_tenant_companies"),
+
+
+    
+   # -------------------
+    # Billing Configs
+    # -------------------
+    path('bills/', views.bill_list, name='bill_list'),
+    path('bills/generate/', views.generate_manual_bill, name='generate_manual_bill'),
+    path('bills/<int:bill_id>/', views.view_bill, name='view_bill'),
+    path('bills/<int:bill_id>/update-status/', views.update_bill_status, name='update_bill_status'),
+    path('bills/<int:bill_id>/delete/', views.delete_bill, name='delete_bill'),
+    path('bills/<int:bill_id>/delete-ajax/', views.delete_bill_ajax, name='delete_bill_ajax'),
+
+
+    # Billing Configs
+    path('billing/configs/', views.billing_config_list, name='billing_config_list'),
+    path('billing/configs/setup/', views.setup_billing_configuration, name='setup_billing_configuration'),
+    path('billing/configs/run/', views.run_auto_billing, name='run_auto_billing'),
+    path('billing/configs/debug/', views.debug_billing_status, name='debug_billing_status'),
+    path('billing/configs/<int:pk>/delete/', views.delete_billing_configuration, name='delete_billing_configuration'), 
+
+    path("ajax/get-last-bill-date/", views.get_last_bill_date, name="get_last_bill_date"),
+
+    path('billing/bill/<int:bill_id>/pdf/', views.bill_pdf, name='bill_pdf'),
+
+
+    path("bills/draft/", views.bill_list_draft, name="bill_list_draft"),
+    path("bills/finalized/", views.bill_list_finalized, name="bill_list_finalized"),
+    path("bills/sent/", views.bill_list_sent, name="bill_list_sent"),
+    path("bills/paid/", views.bill_list_paid, name="bill_list_paid"),
+    path("bills/cancelled/", views.bill_list_cancelled, name="bill_list_cancelled"),
+
+
+    #  stock
+    path('store-transfers/', views.store_transfer_list, name='store_transfer_list'),
+    path('store-transfers/create/', views.create_store_transfer, name='create_store_transfer'),
+    path('store-transfers/<int:transfer_id>/', views.store_transfer_detail, name='store_transfer_detail'),
+    path('store-transfers/<int:transfer_id>/edit/', views.edit_store_transfer, name='edit_store_transfer'),
+    path('store-transfers/<int:transfer_id>/delete/', views.delete_store_transfer, name='delete_store_transfer'),
+    
+    # AJAX endpoints
+    path('api/stores/<int:store_id>/stocks/', views.get_store_stocks, name='get_store_stocks'),
+    path('api/stocks/<int:stock_id>/', views.get_stock_details, name='get_stock_details'),
+    path('api/validate-transfer-quantities/', views.validate_transfer_quantities, name='validate_transfer_quantities'), 
 
 
 

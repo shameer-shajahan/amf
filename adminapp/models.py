@@ -562,11 +562,10 @@ class FreezingEntryTenant(BaseModel):
 
 class FreezingEntryTenantItem(BaseModel):
     freezing_entry = models.ForeignKey(
-        FreezingEntryTenant,   # fixed here
+        FreezingEntryTenant,
         on_delete=models.CASCADE,
         related_name='items'
     )
-
     processing_center = models.ForeignKey('ProcessingCenter', on_delete=models.CASCADE, null=True, blank=True)
     store = models.ForeignKey('Store', on_delete=models.CASCADE, null=True, blank=True)
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
@@ -585,6 +584,62 @@ class FreezingEntryTenantItem(BaseModel):
     def __str__(self):
         return f"{self.item} - {self.kg} KG"
 
+
+class ReturnTenant(BaseModel):
+    return_date = models.DateField()  # Changed from freezing_date
+    voucher_number = models.CharField(max_length=50, unique=True)
+    tenant_company_name = models.ForeignKey('Tenant', on_delete=models.CASCADE)
+
+    total_slab = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_c_s = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    RETURN_STATUS_CHOICES = [  # Changed from FREEZING_STATUS_CHOICES
+        ('complete', 'Complete'),
+        ('incomplete', 'Incomplete'),
+    ]
+    return_status = models.CharField(  # Changed from freezing_status
+        max_length=50,
+        choices=RETURN_STATUS_CHOICES,
+        default='complete'
+    )
+
+    def __str__(self):
+        return f"Return Tenant - {self.return_date} - {self.voucher_number}"
+
+class ReturnTenantItem(BaseModel):
+    return_entry = models.ForeignKey(  # Changed from freezing_entry
+        ReturnTenant,
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+    # 🔑 Link back to the exact stock lot (traceability)
+    original_item = models.ForeignKey(
+        FreezingEntryTenantItem,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="returned_items",
+        help_text="Reference to the original stock lot"
+    )
+
+    processing_center = models.ForeignKey('ProcessingCenter', on_delete=models.CASCADE, null=True, blank=True)
+    store = models.ForeignKey('Store', on_delete=models.CASCADE, null=True, blank=True)
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True, default=None)
+    unit = models.ForeignKey('PackingUnit', on_delete=models.CASCADE)
+    glaze = models.ForeignKey('GlazePercentage', on_delete=models.CASCADE)
+    freezing_category = models.ForeignKey('FreezingCategory', on_delete=models.CASCADE)
+    brand = models.ForeignKey('ItemBrand', on_delete=models.CASCADE)
+    species = models.ForeignKey('Species', on_delete=models.CASCADE)
+    grade = models.ForeignKey('ItemGrade', on_delete=models.CASCADE)
+
+    slab_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    c_s_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.item} - {self.kg} KG (Returned)"
 
 
 
@@ -639,5 +694,286 @@ class PreShipmentWorkOutItem(BaseModel):
         return f"{self.species} - {self.grade} ({self.cartons} cartons)"
 
 
+
+# models.py - Additional models for billing system
+
+from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+from decimal import Decimal
+from django.db import models
+from django.utils import timezone
+from django.db.models import Sum
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
+
+
+class TenantBillingConfiguration(models.Model):
+    tenant = models.OneToOneField(
+        'Tenant',
+        on_delete=models.CASCADE,
+        related_name='billing_config'
+    )
+    billing_start_date = models.DateField()
+    billing_frequency_days = models.PositiveIntegerField(
+        help_text="Number of days between automatic bill generation"
+    )
+    last_bill_generated_date = models.DateField(null=True, blank=True)
+    next_bill_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.next_bill_date and self.billing_start_date:
+            self.next_bill_date = self.billing_start_date + timedelta(days=self.billing_frequency_days)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.tenant.company_name} - Every {self.billing_frequency_days} days"
+
+
+class TenantBill(models.Model):
+    BILL_STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('finalized', 'Finalized'),
+        ('sent', 'Sent'),
+        ('paid', 'Paid'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    tenant = models.ForeignKey('Tenant', on_delete=models.CASCADE, related_name='bills')
+    bill_number = models.CharField(max_length=50, unique=True)
+    bill_date = models.DateField(default=timezone.now)
+    from_date = models.DateField()
+    to_date = models.DateField()
+
+    total_slabs = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_c_s = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    status = models.CharField(max_length=20, choices=BILL_STATUS_CHOICES, default='draft')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.bill_number:
+            self.bill_number = self.generate_bill_number()
+        super().save(*args, **kwargs)
+
+    def generate_bill_number(self):
+        from datetime import datetime
+        date_str = datetime.now().strftime('%Y%m%d')
+        last_bill = TenantBill.objects.filter(
+            bill_number__startswith=f'BILL-{date_str}'
+        ).order_by('-bill_number').first()
+
+        if last_bill:
+            last_num = int(last_bill.bill_number.split('-')[-1])
+            new_num = last_num + 1
+        else:
+            new_num = 1
+
+        return f'BILL-{date_str}-{new_num:04d}'
+
+    def recalc_totals(self):
+        """Recalculate bill totals from items."""
+        totals = self.items.aggregate(
+            amt=Sum('line_total'),
+            slabs=Sum('slab_quantity'),
+            cs=Sum('c_s_quantity'),
+            kg=Sum('kg_quantity'),
+        )
+        self.total_amount = totals['amt'] or Decimal('0.00')
+        self.total_slabs = totals['slabs'] or Decimal('0.00')
+        self.total_c_s = totals['cs'] or Decimal('0.00')
+        self.total_kg = totals['kg'] or Decimal('0.00')
+        self.save(update_fields=['total_amount', 'total_slabs', 'total_c_s', 'total_kg'])
+
+    def __str__(self):
+        return f"Bill {self.bill_number} - {self.tenant.company_name}"
+
+
+class TenantBillItem(models.Model):
+    bill = models.ForeignKey(TenantBill, on_delete=models.CASCADE, related_name='items')
+    freezing_entry = models.ForeignKey('FreezingEntryTenant', on_delete=models.CASCADE)
+    freezing_entry_item = models.ForeignKey('FreezingEntryTenantItem', on_delete=models.CASCADE)
+
+    days_stored = models.PositiveIntegerField()
+    tariff_per_day = models.DecimalField(max_digits=8, decimal_places=2)
+
+    slab_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    c_s_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    kg_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def save(self, *args, **kwargs):
+        # Always recalc line_total with Decimal
+        kg = Decimal(str(self.kg_quantity or 0))
+        days = Decimal(str(self.days_stored or 0))
+        tariff = Decimal(str(self.tariff_per_day or 0))
+
+        if days < 1:
+            days = Decimal('1')
+
+        self.line_total = (kg * days * tariff).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.bill.bill_number} - {self.freezing_entry_item.item}"
+
+
+# --- Signals to auto-update bill totals when items change ---
+@receiver(post_save, sender=TenantBillItem)
+def _update_bill_on_item_save(sender, instance, **kwargs):
+    instance.bill.recalc_totals()
+
+
+@receiver(post_delete, sender=TenantBillItem)
+def _update_bill_on_item_delete(sender, instance, **kwargs):
+    instance.bill.recalc_totals()
+
+
+
+
+
+
+
+class Stock(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    category = models.ForeignKey(ItemCategory, on_delete=models.CASCADE)
+    brand = models.ForeignKey(ItemBrand, on_delete=models.CASCADE)
+    unit = models.CharField(max_length=50)
+    glaze = models.CharField(max_length=50, blank=True, null=True)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    item_quality = models.ForeignKey('ItemQuality', on_delete=models.CASCADE, null=True, blank=True)
+    species = models.CharField(max_length=50, blank=True, null=True)
+    selling_type = models.CharField(max_length=50, blank=True, null=True)
+    item_grade = models.CharField(max_length=50, blank=True, null=True)
+    cs_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    kg_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Add tracking fields to know source of stock
+    last_updated_from_spot = models.DateTimeField(null=True, blank=True)
+    last_updated_from_local = models.DateTimeField(null=True, blank=True)
+    
+    # Add unique identifier for tracking specific freezing entries
+    source_spot_entry = models.ForeignKey('FreezingEntrySpot', on_delete=models.SET_NULL, null=True, blank=True)
+    source_local_entry = models.ForeignKey('FreezingEntryLocal', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Add a unique combination identifier for better tracking
+    source_reference = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        unique_together = ['store', 'item', 'brand', 'item_quality', 'unit', 'glaze', 'species', 'item_grade', 'source_reference']
+
+    def __str__(self):
+        return f"{self.item.name} ({self.store.name})"
+
+class StoreTransfer(models.Model):
+    voucher_no = models.CharField(max_length=50, unique=True)
+    date = models.DateField(default=timezone.now)
+    from_store = models.ForeignKey(Store, related_name="transfers_out", on_delete=models.CASCADE)
+    to_store = models.ForeignKey(Store, related_name="transfers_in", on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Transfer {self.voucher_no} ({self.from_store} → {self.to_store})"
+
+
+from django.db import models
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+
+class StoreTransferItem(models.Model):
+    transfer = models.ForeignKey(StoreTransfer, related_name="items", on_delete=models.CASCADE)
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE)
+    item_grade = models.CharField(max_length=50, blank=True, null=True)
+    plus_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    minus_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cs_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    kg_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Use default=timezone.now instead of auto_now_add to avoid migration issues
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ['transfer', 'stock', 'item_grade']
+
+    def save(self, *args, **kwargs):
+        # Update the updated_at field manually
+        if self.pk:  # If updating existing record
+            self.updated_at = timezone.now()
+        
+        # Only process stock changes when creating new records
+        if not self.pk:  # This is a new record
+            self._update_stock_quantities()
+        super().save(*args, **kwargs)
+    
+    def _update_stock_quantities(self):
+        """
+        Update stock quantities for transfer
+        """
+        # Validate quantities before processing
+        if self.cs_quantity < 0 or self.kg_quantity < 0:
+            raise ValidationError("Transfer quantities cannot be negative")
+        
+        # Check if sufficient stock is available
+        stock_from = self.stock
+        if self.cs_quantity > stock_from.cs_quantity:
+            raise ValidationError(
+                f"Insufficient CS quantity. Available: {stock_from.cs_quantity}, Required: {self.cs_quantity}"
+            )
+        if self.kg_quantity > stock_from.kg_quantity:
+            raise ValidationError(
+                f"Insufficient KG quantity. Available: {stock_from.kg_quantity}, Required: {self.kg_quantity}"
+            )
+        
+        # Deduct from "from_store"
+        stock_from.cs_quantity -= self.cs_quantity
+        stock_from.kg_quantity -= self.kg_quantity
+        stock_from.save()
+
+        # Add to "to_store" - Get or create stock record
+        stock_to, created = Stock.objects.get_or_create(
+            store=self.transfer.to_store,
+            category=stock_from.category,
+            brand=stock_from.brand,
+            unit=stock_from.unit,
+            glaze=stock_from.glaze,
+            item=stock_from.item,
+            item_quality=stock_from.item_quality,
+            species=stock_from.species,
+            selling_type=stock_from.selling_type,
+            item_grade=self.item_grade or stock_from.item_grade,
+            source_reference=stock_from.source_reference,
+            defaults={
+                "cs_quantity": 0,
+                "kg_quantity": 0,
+                "last_updated_from_spot": stock_from.last_updated_from_spot,
+                "last_updated_from_local": stock_from.last_updated_from_local,
+                "source_spot_entry": stock_from.source_spot_entry,
+                "source_local_entry": stock_from.source_local_entry,
+            }
+        )
+        
+        # Add quantities to destination stock
+        stock_to.cs_quantity += self.cs_quantity
+        stock_to.kg_quantity += self.kg_quantity
+        stock_to.save()
+
+    def __str__(self):
+        return f"{self.transfer.voucher_no} - {self.stock.item.name} (CS: {self.cs_quantity}, KG: {self.kg_quantity})"
+    """
+    Reverse stock changes when a transfer item is deleted
+    This is automatically handled by the view's reverse_transfer_stock_effects function
+    but this provides an additional safety net
+    """
+    pass  # The view handles this logic
 
 

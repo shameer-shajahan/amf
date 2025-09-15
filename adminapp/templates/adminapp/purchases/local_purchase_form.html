@@ -1,310 +1,295 @@
-.
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Purchase</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-        }
-        nav {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: flex-end; /* Aligns items to the right */
-        }
-        nav ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-        nav ul li {
-            display: inline-block;
-        }
-        nav ul li a {
-            display: inline-block;
-            padding: 10px 15px; /* Button-like padding */
-            background-color: #007bff; /* Button color */
-            color: white; /* Text color */
-            text-decoration: none; /* Remove underline */
-            border-radius: 4px; /* Rounded corners */
-            transition: background-color 0.2s, box-shadow 0.2s; /* Smooth transition */
-        }
-        nav ul li a:hover {
-            background-color: #0056b3; /* Darker shade on hover */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Shadow effect */
-        }
-        h2, h3 {
-            color: #333;
-        }
-        .form-table, .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            background: #fff;
-        }
-        .form-table th, .form-table td,
-        .items-table th, .items-table td {
-            padding: 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-        .items-table th {
-            background: #f2f2f2;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-        .formset-row td {
-            vertical-align: middle;
-        }
-        .formset-row input:not([type="checkbox"]),
-        .formset-row select {
-            width: 100% !important;
-            min-width: 80px;
-        }
-        .formset-row:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .totals-box {
-            margin-top: 20px;
-            padding: 15px;
-            border: 2px solid #007bff;
-            background: #f9f9f9;
-            border-radius: 5px;
-        }
-        .totals-box span {
-            font-weight: bold;
-            color: #007bff;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        button.delete-row {
-            background-color: #eb0d23; /* Red color for delete button */
-        }
-        button:hover {
-            background-color: #0069d9;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        button:active {
-            transform: translateY(0);
-        }
-        .text-danger {
-            color: red;
-            font-size: 0.9em;
-        }
-        input[type="text"], 
-        input[type="number"],
-        input[type="date"],
-        select {
-            width: calc(100% - 20px);
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            font-size: 14px;
-        }
-        input[type="text"]:focus, 
-        input[type="number"]:focus,
-        input[type="date"]:focus,
-        select:focus {
-            border-color: #007bff;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(0,123,255,.25);
-        }
-        select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            padding-right: 30px;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            padding: 4px;
-            cursor: pointer;
-            border-radius: 4px;
-            background-color: #f7f7f7;
-        }
-    </style>
-</head>
-<body>
+{% extends 'admin_base.html' %}
+{% block title %} Local Purchase Create {% endblock %}
+{% block content %}
 
-    <nav>
-        <ul>
-            <li><a href="{% url 'adminapp:local_purchase_list' %}">View List</a></li>
-        </ul>
-    </nav>
-
-    <h2>Local Purchase Entry</h2>
-
-    <form method="post">
-        {% csrf_token %}
-        <table class="form-table">
-            {{ form.as_table }}
-        </table>
-
-        <h3>Items</h3>
-        <div id="formset-container">
-            {{ formset.management_form }}
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Category</th>
-                        <th>Species</th>
-                        <th>Type</th>
-                        <th>Grade</th>
-                        <th>Quantity</th>
-                        <th>Rate</th>
-                         <!-- Changed header to Action -->
-                    </tr>
-                </thead>
-                <tbody id="formset-body">
-                    {% for form in formset %}
-                        <tr class="formset-row">
-                            {% for field in form.visible_fields %}
-                                <td>
-                                    {{ field }}
-                                    {% if field.errors %}
-                                        <div class="text-danger">{{ field.errors }}</div>
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-                            <td>
-                                <button type="button" class="delete-row">Delete</button> <!-- Added delete button -->
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
+<div class="purchase-container">
+        <style>
+            .purchase-container {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                background-color: #f4f4f4;
+            }
+            .purchase-nav {
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: flex-end; /* Aligns items to the right */
+            }
+            .purchase-nav ul {
+                list-style-type: none;
+                padding: 0;
+                margin: 0;
+            }
+            .purchase-nav ul li {
+                display: inline-block;
+            }
+            .purchase-nav ul li a {
+                display: inline-block;
+                padding: 10px 15px; /* Button-like padding */
+                background-color: #007bff; /* Button color */
+                color: white; /* Text color */
+                text-decoration: none; /* Remove underline */
+                border-radius: 4px; /* Rounded corners */
+                transition: background-color 0.2s, box-shadow 0.2s; /* Smooth transition */
+            }
+            .purchase-nav ul li a:hover {
+                background-color: #0056b3; /* Darker shade on hover */
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Shadow effect */
+            }
+            .purchase-heading, .purchase-subheading {
+                color: #333;
+            }
+            .purchase-form-table, .purchase-items-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+                background: #fff;
+            }
+            .purchase-form-table th, .purchase-form-table td,
+            .purchase-items-table th, .purchase-items-table td {
+                padding: 12px;
+                border: 1px solid #ddd;
+                text-align: left;
+            }
+            .purchase-items-table th {
+                background: #f2f2f2;
+                font-weight: 600;
+                position: sticky;
+                top: 0;
+            }
+            .purchase-formset-row td {
+                vertical-align: middle;
+            }
+            .purchase-formset-row input:not([type="checkbox"]),
+            .purchase-formset-row select {
+                width: 100% !important;
+                min-width: 80px;
+            }
+            .purchase-formset-row:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            .purchase-totals-box {
+                margin-top: 20px;
+                padding: 15px;
+                border: 2px solid #007bff;
+                background: #f9f9f9;
+                border-radius: 5px;
+            }
+            .purchase-totals-box span {
+                font-weight: bold;
+                color: #007bff;
+            }
+            .purchase-button {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                background-color: #007bff;
+                color: white;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-weight: 500;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            .purchase-button.purchase-delete-row {
+                background-color: #eb0d23; /* Red color for delete button */
+            }
+            .purchase-button:hover {
+                background-color: #0069d9;
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .purchase-button:active {
+                transform: translateY(0);
+            }
+            .purchase-text-danger {
+                color: red;
+                font-size: 0.9em;
+            }
+            .purchase-input[type="text"], 
+            .purchase-input[type="number"],
+            .purchase-input[type="date"],
+            .purchase-select {
+                width: calc(100% - 20px);
+                padding: 10px;
+                margin-top: 5px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background: #fff;
+                font-size: 14px;
+            }
+            .purchase-input[type="text"]:focus, 
+            .purchase-input[type="number"]:focus,
+            .purchase-input[type="date"]:focus,
+            .purchase-select:focus {
+                border-color: #007bff;
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+            }
+            .purchase-select {
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
+                background-repeat: no-repeat;
+                background-position: right 10px center;
+                padding-right: 30px;
+            }
+            .purchase-input[type="date"]::-webkit-calendar-picker-indicator {
+                padding: 4px;
+                cursor: pointer;
+                border-radius: 4px;
+                background-color: #f7f7f7;
+            }
+        </style>
+        <form method="post">
+            {% csrf_token %}
+            <table class="purchase-form-table">
+                {{ form.as_table }}
             </table>
-        </div>
-
-        <div style="margin-top: 10px;">
-            <button type="button" id="add-more">+ Add More Item</button>
-        </div>
-
-        <!-- Totals Display -->
-        <div class="totals-box">
-            <p>Total Quantity: <span id="total-quantity">0.00</span></p>
-            <p>Total Amount: <span id="total-amount">0.00</span></p>
-            <p>Total Items: <span id="total-items">0</span></p>
-        </div>
-
-        <br>
-        <button type="submit">Save</button>
-    </form>
-
-    <!-- Hidden empty form template -->
-    <template id="empty-form-template">
-        {% with formset.empty_form as form %}
-            {% for field in form.visible_fields %}
+    
+            <h3 class="purchase-subheading">Items</h3>
+            <div id="purchase-formset-container">
+                {{ formset.management_form }}
+                <table class="purchase-items-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Species</th>
+                            <th>Type</th>
+                            <th>Grade</th>
+                            <th>Quantity</th>
+                            <th>Rate</th>
+                             <!-- Changed header to Action -->
+                        </tr>
+                    </thead>
+                    <tbody id="purchase-formset-body">
+                        {% for form in formset %}
+                            <tr class="purchase-formset-row">
+                                {% for field in form.visible_fields %}
+                                    <td>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                            <div class="purchase-text-danger">{{ field.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                                <td>
+                                    <button type="button" class="purchase-button purchase-delete-row">Delete</button> <!-- Added delete button -->
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+    
+            <div style="margin-top: 10px;">
+                <button type="button" id="purchase-add-more" class="purchase-button">+ Add More Item</button>
+            </div>
+    
+            <!-- Totals Display -->
+            <div class="purchase-totals-box">
+                <p>Total Quantity: <span id="purchase-total-quantity">0.00</span></p>
+                <p>Total Amount: <span id="purchase-total-amount">0.00</span></p>
+                <p>Total Items: <span id="purchase-total-items">0</span></p>
+            </div>
+    
+            <br>
+            <button type="submit" class="purchase-button">Save</button>
+        </form>
+    
+        <!-- Hidden empty form template -->
+        <template id="purchase-empty-form-template">
+            {% with formset.empty_form as form %}
+                {% for field in form.visible_fields %}
+                    <td>
+                        {{ field }}
+                    </td>
+                {% endfor %}
                 <td>
-                    {{ field }}
+                    <button type="button" class="purchase-button purchase-delete-row">Delete</button> <!-- Added delete button -->
                 </td>
-            {% endfor %}
-            <td>
-                <button type="button" class="delete-row">Delete</button> <!-- Added delete button -->
-            </td>
-        {% endwith %}
-    </template>
-
-    <script>
-    function calculateTotals() {
-        let totalAmount = 0;
-        let totalQuantity = 0;
-        let totalItems = 0;
-
-        const formRows = document.querySelectorAll('.formset-row');
-
-        formRows.forEach(row => {
-            const quantityInput = row.querySelector('input[name$="-quantity"]');
-            const rateInput = row.querySelector('input[name$="-rate"]');
-
-            const quantity = parseFloat(quantityInput?.value) || 0;
-            const rate = parseFloat(rateInput?.value) || 0;
-
-            if (quantity > 0 || rate > 0) {
-                totalItems += 1;
-                totalQuantity += quantity;
-                totalAmount += quantity * rate;
+            {% endwith %}
+        </template>
+    
+        <script>
+        function purchaseCalculateTotals() {
+            let totalAmount = 0;
+            let totalQuantity = 0;
+            let totalItems = 0;
+    
+            const formRows = document.querySelectorAll('.purchase-formset-row');
+    
+            formRows.forEach(row => {
+                const quantityInput = row.querySelector('input[name$="-quantity"]');
+                const rateInput = row.querySelector('input[name$="-rate"]');
+    
+                const quantity = parseFloat(quantityInput?.value) || 0;
+                const rate = parseFloat(rateInput?.value) || 0;
+    
+                if (quantity > 0 || rate > 0) {
+                    totalItems += 1;
+                    totalQuantity += quantity;
+                    totalAmount += quantity * rate;
+                }
+            });
+    
+            document.getElementById('purchase-total-quantity').textContent = totalQuantity.toFixed(2);
+            document.getElementById('purchase-total-amount').textContent = totalAmount.toFixed(2);
+            document.getElementById('purchase-total-items').textContent = totalItems;
+        }
+    
+        // Auto-calculate when user edits quantity/rate
+        document.addEventListener('input', function (e) {
+            if (e.target.name?.includes('-quantity') || e.target.name?.includes('-rate')) {
+                purchaseCalculateTotals();
             }
         });
-
-        document.getElementById('total-quantity').textContent = totalQuantity.toFixed(2);
-        document.getElementById('total-amount').textContent = totalAmount.toFixed(2);
-        document.getElementById('total-items').textContent = totalItems;
-    }
-
-    // Auto-calculate when user edits quantity/rate
-    document.addEventListener('input', function (e) {
-        if (e.target.name?.includes('-quantity') || e.target.name?.includes('-rate')) {
-            calculateTotals();
-        }
-    });
-
-    // Handle Add More
-    document.getElementById("add-more").addEventListener("click", function () {
-        const totalForms = document.getElementById("id_form-TOTAL_FORMS");
-        const currentIndex = parseInt(totalForms.value);
-        const template = document.getElementById("empty-form-template").innerHTML;
-
-        const newFormHtml = template.replace(/__prefix__/g, currentIndex);
-
-        const tbody = document.getElementById("formset-body");
-        const tr = document.createElement('tr');
-        tr.className = 'formset-row';
-        tr.innerHTML = newFormHtml;
-        tbody.appendChild(tr);
-
-        totalForms.value = currentIndex + 1;
-
-        calculateTotals();
-    });
-
-    // Handle Delete Row
-    document.addEventListener('click', function (e) {
-        if (e.target.classList.contains('delete-row')) {
-            const row = e.target.closest('.formset-row');
-            if (row) {
-                row.remove();
-                calculateTotals();
+    
+        // Handle Add More
+        document.getElementById("purchase-add-more").addEventListener("click", function () {
+            const totalForms = document.getElementById("id_form-TOTAL_FORMS");
+            const currentIndex = parseInt(totalForms.value);
+            const template = document.getElementById("purchase-empty-form-template").innerHTML;
+    
+            const newFormHtml = template.replace(/__prefix__/g, currentIndex);
+    
+            const tbody = document.getElementById("purchase-formset-body");
+            const tr = document.createElement('tr');
+            tr.className = 'purchase-formset-row';
+            tr.innerHTML = newFormHtml;
+            tbody.appendChild(tr);
+    
+            totalForms.value = currentIndex + 1;
+    
+            purchaseCalculateTotals();
+        });
+    
+        // Handle Delete Row
+        document.addEventListener('click', function (e) {
+            if (e.target.classList.contains('purchase-delete-row')) {
+                const row = e.target.closest('.purchase-formset-row');
+                if (row) {
+                    row.remove();
+                    purchaseCalculateTotals();
+                }
             }
-        }
+        });
+    
+        // Initial total calculation
+        purchaseCalculateTotals();
+        </script>
+    
+    <!-- date -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        flatpickr(".datepicker", {
+            dateFormat: "d/m/Y", // display dd/mm/yyyy
+            defaultDate: "today"
+        });
     });
-
-    // Initial total calculation
-    calculateTotals();
     </script>
+</div>
 
-<!-- date -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    flatpickr(".datepicker", {
-        dateFormat: "d/m/Y", // display dd/mm/yyyy
-        defaultDate: "today"
-    });
-});
-</script>
-
-
-
-</body>
-</html>
+{%endblock%}

@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+    {% if transfer %}Edit Transfer: {{ transfer.voucher_no }}{% else %}Create New Store Transfer{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.transfer-item-row {
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    border: 1px solid #dee2e6;
+}
+
+.transfer-item-row:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd !important;
+}
+
+.stock-info {
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 2px;
+    color: #6c757d;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.quantity-validation-alert {
+    margin-top: 0.25rem !important;
+    padding: 0.375rem 0.75rem !important;
+    border: none !important;
+    border-radius: 0.25rem !important;
+}
+
+.dynamic-alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 300px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-control, .form-select {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.form-label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.alert-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        {% if transfer %}Edit Transfer: {{ transfer.voucher_no }}{% else %}Create New Store Transfer{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="transferForm">
+                        {% csrf_token %}
+                        
+                        <!-- Transfer Basic Info -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="{{ form.voucher_no.id_for_label }}" class="form-label">
+                                    <strong>Voucher No <span class="text-danger">*</span></strong>
+                                </label>
+                                {{ form.voucher_no }}
+                                {% if form.voucher_no.errors %}
+                                    <div class="text-danger small">{{ form.voucher_no.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.date.id_for_label }}" class="form-label">
+                                    <strong>Date <span class="text-danger">*</span></strong>
+                                </label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                    <div class="text-danger small">{{ form.date.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.from_store.id_for_label }}" class="form-label">
+                                    <strong>From Store <span class="text-danger">*</span></strong>
+                                </label>
+                                {{ form.from_store }}
+                                {% if form.from_store.errors %}
+                                    <div class="text-danger small">{{ form.from_store.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="{{ form.to_store.id_for_label }}" class="form-label">
+                                    <strong>To Store <span class="text-danger">*</span></strong>
+                                </label>
+                                {{ form.to_store }}
+                                {% if form.to_store.errors %}
+                                    <div class="text-danger small">{{ form.to_store.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <!-- Transfer Items -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Transfer Items</h5>
+                                <button type="button" class="btn btn-sm btn-success" id="addItemBtn">
+                                    <i class="fas fa-plus me-1"></i>Add Item
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                {{ formset.management_form }}
+                                
+                                {% if formset.non_form_errors %}
+                                    <div class="alert alert-danger">
+                                        {{ formset.non_form_errors }}
+                                    </div>
+                                {% endif %}
+
+                                <div id="transfer-items-container">
+                                    {% for form in formset %}
+                                        <div class="transfer-item-row rounded p-3 mb-3" data-form-index="{{ forloop.counter0 }}">
+                                            {{ form.id }}
+                                            {{ form.DELETE }}
+                                            
+                                            <div class="row align-items-end">
+                                                <div class="col-md-3">
+                                                    <label class="form-label"><strong>Stock Item <span class="text-danger">*</span></strong></label>
+                                                    {{ form.stock }}
+                                                    {% if form.stock.errors %}
+                                                        <div class="text-danger small">{{ form.stock.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Grade</label>
+                                                    {{ form.item_grade }}
+                                                    {% if form.item_grade.errors %}
+                                                        <div class="text-danger small">{{ form.item_grade.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">CS Quantity</label>
+                                                    {{ form.cs_quantity }}
+                                                    <small class="text-muted stock-info" data-type="cs">Available: -</small>
+                                                    {% if form.cs_quantity.errors %}
+                                                        <div class="text-danger small">{{ form.cs_quantity.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">KG Quantity</label>
+                                                    {{ form.kg_quantity }}
+                                                    <small class="text-muted stock-info" data-type="kg">Available: -</small>
+                                                    {% if form.kg_quantity.errors %}
+                                                        <div class="text-danger small">{{ form.kg_quantity.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Plus Qty</label>
+                                                    {{ form.plus_qty }}
+                                                    {% if form.plus_qty.errors %}
+                                                        <div class="text-danger small">{{ form.plus_qty.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" title="Remove Item">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            {% if form.non_field_errors %}
+                                                <div class="text-danger small mt-2">{{ form.non_field_errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'adminapp:store_transfer_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Back to List
+                            </a>
+                            <div>
+                                <button type="button" class="btn btn-info me-2" id="validateBtn">
+                                    <i class="fas fa-check-circle me-1"></i>Validate
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>
+                                    {% if transfer %}Update Transfer{% else %}Create Transfer{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pass Django data to JavaScript -->
+<script id="django-data" type="application/json">
+{
+    "urls": {
+        "get_store_stocks": "{% url 'adminapp:get_store_stocks' 0 %}",
+        "get_stock_details": "{% url 'adminapp:get_stock_details' 0 %}",
+        "validate_transfer_quantities": "{% url 'adminapp:validate_transfer_quantities' %}"
+    },
+    "form_ids": {
+        "from_store": "{{ form.from_store.id_for_label }}",
+        "to_store": "{{ form.to_store.id_for_label }}"
+    },
+    "initial_from_store": "{{ form.from_store.value|default:'' }}"
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get Django data
+    const djangoData = JSON.parse(document.getElementById('django-data').textContent);
+    
+    // Store Transfer Form JavaScript
+    const fromStoreSelect = document.getElementById(djangoData.form_ids.from_store);
+    const toStoreSelect = document.getElementById(djangoData.form_ids.to_store);
+    const addItemBtn = document.getElementById('addItemBtn');
+    const validateBtn = document.getElementById('validateBtn');
+    const transferForm = document.getElementById('transferForm');
+    let formIndex = parseInt(document.querySelector('[name$="-TOTAL_FORMS"]').value);
+
+    console.log('Form initialized, from store:', fromStoreSelect?.value);
+    console.log('Django URLs:', djangoData.urls);
+
+    // Update stock options when from_store changes
+    if (fromStoreSelect) {
+        fromStoreSelect.addEventListener('change', function() {
+            const storeId = this.value;
+            console.log('From store changed to:', storeId);
+            
+            if (storeId) {
+                updateStockOptions(storeId);
+            } else {
+                clearAllStockSelects();
+            }
+            
+            // Prevent same store selection
+            if (toStoreSelect.value === storeId && storeId) {
+                toStoreSelect.value = '';
+                showAlert('From Store and To Store cannot be the same', 'warning');
+            }
+        });
+    }
+
+    // Prevent selecting same store for to_store
+    if (toStoreSelect) {
+        toStoreSelect.addEventListener('change', function() {
+            if (fromStoreSelect.value === this.value && this.value) {
+                this.value = '';
+                showAlert('From Store and To Store cannot be the same', 'warning');
+            }
+        });
+    }
+
+    // Add new item row
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', function() {
+            if (!fromStoreSelect.value) {
+                showAlert('Please select a From Store first', 'warning');
+                return;
+            }
+            addNewItemRow();
+        });
+    }
+
+    // Remove item row
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-item-btn')) {
+            removeItemRow(e.target.closest('.transfer-item-row'));
+        }
+    });
+
+    // Stock selection change
+    document.addEventListener('change', function(e) {
+        if (e.target.name && e.target.name.includes('-stock')) {
+            const stockId = e.target.value;
+            const row = e.target.closest('.transfer-item-row');
+            console.log('Stock selected:', stockId);
+            
+            if (stockId) {
+                updateStockInfo(stockId, row);
+            } else {
+                clearStockInfo(row);
+            }
+        }
+    });
+
+    // Quantity validation
+    document.addEventListener('input', function(e) {
+        if (e.target.name && (e.target.name.includes('cs_quantity') || e.target.name.includes('kg_quantity'))) {
+            validateQuantities(e.target);
+        }
+    });
+
+    // Validate all quantities
+    if (validateBtn) {
+        validateBtn.addEventListener('click', function() {
+            validateAllQuantities();
+        });
+    }
+
+    function updateStockOptions(storeId) {
+        console.log('Updating stock options for store:', storeId);
+        
+        // Show loading indicator
+        const stockSelects = document.querySelectorAll('select[name$="-stock"]');
+        stockSelects.forEach(select => {
+            select.innerHTML = '<option value="">Loading...</option>';
+            select.disabled = true;
+        });
+
+        // Use Django URL and replace placeholder
+        const url = djangoData.urls.get_store_stocks.replace('0', storeId);
+        console.log('Fetching from URL:', url);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Stock data received:', data);
+            
+            stockSelects.forEach(select => {
+                // Store current value
+                const currentValue = select.value;
+                
+                // Clear existing options
+                select.innerHTML = '<option value="">---------</option>';
+                select.disabled = false;
+                
+                // Add new stock options
+                if (data.stocks && data.stocks.length > 0) {
+                    data.stocks.forEach(stock => {
+                        const option = document.createElement('option');
+                        option.value = stock.id;
+                        option.textContent = stock.display_name;
+                        option.dataset.csQuantity = stock.cs_quantity;
+                        option.dataset.kgQuantity = stock.kg_quantity;
+                        select.appendChild(option);
+                    });
+                    
+                    // Restore value if it still exists
+                    if (currentValue && currentValue !== 'Loading...') {
+                        select.value = currentValue;
+                        if (currentValue) {
+                            const row = select.closest('.transfer-item-row');
+                            updateStockInfo(currentValue, row);
+                        }
+                    }
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No stocks available';
+                    option.disabled = true;
+                    select.appendChild(option);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching stocks:', error);
+            
+            stockSelects.forEach(select => {
+                select.innerHTML = '<option value="">Error loading stocks</option>';
+                select.disabled = false;
+            });
+            
+            showAlert('Error fetching stock data. Please try again.', 'danger');
+        });
+    }
+
+    function clearAllStockSelects() {
+        const stockSelects = document.querySelectorAll('select[name$="-stock"]');
+        stockSelects.forEach(select => {
+            select.innerHTML = '<option value="">Select From Store first</option>';
+            select.disabled = true;
+        });
+
+        document.querySelectorAll('.stock-info').forEach(info => {
+            info.textContent = 'Available: -';
+        });
+    }
+
+    function clearStockInfo(row) {
+        const stockInfos = row.querySelectorAll('.stock-info');
+        stockInfos.forEach(info => {
+            info.textContent = 'Available: -';
+        });
+    }
+
+    function addNewItemRow() {
+        const container = document.getElementById('transfer-items-container');
+        const firstRow = container.querySelector('.transfer-item-row');
+        if (!firstRow) return;
+        
+        const emptyRow = firstRow.cloneNode(true);
+        
+        // Update form index
+        const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
+        formIndex = parseInt(totalFormsInput.value);
+        totalFormsInput.value = formIndex + 1;
+        
+        // Update field names and IDs
+        const fields = emptyRow.querySelectorAll('input, select');
+        fields.forEach(field => {
+            const name = field.getAttribute('name');
+            const id = field.getAttribute('id');
+            
+            if (name) {
+                field.setAttribute('name', name.replace(/-\d+-/, `-${formIndex}-`));
+            }
+            if (id) {
+                field.setAttribute('id', id.replace(/-\d+-/, `-${formIndex}-`));
+            }
+            
+            if (field.type !== 'hidden') {
+                field.value = '';
+            }
+        });
+        
+        emptyRow.setAttribute('data-form-index', formIndex);
+        clearStockInfo(emptyRow);
+        
+        // Clear validation classes
+        emptyRow.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        emptyRow.querySelectorAll('.quantity-validation-alert').forEach(el => el.remove());
+        
+        container.appendChild(emptyRow);
+        
+        if (fromStoreSelect.value) {
+            updateStockOptions(fromStoreSelect.value);
+        }
+    }
+
+    function removeItemRow(row) {
+        const container = document.getElementById('transfer-items-container');
+        const visibleRows = container.querySelectorAll('.transfer-item-row:not([style*="display: none"])');
+        
+        if (visibleRows.length > 1) {
+            const deleteField = row.querySelector('[name$="-DELETE"]');
+            if (deleteField) {
+                deleteField.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();
+                const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
+                totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+            }
+        } else {
+            showAlert('At least one item is required', 'warning');
+        }
+    }
+
+    function updateStockInfo(stockId, row) {
+        console.log('Updating stock info for stock:', stockId);
+        
+        const url = djangoData.urls.get_stock_details.replace('0', stockId);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Stock details received:', data);
+            
+            if (data.stock) {
+                const csInfo = row.querySelector('.stock-info[data-type="cs"]');
+                const kgInfo = row.querySelector('.stock-info[data-type="kg"]');
+                
+                if (csInfo) csInfo.textContent = `Available: ${data.stock.cs_quantity}`;
+                if (kgInfo) kgInfo.textContent = `Available: ${data.stock.kg_quantity}`;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching stock details:', error);
+            clearStockInfo(row);
+        });
+    }
+
+    function validateQuantities(input) {
+        const row = input.closest('.transfer-item-row');
+        const stockSelect = row.querySelector('select[name$="-stock"]');
+        const stockId = stockSelect.value;
+        
+        if (!stockId) return;
+        
+        const csQuantity = parseFloat(row.querySelector('[name$="-cs_quantity"]').value) || 0;
+        const kgQuantity = parseFloat(row.querySelector('[name$="-kg_quantity"]').value) || 0;
+        
+        const data = {
+            stock_id: stockId,
+            cs_quantity: csQuantity,
+            kg_quantity: kgQuantity
+        };
+        
+        fetch(djangoData.urls.validate_transfer_quantities, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Clear previous validation messages
+            const existingAlerts = row.querySelectorAll('.quantity-validation-alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            if (!data.valid && data.errors.length > 0) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger alert-sm mt-1 quantity-validation-alert';
+                alertDiv.innerHTML = `<small><i class="fas fa-exclamation-triangle me-1"></i>${data.errors.join(', ')}</small>`;
+                input.closest('.col-md-2').appendChild(alertDiv);
+                
+                input.classList.add('is-invalid');
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        })
+        .catch(error => {
+            console.error('Error validating quantities:', error);
+        });
+    }
+
+    function validateAllQuantities() {
+        const rows = document.querySelectorAll('.transfer-item-row:not([style*="display: none"])');
+        
+        rows.forEach(row => {
+            const stockSelect = row.querySelector('select[name$="-stock"]');
+            const csInput = row.querySelector('[name$="-cs_quantity"]');
+            const kgInput = row.querySelector('[name$="-kg_quantity"]');
+            
+            if (stockSelect.value && (csInput.value || kgInput.value)) {
+                validateQuantities(csInput);
+                validateQuantities(kgInput);
+            }
+        });
+        
+        setTimeout(() => {
+            const errorAlerts = document.querySelectorAll('.quantity-validation-alert');
+            if (errorAlerts.length === 0) {
+                showAlert('All quantities are valid!', 'success');
+            } else {
+                showAlert('Please fix the quantity validation errors', 'danger');
+            }
+        }, 500);
+    }
+
+    function showAlert(message, type = 'info') {
+        const existingAlerts = document.querySelectorAll('.dynamic-alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show dynamic-alert`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    // Form submission validation
+    if (transferForm) {
+        transferForm.addEventListener('submit', function(e) {
+            const errorAlerts = document.querySelectorAll('.quantity-validation-alert');
+            const invalidInputs = document.querySelectorAll('.is-invalid');
+            
+            if (errorAlerts.length > 0 || invalidInputs.length > 0) {
+                e.preventDefault();
+                showAlert('Please fix all validation errors before submitting', 'danger');
+                return false;
+            }
+            
+            const rows = document.querySelectorAll('.transfer-item-row:not([style*="display: none"])');
+            let hasValidItems = false;
+            
+            rows.forEach(row => {
+                const stockSelect = row.querySelector('select[name$="-stock"]');
+                const csInput = row.querySelector('[name$="-cs_quantity"]');
+                const kgInput = row.querySelector('[name$="-kg_quantity"]');
+                const deleteField = row.querySelector('[name$="-DELETE"]');
+                
+                if (stockSelect.value && (parseFloat(csInput.value) > 0 || parseFloat(kgInput.value) > 0) && (!deleteField || !deleteField.checked)) {
+                    hasValidItems = true;
+                }
+            });
+            
+            if (!hasValidItems) {
+                e.preventDefault();
+                showAlert('At least one item with valid quantities is required', 'warning');
+                return false;
+            }
+
+            if (!fromStoreSelect.value || !toStoreSelect.value) {
+                e.preventDefault();
+                showAlert('Both From Store and To Store must be selected', 'warning');
+                return false;
+            }
+
+            if (fromStoreSelect.value === toStoreSelect.value) {
+                e.preventDefault();
+                showAlert('From Store and To Store cannot be the same', 'warning');
+                return false;
+            }
+        });
+    }
+
+    // Initialize form
+    function initializeForm() {
+        console.log('Initializing form...');
+        
+        if (fromStoreSelect && fromStoreSelect.value) {
+            console.log('Form is in edit mode, loading stocks for store:', fromStoreSelect.value);
+            updateStockOptions(fromStoreSelect.value);
+        } else {
+            clearAllStockSelects();
+        }
+
+        setTimeout(() => {
+            document.querySelectorAll('select[name$="-stock"]').forEach(select => {
+                if (select.value) {
+                    console.log('Initializing stock info for existing selection:', select.value);
+                    const row = select.closest('.transfer-item-row');
+                    updateStockInfo(select.value, row);
+                }
+            });
+        }, 1000);
+    }
+
+    initializeForm();
+});
+</script>
+{% endblock %}

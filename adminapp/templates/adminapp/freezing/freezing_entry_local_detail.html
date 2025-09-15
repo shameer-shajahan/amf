@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Freezing Entry Local Detail</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-
+{% extends 'admin_base.html' %}
+{% block title %} Local Freezing Entry Detail {% endblock %}
+{% block content %}
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -376,13 +369,7 @@
             }
         }
     </style>
-</head>
 
-<body>
-    <div class="header-section">
-        <a href="{% url 'adminapp:freezing_entry_local_list' %}" class="back-link">Back to List</a>
-        <h1>Freezing Entry Local - {{ entry.freezing_date }} - {{ entry.voucher_number }}</h1>
-    </div>
 
     <div class="summary">
         <h2>Entry Summary</h2>
@@ -532,5 +519,4 @@
             });
         });
     </script>
-</body>
-</html>
+{%endblock%}

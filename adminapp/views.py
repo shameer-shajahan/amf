@@ -1,4 +1,3 @@
-
 # Create your views here.
 from .models import *
 from .forms import *
@@ -29,6 +28,37 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from .models import ItemQuality
+from django.db import transaction
+from django.urls import reverse
+import io
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+from django.template.loader import get_template
+from xhtml2pdf import pisa
+from collections import defaultdict
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.db import transaction
+from django.http import JsonResponse, HttpResponse
+from django.utils import timezone
+from datetime import timedelta
+from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Import your models and forms - change names/paths if different in your project
+from adminapp.models import (
+    TenantBill, TenantBillItem, TenantBillingConfiguration,
+    TenantFreezingTariff, FreezingEntryTenant
+)
+from adminapp.forms import TenantBillingConfigurationForm, BillGenerationForm
+
+from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # nammude client paranjhu name chage cheyyan athu too risk anu athukondu html name mathre matittullu
 # item category ennu parayunne elam item quality anu  model name itemQuality
@@ -78,6 +108,23 @@ def create_user_view(request):
         form = CustomUserCreationForm()
     return render(request, 'adminapp/create_user.html', {'form': form})
 
+
+def users_list_view(request):
+    users = CustomUser.objects.all().order_by('-date_joined')
+    
+    context = {
+        'users': users,
+    }
+    
+    return render(request, 'adminapp/list/users_list.html', context)
+
+
+class UserDeleteView(DeleteView):
+    model = CustomUser
+    template_name = 'adminapp/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:users_list')
+
+    
 # Dashboard View
 def admin_dashboard(request):
     return render(request, 'adminapp/dashboard.html')
@@ -2262,8 +2309,6 @@ class PreShipmentWorkOutDetailView(DetailView):
 
 
 # purchase Report 
-
-
 def spot_purchase_report(request):
     items = Item.objects.all()
     spots = PurchasingSpot.objects.all()
@@ -2403,7 +2448,6 @@ def spot_purchase_report(request):
         },
     )
 
-# Alternative: Separate view for print (recommended approach)
 def spot_purchase_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -2641,7 +2685,6 @@ def local_purchase_report(request):
         },
     )
 
-# Alternative: Separate view for print (recommended approach)
 def local_purchase_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -3501,8 +3544,6 @@ def freezing_report(request):
         },
     )
 
-
-
 # Separate view for print format
 def freezing_report_print(request):
     """Separate view specifically for print format"""
@@ -3664,6 +3705,1699 @@ def freezing_report_print(request):
 
 
 
+
+# Tenant Freezing Entry Views
+def tenant_freezing_list(request):
+    entries = FreezingEntryTenant.objects.all().order_by('-freezing_date')
+    return render(request, 'adminapp/tenant/list.html', {'entries': entries})
+
+def tenant_freezing_detail(request, pk):
+    entry = get_object_or_404(FreezingEntryTenant, pk=pk)
+    return render(request, 'adminapp/tenant/detail.html', {'entry': entry})
+
+@transaction.atomic
+def tenant_freezing_create(request):
+    if request.method == "POST":
+        form = FreezingEntryTenantForm(request.POST)
+        formset = FreezingEntryTenantItemFormSet(request.POST)
+        
+        print("=== DEBUG FORMSET DATA ===")
+        print(f"POST data keys: {list(request.POST.keys())}")
+        print(f"Formset is_valid: {formset.is_valid()}")
+        print(f"Form is_valid: {form.is_valid()}")
+        print(f"Formset total forms: {formset.total_form_count()}")
+        print(f"Formset errors: {formset.errors}")
+        print(f"Formset non_form_errors: {formset.non_form_errors()}")
+        
+        if form.is_valid() and formset.is_valid():
+            # Save the main entry first
+            entry = form.save()
+            print(f"Main entry saved with ID: {entry.id}")
+            
+            # Set the instance and save the formset
+            formset.instance = entry
+            saved_items = formset.save()
+            print(f"Saved {len(saved_items)} items from formset")
+            
+            # Debug: Check what was actually saved
+            for i, item in enumerate(saved_items):
+                print(f"Item {i+1}: {item.item} - Slab: {item.slab_quantity} - CS: {item.c_s_quantity} - KG: {item.kg}")
+
+            # 🔹 Update totals
+            totals = entry.items.aggregate(
+                total_slab_sum=Sum('slab_quantity'),
+                total_c_s_sum=Sum('c_s_quantity'),
+                total_kg_sum=Sum('kg'),
+            )
+            entry.total_slab = totals['total_slab_sum'] or 0
+            entry.total_c_s = totals['total_c_s_sum'] or 0
+            entry.total_kg = totals['total_kg_sum'] or 0
+            entry.total_amount = 0  # (If you have rate × qty, calculate here)
+            entry.save()
+            
+            print(f"Updated totals - Slab: {entry.total_slab}, CS: {entry.total_c_s}, KG: {entry.total_kg}")
+
+            return redirect(reverse('adminapp:list_freezing_entry_tenant'))
+        else:
+            # Debug form and formset errors
+            print("=== VALIDATION ERRORS ===")
+            if not form.is_valid():
+                print(f"Form errors: {form.errors}")
+            if not formset.is_valid():
+                print(f"Formset errors: {formset.errors}")
+                print(f"Formset non-form errors: {formset.non_form_errors()}")
+                
+                # Debug individual form errors
+                for i, form_instance in enumerate(formset):
+                    if form_instance.errors:
+                        print(f"Form {i} errors: {form_instance.errors}")
+                        print(f"Form {i} cleaned_data: {form_instance.cleaned_data if form_instance.is_valid() else 'Invalid'}")
+                
+    else:
+        form = FreezingEntryTenantForm()
+        formset = FreezingEntryTenantItemFormSet()
+        
+    return render(request, 'adminapp/tenant/create.html', {'form': form, 'formset': formset})
+
+@transaction.atomic
+def tenant_freezing_update(request, pk):
+    entry = get_object_or_404(FreezingEntryTenant, pk=pk)
+    if request.method == "POST":
+        form = FreezingEntryTenantForm(request.POST, instance=entry)
+        formset = FreezingEntryTenantItemFormSet(request.POST, instance=entry)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+
+            totals = entry.items.aggregate(
+                total_slab_sum=Sum('slab_quantity'),
+                total_c_s_sum=Sum('c_s_quantity'),
+                total_kg_sum=Sum('kg'),
+            )
+            entry.total_slab = totals['total_slab_sum'] or 0
+            entry.total_c_s = totals['total_c_s_sum'] or 0
+            entry.total_kg = totals['total_kg_sum'] or 0
+            entry.total_amount = 0
+            entry.save()
+
+            return redirect(reverse('adminapp:list_freezing_entry_tenant'))
+    else:
+        form = FreezingEntryTenantForm(instance=entry)
+        formset = FreezingEntryTenantItemFormSet(instance=entry)
+    return render(request, 'adminapp/tenant/update.html', {'form': form, 'formset': formset})
+
+def tenant_freezing_delete(request, pk):
+    entry = get_object_or_404(FreezingEntryTenant, pk=pk)
+    if request.method == "POST":
+        entry.delete()
+        return redirect('adminapp:list_freezing_entry_tenant')
+    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+def tenant_freezing_detail_pdf(request, pk):
+    """
+    Generate PDF for FreezingEntryTenant detail view
+    """
+    # Get the FreezingEntryTenant object
+    entry = get_object_or_404(FreezingEntryTenant, pk=pk)
+    
+    # Get the PDF template
+    template = get_template('adminapp/tenant/detail_pdf.html')
+    
+    # Context data for the template
+    context = {
+        'entry': entry,
+        'items': entry.items.all(),
+        'company_name': 'Your Company Name',  # Add your company name
+        'company_address': 'Your Company Address',  # Add your company address
+        'phone': 'Your Phone Number',  # Add your phone number
+        'email': 'your-email@company.com',  # Add your email
+    }
+    
+    # Render the template with context
+    html = template.render(context)
+    
+    # Create a BytesIO buffer to receive PDF data
+    buffer = io.BytesIO()
+    
+    # Generate PDF
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), buffer)
+    
+    if not pdf.err:
+        # PDF generation successful
+        buffer.seek(0)
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="freezing_entry_{entry.voucher_number}.pdf"'
+        buffer.close()
+        return response
+    else:
+        # PDF generation failed
+        return HttpResponse("Error generating PDF", status=500)
+
+
+
+
+
+
+
+
+
+
+
+
+# return_tenant views
+@transaction.atomic
+def return_tenant_create(request):
+    if request.method == "POST":
+        form = ReturnTenantForm(request.POST)
+        formset = ReturnTenantItemFormSet(request.POST)
+        
+        print("=== DEBUG FORMSET DATA ===")
+        print(f"POST data keys: {list(request.POST.keys())}")
+        print(f"Formset is_valid: {formset.is_valid()}")
+        print(f"Form is_valid: {form.is_valid()}")
+        print(f"Formset total forms: {formset.total_form_count()}")
+        print(f"Formset errors: {formset.errors}")
+        print(f"Formset non_form_errors: {formset.non_form_errors()}")
+        
+        if form.is_valid() and formset.is_valid():
+            # Save the main entry first
+            entry = form.save()
+            print(f"Main entry saved with ID: {entry.id}")
+            
+            # Set the instance and save the formset
+            formset.instance = entry
+            saved_items = formset.save()
+            print(f"Saved {len(saved_items)} items from formset")
+            
+            # Debug: Check what was actually saved
+            for i, item in enumerate(saved_items):
+                print(f"Item {i+1}: {item.item} - Slab: {item.slab_quantity} - CS: {item.c_s_quantity} - KG: {item.kg}")
+
+            total_amount = Decimal("0.00")
+
+            # Process each saved item for additional logic
+            for item in saved_items:
+                # Auto-link to stock lot if not already linked
+                if not item.original_item:
+                    original = FreezingEntryTenantItem.objects.filter(
+                        item=item.item,
+                        store=item.store,
+                        freezing_entry__tenant_company_name=entry.tenant_company_name,
+                        species=item.species,
+                        grade=item.grade
+                    ).order_by('-freezing_entry__freezing_date', '-id').first()
+                    if original:
+                        item.original_item = original
+                        item.save()
+
+                # Calculate amount based on tariff
+                try:
+                    tariff_obj = TenantFreezingTariff.objects.get(
+                        tenant=entry.tenant_company_name,
+                        category=item.freezing_category
+                    )
+                    tariff = Decimal(str(tariff_obj.tariff or 0))
+                except TenantFreezingTariff.DoesNotExist:
+                    tariff = Decimal("0.00")
+
+                if item.kg:
+                    total_amount += Decimal(str(item.kg)) * tariff
+
+            # Update totals
+            totals = entry.items.aggregate(
+                total_slab_sum=Sum('slab_quantity'),
+                total_c_s_sum=Sum('c_s_quantity'),
+                total_kg_sum=Sum('kg'),
+            )
+            entry.total_slab = totals['total_slab_sum'] or 0
+            entry.total_c_s = totals['total_c_s_sum'] or 0
+            entry.total_kg = totals['total_kg_sum'] or 0
+            entry.total_amount = total_amount
+            entry.save()
+            
+            print(f"Updated totals - Slab: {entry.total_slab}, CS: {entry.total_c_s}, KG: {entry.total_kg}")
+
+            messages.success(request, f'Return entry {entry.voucher_number} created successfully with {len(saved_items)} items!')
+            return redirect(reverse('adminapp:list_return_tenant'))
+        else:
+            # Debug form and formset errors
+            print("=== VALIDATION ERRORS ===")
+            if not form.is_valid():
+                print(f"Form errors: {form.errors}")
+                messages.error(request, f'Form errors: {form.errors}')
+            if not formset.is_valid():
+                print(f"Formset errors: {formset.errors}")
+                print(f"Formset non-form errors: {formset.non_form_errors()}")
+                messages.error(request, f'Formset errors: {formset.errors}')
+                
+                # Debug individual form errors
+                for i, form_instance in enumerate(formset):
+                    if form_instance.errors:
+                        print(f"Form {i} errors: {form_instance.errors}")
+                        print(f"Form {i} cleaned_data: {form_instance.cleaned_data if form_instance.is_valid() else 'Invalid'}")
+                
+    else:
+        form = ReturnTenantForm()
+        formset = ReturnTenantItemFormSet()
+        
+    return render(request, 'adminapp/ReturnTenant/create.html', {
+        'form': form,
+        'formset': formset,
+    })
+
+def get_tenant_tariff(request):
+    """
+    Get tariff rate for a specific tenant and freezing category combination
+    """
+    tenant_id = request.GET.get('tenant_id')
+    freezing_category_id = request.GET.get('freezing_category_id')
+    
+    if not tenant_id or not freezing_category_id:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Both tenant_id and freezing_category_id are required',
+            'tariff': 0
+        })
+    
+    try:
+        tariff_obj = TenantFreezingTariff.objects.get(
+            tenant_id=tenant_id,
+            category_id=freezing_category_id
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'tariff': float(tariff_obj.tariff or 0),
+            'tenant_name': str(tariff_obj.tenant),
+            'category_name': str(tariff_obj.category)
+        })
+        
+    except TenantFreezingTariff.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'No tariff found for this tenant and freezing category combination',
+            'tariff': 0
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'tariff': 0
+        })
+
+def get_tenant_companies(request):
+    """
+    Fixed: Get tenant companies properly
+    """
+    try:
+        # Get unique tenant companies from FreezingEntryTenant
+        # Assuming FreezingEntryTenant has a foreign key to TenantCompany
+        tenants = (
+            FreezingEntryTenant.objects
+            .values('tenant_company_name__id', 'tenant_company_name__company_name')
+            .distinct()
+            .order_by('tenant_company_name__company_name')
+        )
+        
+        data = [{"id": t['tenant_company_name__id'], "name": t['tenant_company_name__company_name']} 
+                for t in tenants if t['tenant_company_name__id'] is not None]
+        
+        return JsonResponse({"tenants": data})
+    
+    except Exception as e:
+        print(f"Error in get_tenant_companies: {str(e)}")
+        # Fallback: Get all tenant companies
+        try:
+            all_tenants = FreezingEntryTenant.objects.all().order_by('company_name')
+            data = [{"id": t.id, "name": t.company_name} for t in all_tenants]
+            return JsonResponse({"tenants": data})
+        except Exception as e2:
+            print(f"Fallback error in get_tenant_companies: {str(e2)}")
+            return JsonResponse({"tenants": []})
+
+def calculate_return_total_amount(request):
+    """
+    Calculate total amount based on current form data
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'})
+    
+    try:
+        tenant_id = request.POST.get('tenant_id')
+        items_data = []
+        
+        # Parse formset data
+        form_count = int(request.POST.get('form-TOTAL_FORMS', 0))
+        
+        for i in range(form_count):
+            # Skip deleted forms
+            if request.POST.get(f'form-{i}-DELETE'):
+                continue
+                
+            freezing_category_id = request.POST.get(f'form-{i}-freezing_category')
+            kg_weight = request.POST.get(f'form-{i}-kg')
+            
+            if freezing_category_id and kg_weight:
+                try:
+                    kg_weight = Decimal(str(kg_weight))
+                    if kg_weight > 0:
+                        items_data.append({
+                            'freezing_category_id': freezing_category_id,
+                            'kg': kg_weight
+                        })
+                except (ValueError, TypeError):
+                    continue
+        
+        if not tenant_id or not items_data:
+            return JsonResponse({
+                'success': True,
+                'total_amount': 0.00,
+                'item_amounts': []
+            })
+        
+        total_amount = Decimal('0.00')
+        item_amounts = []
+        
+        # Calculate amount for each item
+        for item_data in items_data:
+            try:
+                tariff_obj = TenantFreezingTariff.objects.get(
+                    tenant_id=tenant_id,
+                    category_id=item_data['freezing_category_id']
+                )
+                tariff = Decimal(str(tariff_obj.tariff or 0))
+                item_amount = item_data['kg'] * tariff
+                total_amount += item_amount
+                
+                item_amounts.append({
+                    'freezing_category_id': item_data['freezing_category_id'],
+                    'kg': float(item_data['kg']),
+                    'tariff': float(tariff),
+                    'amount': float(item_amount)
+                })
+                
+            except TenantFreezingTariff.DoesNotExist:
+                # No tariff found - contribute 0 to total
+                item_amounts.append({
+                    'freezing_category_id': item_data['freezing_category_id'],
+                    'kg': float(item_data['kg']),
+                    'tariff': 0,
+                    'amount': 0,
+                    'error': 'No tariff found'
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'total_amount': float(total_amount),
+            'item_amounts': item_amounts,
+            'item_count': len(items_data)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'total_amount': 0
+        })
+
+def get_tenant_original_items(request):
+    """
+    AJAX view to get original items filtered by tenant company
+    """
+    tenant_id = request.GET.get('tenant_id')
+    item_id = request.GET.get('item_id')  # For getting specific item details
+    
+    if not tenant_id and not item_id:
+        return JsonResponse({'success': False, 'error': 'No tenant ID or item ID provided'})
+    
+    try:
+        # If item_id is provided, return specific item details
+        if item_id:
+            try:
+                item = FreezingEntryTenantItem.objects.select_related(
+                    'item', 'species', 'grade', 'unit', 'freezing_category', 
+                    'store', 'item_quality', 'glaze', 'brand', 'processing_center'
+                ).get(id=item_id)
+                
+                return JsonResponse({
+                    'success': True,
+                    'item_name': str(item.item) if item.item else '',
+                    'full_description': f"{item.item} - {item.species} - {item.grade}" if all([item.item, item.species, item.grade]) else str(item.item),
+                    'item': item.item.id if item.item else None,
+                    'store': item.store.id if item.store else None,
+                    'item_quality': item.item_quality.id if item.item_quality else None,
+                    'unit': item.unit.id if item.unit else None,
+                    'species': item.species.id if item.species else None,
+                    'grade': item.grade.id if item.grade else None,
+                    'glaze': item.glaze.id if item.glaze else None,
+                    'freezing_category': item.freezing_category.id if item.freezing_category else None,
+                    'brand': item.brand.id if item.brand else None,
+                    'processing_center': item.processing_center.id if item.processing_center else None,
+                    'slab_quantity': float(item.slab_quantity) if item.slab_quantity else 0,
+                    'kg': float(item.kg) if item.kg else 0,
+                })
+            except FreezingEntryTenantItem.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Item not found'})
+        
+        # Get tenant and filter original items
+        try:
+            # Get the tenant by ID
+            from django.shortcuts import get_object_or_404
+            tenant = get_object_or_404(Tenant, id=tenant_id)
+        except:
+            return JsonResponse({'success': False, 'error': 'Tenant not found'})
+        
+        # Filter original items by the selected tenant company
+        original_items = FreezingEntryTenantItem.objects.filter(
+            freezing_entry__tenant_company_name=tenant  # This filters by the tenant object
+        ).select_related(
+            'item', 'species', 'grade', 'unit', 'freezing_category',
+            'freezing_entry'  # Added to access freezing_entry data
+        ).order_by('-freezing_entry__freezing_date', '-id').distinct()
+        
+        items_data = []
+        for item in original_items:
+            # Create a descriptive display name for each item
+            display_parts = []
+            
+            if item.item:
+                display_parts.append(str(item.item))
+            if item.species:
+                display_parts.append(str(item.species))
+            if item.grade:
+                display_parts.append(str(item.grade))
+            if item.unit:
+                display_parts.append(f"({item.unit})")
+            
+            # Add quantities for reference
+            quantities = []
+            if item.slab_quantity:
+                quantities.append(f"Slab: {item.slab_quantity}")
+            if item.kg:
+                quantities.append(f"KG: {item.kg}")
+            
+            if quantities:
+                display_parts.append(f"[{', '.join(quantities)}]")
+            
+            # Add voucher number for better identification
+            if item.freezing_entry and item.freezing_entry.voucher_number:
+                display_parts.append(f"(Voucher: {item.freezing_entry.voucher_number})")
+            
+            display_name = " - ".join(display_parts) if display_parts else f"Item #{item.id}"
+            
+            items_data.append({
+                'id': item.id,
+                'display_name': display_name,
+                'item_id': item.item.id if item.item else None,
+                'item_name': str(item.item) if item.item else '',
+                'species_name': str(item.species) if item.species else '',
+                'grade_name': str(item.grade) if item.grade else '',
+                'slab_quantity': float(item.slab_quantity) if item.slab_quantity else 0,
+                'kg': float(item.kg) if item.kg else 0,
+                'voucher_number': item.freezing_entry.voucher_number if item.freezing_entry else '',
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'items': items_data,
+            'tenant_name': tenant.company_name,
+            'count': len(items_data)
+        })
+        
+    except Exception as e:
+        print(f"Error in get_tenant_original_items: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@transaction.atomic
+def return_tenant_update(request, pk):
+    entry = get_object_or_404(ReturnTenant, pk=pk)
+    if request.method == "POST":
+        form = ReturnTenantForm(request.POST, instance=entry)
+        formset = ReturnTenantItemFormSet(request.POST, instance=entry)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+
+            totals = entry.items.aggregate(
+                total_slab_sum=Sum('slab_quantity'),
+                total_c_s_sum=Sum('c_s_quantity'),
+                total_kg_sum=Sum('kg'),
+            )
+            entry.total_slab = totals['total_slab_sum'] or 0
+            entry.total_c_s = totals['total_c_s_sum'] or 0
+            entry.total_kg = totals['total_kg_sum'] or 0
+            entry.total_amount = 0
+            entry.save()
+
+            return redirect(reverse('adminapp:list_return_tenant'))
+    else:
+        form = ReturnTenantForm(instance=entry)
+        formset = ReturnTenantItemFormSet(instance=entry)
+    return render(request, 'adminapp/ReturnTenant/update.html', {'form': form, 'formset': formset})
+
+def return_tenant_delete(request, pk):
+    entry = get_object_or_404(ReturnTenant, pk=pk)
+    if request.method == "POST":
+        entry.delete()
+        return redirect('adminapp:list_return_tenant')
+    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+def return_tenant_list(request):
+    entries = ReturnTenant.objects.all().order_by('-return_date')
+    return render(request, 'adminapp/ReturnTenant/list.html', {'entries': entries})
+
+def generate_return_tenant_pdf(request, pk):
+    """
+    Generate PDF for ReturnTenant detail view
+    """
+    # Get the ReturnTenant object
+    entry = get_object_or_404(ReturnTenant, pk=pk)
+    
+    # Get the PDF template
+    template = get_template('adminapp/ReturnTenant/pdf_detail.html')
+    
+    # Context data for the template
+    context = {
+        'entry': entry,
+        'items': entry.items.all(),
+        'company_name': 'Your Company Name',  # Add your company name
+        'company_address': 'Your Company Address',  # Add your company address
+        'phone': 'Your Phone Number',  # Add your phone number
+        'email': 'your-email@company.com',  # Add your email
+    }
+    
+    # Render the template with context
+    html = template.render(context)
+    
+    # Create a BytesIO buffer to receive PDF data
+    buffer = io.BytesIO()
+    
+    # Generate PDF
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), buffer)
+    
+    if not pdf.err:
+        # PDF generation successful
+        buffer.seek(0)
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="return_tenant_{entry.voucher_number}.pdf"'
+        buffer.close()
+        return response
+    else:
+        # PDF generation failed
+        return HttpResponse("Error generating PDF", status=500)
+
+def return_tenant_detail(request, pk):
+    """
+    Updated detail view with PDF generation option
+    """
+    entry = get_object_or_404(ReturnTenant, pk=pk)
+    
+    # Check if PDF generation is requested
+    if request.GET.get('format') == 'pdf':
+        return generate_return_tenant_pdf(request, pk)
+    
+    return render(request, 'adminapp/ReturnTenant/detail.html', {'entry': entry})
+
+
+
+
+# # Tenant Stock Balance Views
+def tenant_stock_balance(request):
+    """
+    Calculate current stock balance for all tenants
+    """
+    from django.db.models import Sum
+    from collections import defaultdict
+    
+    # Get all freezing entries (INBOUND stock)
+    freezing_data = FreezingEntryTenantItem.objects.select_related(
+        'freezing_entry__tenant_company_name', 'item', 'species', 'grade', 'store'
+    ).values(
+        'freezing_entry__tenant_company_name__company_name',
+        'freezing_entry__tenant_company_name__id',
+        'item__name',
+        'species__name',
+        'grade__grade',
+        'store__name'
+    ).annotate(
+        total_slab_in=Sum('slab_quantity'),
+        total_cs_in=Sum('c_s_quantity'),
+        total_kg_in=Sum('kg')
+    )
+    
+    # Get all return entries (OUTBOUND stock)
+    return_data = ReturnTenantItem.objects.select_related(
+        'return_entry__tenant_company_name', 'item', 'species', 'grade', 'store'
+    ).values(
+        'return_entry__tenant_company_name__company_name',
+        'return_entry__tenant_company_name__id',
+        'item__name',
+        'species__name',
+        'grade__grade',
+        'store__name'
+    ).annotate(
+        total_slab_out=Sum('slab_quantity'),
+        total_cs_out=Sum('c_s_quantity'),
+        total_kg_out=Sum('kg')
+    )
+    
+    # Calculate balance for each tenant-item combination
+    balance_data = defaultdict(lambda: {
+        'slab_in': 0, 'cs_in': 0, 'kg_in': 0,
+        'slab_out': 0, 'cs_out': 0, 'kg_out': 0,
+        'slab_balance': 0, 'cs_balance': 0, 'kg_balance': 0
+    })
+    
+    # Process inbound data
+    for entry in freezing_data:
+        key = (
+            entry['freezing_entry__tenant_company_name__id'],
+            entry['freezing_entry__tenant_company_name__company_name'],
+            entry['item__name'],
+            entry['species__name'],
+            entry['grade__grade'],
+            entry['store__name']
+        )
+        balance_data[key]['slab_in'] = entry['total_slab_in'] or 0
+        balance_data[key]['cs_in'] = entry['total_cs_in'] or 0
+        balance_data[key]['kg_in'] = entry['total_kg_in'] or 0
+    
+    # Process outbound data
+    for entry in return_data:
+        key = (
+            entry['return_entry__tenant_company_name__id'],
+            entry['return_entry__tenant_company_name__company_name'],
+            entry['item__name'],
+            entry['species__name'],
+            entry['grade__grade'],
+            entry['store__name']
+        )
+        balance_data[key]['slab_out'] = entry['total_slab_out'] or 0
+        balance_data[key]['cs_out'] = entry['total_cs_out'] or 0
+        balance_data[key]['kg_out'] = entry['total_kg_out'] or 0
+    
+    # Calculate final balances
+    stock_balance = []
+    for key, data in balance_data.items():
+        tenant_id, tenant_name, item_name, species, grade, store = key
+        
+        slab_balance = data['slab_in'] - data['slab_out']
+        cs_balance = data['cs_in'] - data['cs_out']
+        kg_balance = data['kg_in'] - data['kg_out']
+        
+        # Only show items with remaining stock
+        if slab_balance > 0 or cs_balance > 0 or kg_balance > 0:
+            stock_balance.append({
+                'tenant_id': tenant_id,
+                'tenant_name': tenant_name,
+                'item_name': item_name,
+                'species': species,
+                'grade': grade,
+                'store': store,
+                'slab_in': data['slab_in'],
+                'cs_in': data['cs_in'], 
+                'kg_in': data['kg_in'],
+                'slab_out': data['slab_out'],
+                'cs_out': data['cs_out'],
+                'kg_out': data['kg_out'],
+                'slab_balance': slab_balance,
+                'cs_balance': cs_balance,
+                'kg_balance': kg_balance,
+            })
+    
+    # Sort by tenant name, then item name
+    stock_balance.sort(key=lambda x: (x['tenant_name'], x['item_name']))
+    
+    context = {
+        'stock_balance': stock_balance,
+        'total_items': len(stock_balance)
+    }
+    return render(request, 'adminapp/TenantStock/balance.html', context)
+
+def tenant_stock_detail(request, tenant_id):
+    """
+    Detailed stock view for a specific tenant
+    """
+    try:
+        # Get the actual Tenant object, not ReturnTenant
+        tenant = Tenant.objects.get(id=tenant_id)
+    except Tenant.DoesNotExist:
+        messages.error(request, 'Tenant not found.')
+        return redirect('adminapp:tenant_stock_balance')
+    
+    # Get detailed freezing entries for this tenant
+    freezing_entries = FreezingEntryTenantItem.objects.filter(
+        freezing_entry__tenant_company_name=tenant
+    ).select_related(
+        'freezing_entry', 'item', 'species', 'grade', 'store', 'unit'
+    ).order_by('-freezing_entry__freezing_date')
+    
+    # Get detailed return entries for this tenant
+    return_entries = ReturnTenantItem.objects.filter(
+        return_entry__tenant_company_name=tenant
+    ).select_related(
+        'return_entry', 'item', 'species', 'grade', 'store', 'unit'
+    ).order_by('-return_entry__return_date')
+    
+    # Calculate totals
+    freezing_totals = freezing_entries.aggregate(
+        total_slab=Sum('slab_quantity'),
+        total_cs=Sum('c_s_quantity'),
+        total_kg=Sum('kg')
+    )
+    
+    return_totals = return_entries.aggregate(
+        total_slab=Sum('slab_quantity'),
+        total_cs=Sum('c_s_quantity'), 
+        total_kg=Sum('kg')
+    )
+    
+    balance_totals = {
+        'slab_balance': (freezing_totals['total_slab'] or 0) - (return_totals['total_slab'] or 0),
+        'cs_balance': (freezing_totals['total_cs'] or 0) - (return_totals['total_cs'] or 0),
+        'kg_balance': (freezing_totals['total_kg'] or 0) - (return_totals['total_kg'] or 0),
+    }
+    
+    context = {
+        'tenant': tenant,
+        'freezing_entries': freezing_entries,
+        'return_entries': return_entries,
+        'freezing_totals': freezing_totals,
+        'return_totals': return_totals,
+        'balance_totals': balance_totals,
+    }
+    return render(request, 'adminapp/TenantStock/detail.html', context)
+
+def tenant_stock_summary(request):
+    """
+    Summary view showing total stock per tenant
+    """
+    tenants = Tenant.objects.all()  # Get all tenants, not ReturnTenant objects
+    tenant_summary = []
+    
+    for tenant in tenants:
+        # Calculate totals for this tenant
+        freezing_totals = FreezingEntryTenantItem.objects.filter(
+            freezing_entry__tenant_company_name=tenant
+        ).aggregate(
+            total_slab=Sum('slab_quantity'),
+            total_cs=Sum('c_s_quantity'),
+            total_kg=Sum('kg')
+        )
+        
+        return_totals = ReturnTenantItem.objects.filter(
+            return_entry__tenant_company_name=tenant  # Fixed: return_entry instead of return_tenant
+        ).aggregate(
+            total_slab=Sum('slab_quantity'),
+            total_cs=Sum('c_s_quantity'),
+            total_kg=Sum('kg')
+        )
+        
+        slab_balance = (freezing_totals['total_slab'] or 0) - (return_totals['total_slab'] or 0)
+        cs_balance = (freezing_totals['total_cs'] or 0) - (return_totals['total_cs'] or 0)
+        kg_balance = (freezing_totals['total_kg'] or 0) - (return_totals['total_kg'] or 0)
+        
+        # Count unique items
+        item_count = FreezingEntryTenantItem.objects.filter(
+            freezing_entry__tenant_company_name=tenant
+        ).values('item', 'species', 'grade').distinct().count()
+        
+        tenant_summary.append({
+            'tenant': tenant,
+            'freezing_totals': freezing_totals,
+            'return_totals': return_totals,
+            'slab_balance': slab_balance,
+            'cs_balance': cs_balance,
+            'kg_balance': kg_balance,
+            'item_count': item_count,
+            'has_stock': slab_balance > 0 or cs_balance > 0 or kg_balance > 0
+        })
+    
+    context = {
+        'tenant_summary': tenant_summary,
+    }
+    return render(request, 'adminapp/TenantStock/summary.html', context)
+
+
+
+
+
+
+
+def create_tenant_bill(tenant, from_date, to_date):
+    """
+    Create a TenantBill and items from freezing entries between from_date and to_date.
+    Calculation is tariff × kg (not per-day).
+    Returns the created or existing bill, or None if nothing to bill.
+    """
+    # avoid duplicates for exact period
+    existing = TenantBill.objects.filter(
+        tenant=tenant, from_date=from_date, to_date=to_date
+    ).first()
+    if existing:
+        logger.info(f"Bill already exists for {tenant} {from_date} to {to_date}")
+        return existing
+
+    entries = FreezingEntryTenant.objects.filter(
+        tenant_company_name=tenant,
+        freezing_date__gte=from_date,
+        freezing_date__lte=to_date,
+        freezing_status="complete",
+    ).prefetch_related("items")
+
+    if not entries.exists():
+        logger.info(f"No freezing entries for {tenant} between {from_date} and {to_date}")
+        return None
+
+    bill = TenantBill.objects.create(
+        tenant=tenant,
+        from_date=from_date,
+        to_date=to_date,
+    )
+
+    totals = {"amount": Decimal("0.00"), "slabs": 0, "cs": 0, "kg": Decimal("0.00")}
+    items_created = 0
+
+    for entry in entries:
+        for item in entry.items.all():
+            try:
+                tariff_obj = TenantFreezingTariff.objects.get(
+                    tenant=tenant, category=item.freezing_category
+                )
+                tariff = Decimal(str(tariff_obj.tariff))
+            except TenantFreezingTariff.DoesNotExist:
+                logger.warning(f"No tariff for {tenant} - {item.freezing_category}; using 0.00")
+                tariff = Decimal("0.00")
+
+            # quantity
+            kg_quantity = Decimal(str(getattr(item, "kg", 0)))
+
+            # ✅ only tariff × kg
+            line_total = tariff * kg_quantity
+
+            TenantBillItem.objects.create(
+                bill=bill,
+                freezing_entry=entry,
+                freezing_entry_item=item,
+                slab_quantity=getattr(item, "slab_quantity", 0),
+                c_s_quantity=getattr(item, "c_s_quantity", 0),
+                kg_quantity=kg_quantity,
+                days_stored=0,             # optional placeholder
+                tariff_per_day=tariff,     # actually "tariff", no per-day calc
+                line_total=line_total,
+            )
+
+            totals["amount"] += line_total
+            totals["slabs"] += getattr(item, "slab_quantity", 0) or 0
+            totals["cs"] += getattr(item, "c_s_quantity", 0) or 0
+            totals["kg"] += kg_quantity
+            items_created += 1
+
+    # update totals on bill
+    bill.total_amount = totals["amount"]
+    bill.total_slabs = totals["slabs"]
+    bill.total_c_s = totals["cs"]
+    bill.total_kg = totals["kg"]
+    bill.save()
+
+    logger.info(f"Created bill {bill.pk} ({items_created} items) for tenant {tenant}")
+    return bill
+
+def auto_generate_bills():
+    """
+    Generate bills for all TenantBillingConfiguration entries that are due.
+    Returns (generated_bills_list, errors_list)
+    """
+    today = timezone.now().date()
+    configs_due = TenantBillingConfiguration.objects.filter(is_active=True, next_bill_date__lte=today)
+    generated = []
+    errors = []
+
+    for config in configs_due:
+        try:
+            from_date = (config.last_bill_generated_date + timedelta(days=1)) if config.last_bill_generated_date else config.billing_start_date
+            to_date = today
+
+            if from_date > to_date:
+                logger.warning(f"Skipping {config.tenant}: from_date {from_date} > to_date {to_date}")
+                continue
+
+            bill = create_tenant_bill(config.tenant, from_date, to_date)
+            if bill:
+                generated.append(bill)
+                # update config
+                config.last_bill_generated_date = to_date
+                config.next_bill_date = to_date + timedelta(days=config.billing_frequency_days)
+                config.save()
+        except Exception as e:
+            logger.exception(f"Auto billing error for {config.tenant}: {e}")
+            errors.append(f"{config.tenant}: {str(e)}")
+
+    return generated, errors
+
+def generate_manual_bill(request):
+    """Form to generate bill for chosen tenant and date range"""
+    if request.method == 'POST':
+        form = BillGenerationForm(request.POST)
+        if form.is_valid():
+            tenant = form.cleaned_data['tenant']
+            from_date = form.cleaned_data['from_date']
+            to_date = form.cleaned_data['to_date']
+
+            bill = create_tenant_bill(tenant, from_date, to_date)
+            if bill:
+                messages.success(request, f"Bill {getattr(bill, 'bill_number', bill.id)} created successfully.")
+                return redirect('adminapp:view_bill', bill_id=bill.id)
+            else:
+                messages.warning(request, "No freezing entries found for selected period.")
+    else:
+        tenant_id = request.GET.get("tenant_id")
+        initial = {}
+        if tenant_id:
+            from adminapp.models import TenantBill  # adjust if different app name
+            try:
+                last_bill = TenantBill.objects.filter(tenant_id=tenant_id).order_by('-to_date').first()
+                if last_bill:
+                    # Set next start date = last bill end date + 1 day
+                    initial['from_date'] = last_bill.to_date + timedelta(days=1)
+            except TenantBill.DoesNotExist:
+                pass
+
+        form = BillGenerationForm(initial=initial)
+
+    return render(request, 'adminapp/billing/generate_manual_bill.html', {'form': form})
+
+def run_auto_billing(request):
+    """
+    Trigger auto billing manually.
+    If POST contains config_id -> generate only for that config.
+    Otherwise generate for all due configs.
+    """
+    if request.method == 'POST':
+        config_id = request.POST.get('config_id')
+        if config_id:
+            config = get_object_or_404(TenantBillingConfiguration, id=config_id)
+            today = timezone.now().date()
+            from_date = (config.last_bill_generated_date + timedelta(days=1)) if config.last_bill_generated_date else config.billing_start_date
+            bill = create_tenant_bill(config.tenant, from_date, today)
+            if bill:
+                config.last_bill_generated_date = today
+                config.next_bill_date = today + timedelta(days=config.billing_frequency_days)
+                config.save()
+                messages.success(request, f"Generated bill {getattr(bill, 'bill_number', bill.id)} for {config.tenant}")
+            else:
+                messages.warning(request, f"No freezing entries found for {config.tenant}")
+        else:
+            bills, errors = auto_generate_bills()
+            if bills:
+                messages.success(request, f"Generated {len(bills)} bills.")
+            else:
+                messages.info(request, "No bills generated. No due configurations found.")
+            for e in errors:
+                messages.error(request, e)
+    return redirect('adminapp:billing_config_list')
+
+def view_bill(request, bill_id):
+    bill = get_object_or_404(TenantBill, id=bill_id)
+    items = bill.items.select_related('freezing_entry', 'freezing_entry_item').all()
+    return render(request, 'adminapp/billing/view_bill.html', {'bill': bill, 'items': items})
+
+def bill_list(request):
+    bills = TenantBill.objects.select_related('tenant').order_by('-created_at')
+    return render(request, 'adminapp/billing/bill_list.html', {'bills': bills})
+
+def update_bill_status(request, bill_id):
+    if request.method == 'POST':
+        bill = get_object_or_404(TenantBill, id=bill_id)
+        new_status = request.POST.get('status')
+        if new_status in dict(TenantBill.BILL_STATUS_CHOICES):
+            bill.status = new_status
+            bill.save()
+            messages.success(request, f"Bill {bill.bill_number} status updated to {new_status}")
+    return redirect('adminapp:view_bill', bill_id=bill_id)
+
+def delete_bill(request, bill_id):
+    bill = get_object_or_404(TenantBill, id=bill_id)
+    if request.method == 'POST':
+        if bill.status == 'paid':
+            messages.error(request, 'Cannot delete a paid bill.')
+            return redirect('adminapp:view_bill', bill_id=bill.id)
+        bill_number = bill.bill_number
+        bill.delete()
+        messages.success(request, f'Bill {bill_number} deleted successfully.')
+        return redirect('adminapp:bill_list')
+    # GET -> confirmation page
+    return render(request, 'adminapp/billing/confirm_delete.html', {'bill': bill, 'bill_items_count': bill.items.count()})
+
+def delete_bill_ajax(request, bill_id):
+    if request.method == 'POST':
+        bill = get_object_or_404(TenantBill, id=bill_id)
+        if bill.status == 'paid':
+            return JsonResponse({'success': False, 'message': 'Cannot delete paid bill'}, status=400)
+        bill.delete()
+        return JsonResponse({'success': True, 'message': 'Bill deleted'})
+    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=405)
+
+def billing_config_list(request):
+    configs = TenantBillingConfiguration.objects.select_related('tenant').all()
+    today = timezone.now().date()
+    return render(request, 'adminapp/billing/config_list.html', {'configs': configs, 'today': today})
+
+def setup_billing_configuration(request):
+    if request.method == 'POST':
+        form = TenantBillingConfigurationForm(request.POST)
+        if form.is_valid():
+            config = form.save()
+            messages.success(request, f'Billing configuration created for {config.tenant}')
+            return redirect('adminapp:billing_config_list')
+    else:
+        form = TenantBillingConfigurationForm()
+    return render(request, 'adminapp/billing/setup_config.html', {'form': form})
+
+def debug_billing_status(request):
+    today = timezone.now().date()
+    all_configs = TenantBillingConfiguration.objects.select_related('tenant').all()
+    configs_due = TenantBillingConfiguration.objects.filter(is_active=True, next_bill_date__lte=today)
+
+    debug_data = {
+        'system_status': {
+            'current_date': str(today),
+            'total_configs': all_configs.count(),
+            'active_configs': all_configs.filter(is_active=True).count(),
+            'configs_due': configs_due.count(),
+        },
+        'configurations': []
+    }
+
+    for config in all_configs:
+        from_date = (config.last_bill_generated_date + timedelta(days=1)) if config.last_bill_generated_date else config.billing_start_date
+        freezing_count = FreezingEntryTenant.objects.filter(
+            tenant_company_name=config.tenant,
+            freezing_date__range=(from_date, today),
+            freezing_status='complete'
+        ).count()
+        debug_data['configurations'].append({
+            'tenant': config.tenant.company_name,
+            'is_active': config.is_active,
+            'billing_start_date': str(config.billing_start_date),
+            'billing_frequency_days': config.billing_frequency_days,
+            'last_bill_generated_date': str(config.last_bill_generated_date) if config.last_bill_generated_date else None,
+            'next_bill_date': str(config.next_bill_date),
+            'is_due': config.is_active and config.next_bill_date <= today,
+            'calculated_from_date': str(from_date),
+            'freezing_entries_available': freezing_count,
+        })
+
+    if request.GET.get('format') == 'json':
+        return JsonResponse(debug_data, indent=2)
+
+    # simple HTML fallback
+    html = ["<h2>Billing Debug Info</h2>"]
+    html.append(f"<p>Today: {today}</p>")
+    html.append(f"<p>Total Configs: {debug_data['system_status']['total_configs']}</p>")
+    html.append(f"<p>Active Configs: {debug_data['system_status']['active_configs']}</p>")
+    html.append(f"<p>Due Configs: {debug_data['system_status']['configs_due']}</p>")
+    html.append("<hr><ul>")
+    for c in debug_data['configurations']:
+        html.append(f"<li>{c['tenant']} → Active: {c['is_active']}, Due: {c['is_due']}, Next: {c['next_bill_date']}, Entries: {c['freezing_entries_available']}</li>")
+    html.append("</ul>")
+    return HttpResponse(''.join(html))
+
+def delete_billing_configuration(request, pk):
+    config = get_object_or_404(TenantBillingConfiguration, pk=pk)
+    if request.method == 'POST':
+        tenant_name = config.tenant.company_name
+        config.delete()
+        messages.success(request, f'Billing configuration for {tenant_name} deleted successfully.')
+        return redirect('adminapp:billing_config_list')
+    return render(request, 'adminapp/billing/delete_confirm.html', {'config': config})
+
+def get_last_bill_date(request):
+    tenant_id = request.GET.get("tenant_id")
+    if not tenant_id:
+        return JsonResponse({"success": False, "error": "No tenant_id given"})
+
+    last_bill = TenantBill.objects.filter(tenant_id=tenant_id).order_by('-to_date').first()
+    if last_bill:
+        next_from_date = last_bill.to_date + timedelta(days=1)
+        return JsonResponse({
+            "success": True,
+            "last_to_date": last_bill.to_date,
+            "next_from_date": next_from_date
+        })
+    return JsonResponse({"success": False, "error": "No bills found"})
+
+def render_to_pdf(template_src, context_dict={}):
+    """
+    Utility function to render a template to PDF using xhtml2pdf.
+    """
+    template = get_template(template_src)
+    html = template.render(context_dict)
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="bill.pdf"'
+    pisa.CreatePDF(html, dest=response)
+    return response
+
+def bill_pdf(request, bill_id):
+    """
+    Generate PDF for a TenantBill with grouped categories and qualities.
+    """
+    bill = get_object_or_404(TenantBill, id=bill_id)
+
+    # Use the correct related_name from your TenantBillItem model (likely "items")
+    items = bill.items.select_related("freezing_entry_item").all()
+
+    categories_dict = defaultdict(lambda: {
+        "name": None,
+        "number": 0,
+        "qualities": defaultdict(lambda: {
+            "kg_quantity": Decimal("0"),
+            "line_total": Decimal("0"),
+            "tariff_per_day": Decimal("0"),
+            "count": 0,
+        }),
+        "total_kg": Decimal("0"),
+        "total_amount": Decimal("0"),
+    })
+
+    for item in items:
+        category_obj = item.freezing_entry_item.freezing_category
+        category_name = str(category_obj) if category_obj else "Uncategorized"
+        item_quality = item.freezing_entry_item.item_quality or "N/A"
+
+        if not categories_dict[category_name]["name"]:
+            categories_dict[category_name]["name"] = category_obj or category_name
+
+        # Group by quality
+        quality_data = categories_dict[category_name]["qualities"][item_quality]
+        quality_data["kg_quantity"] += Decimal(str(item.kg_quantity))
+        quality_data["line_total"] += Decimal(str(item.line_total))
+        quality_data["count"] += 1
+
+        # Weighted avg tariff
+        if quality_data["tariff_per_day"] == Decimal("0"):
+            quality_data["tariff_per_day"] = Decimal(str(item.tariff_per_day))
+        else:
+            total_tariff = (
+                quality_data["tariff_per_day"] * (quality_data["count"] - 1)
+                + Decimal(str(item.tariff_per_day))
+            )
+            quality_data["tariff_per_day"] = total_tariff / quality_data["count"]
+
+        # Category totals
+        categories_dict[category_name]["total_kg"] += Decimal(str(item.kg_quantity))
+        categories_dict[category_name]["total_amount"] += Decimal(str(item.line_total))
+
+    # Convert to structured list for template
+    categories = []
+    category_number = 1
+    for category_name, category_data in categories_dict.items():
+        merged_items = []
+        for quality, quality_data in category_data["qualities"].items():
+            merged_items.append({
+                "freezing_entry_item": {
+                    "item_quality": quality
+                },
+                "kg_quantity": quality_data["kg_quantity"],
+                "tariff_per_day": quality_data["tariff_per_day"],
+                "line_total": quality_data["line_total"],
+            })
+
+        categories.append({
+            "number": category_number,
+            "name": category_name,  # stringified category name
+            "items": merged_items,
+            "total_kg": category_data["total_kg"],
+            "total_amount": category_data["total_amount"],
+        })
+        category_number += 1
+
+    # Sort categories by their name (string)
+    categories.sort(key=lambda x: str(x["name"]))
+
+    context = {
+        "bill": bill,
+        "categories": categories,
+        "items": items,  # keep original items for fallback rendering
+    }
+
+    return render_to_pdf("adminapp/billing/bill_pdf.html", context)
+
+    # Get the bill object
+    bill = get_object_or_404(TenantBill, id=bill_id)
+    
+    # Get all items for this bill - adjust the relationship name based on your model
+    # Common relationship names: tenantbillitem_set, bill_items, items, etc.
+    items = bill.tenantbillitem_set.all().select_related('freezing_entry_item')
+    
+    # Group items by category and then by item quality
+    categories_dict = defaultdict(lambda: {
+        'name': '',
+        'number': 0,
+        'qualities': defaultdict(lambda: {
+            'kg_quantity': Decimal('0'),
+            'line_total': Decimal('0'),
+            'tariff_per_day': Decimal('0'),
+            'count': 0
+        }),
+        'total_kg': Decimal('0'),
+        'total_amount': Decimal('0')
+    })
+    
+    # Process each item
+    for item in items:
+        category_name = item.freezing_entry_item.freezing_category
+        item_quality = item.freezing_entry_item.item_quality or "N/A"
+        
+        # Initialize category info if first time
+        if not categories_dict[category_name]['name']:
+            categories_dict[category_name]['name'] = category_name
+        
+        # Group by item quality within category
+        quality_data = categories_dict[category_name]['qualities'][item_quality]
+        quality_data['kg_quantity'] += Decimal(str(item.kg_quantity))
+        quality_data['line_total'] += Decimal(str(item.line_total))
+        quality_data['count'] += 1
+        
+        # For tariff_per_day, we'll take the average or you can modify this logic
+        if quality_data['tariff_per_day'] == Decimal('0'):
+            quality_data['tariff_per_day'] = Decimal(str(item.tariff_per_day))
+        else:
+            # Calculate weighted average of tariff_per_day
+            total_tariff = quality_data['tariff_per_day'] * (quality_data['count'] - 1) + Decimal(str(item.tariff_per_day))
+            quality_data['tariff_per_day'] = total_tariff / quality_data['count']
+        
+        # Update category totals
+        categories_dict[category_name]['total_kg'] += Decimal(str(item.kg_quantity))
+        categories_dict[category_name]['total_amount'] += Decimal(str(item.line_total))
+    
+    # Convert to structured format for template
+    categories = []
+    category_number = 1
+    
+    for category_name, category_data in categories_dict.items():
+        merged_items = []
+        
+        for quality, quality_data in category_data['qualities'].items():
+            merged_items.append({
+                'freezing_entry_item': {
+                    'item_quality': quality
+                },
+                'kg_quantity': quality_data['kg_quantity'],
+                'tariff_per_day': quality_data['tariff_per_day'],
+                'line_total': quality_data['line_total']
+            })
+        
+        categories.append({
+            'number': category_number,
+            'name': category_name,
+            'items': merged_items,
+            'total_kg': category_data['total_kg'],
+            'total_amount': category_data['total_amount']
+        })
+        category_number += 1
+    
+    # Sort categories by name for consistent output
+    categories.sort(key=lambda x: x['name'])
+    
+    context = {
+        'bill': bill,
+        'categories': categories,
+        'items': items,  # Keep original items for fallback
+    }
+    
+    return render_to_pdf('bill_template.html', context)
+
+
+
+
+
+def bill_list_by_status(request, status):
+    """Generic view to list bills by status."""
+    bills = TenantBill.objects.filter(status=status).select_related("tenant").order_by("-created_at")
+    return render(request, f"adminapp/billing/bill_list_{status}.html", {
+        "bills": bills,
+        "status": status,
+    })
+
+
+def bill_list_draft(request):
+    return bill_list_by_status(request, "draft")
+
+
+def bill_list_finalized(request):
+    return bill_list_by_status(request, "finalized")
+
+
+def bill_list_sent(request):
+    return bill_list_by_status(request, "sent")
+
+
+def bill_list_paid(request):
+    return bill_list_by_status(request, "paid")
+
+
+def bill_list_cancelled(request):
+    return bill_list_by_status(request, "cancelled")
+
+
+
+
+
+
+# views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db import transaction
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.core.paginator import Paginator
+from .models import StoreTransfer, StoreTransferItem, Stock, Store
+from .forms import StoreTransferForm, StoreTransferItemFormSet
+import json
+from decimal import Decimal
+from collections import defaultdict
+
+
+
+@transaction.atomic
+def create_store_transfer(request):
+    if request.method == "POST":
+        form = StoreTransferForm(request.POST)
+        formset = StoreTransferItemFormSet(request.POST)
+        
+        if form.is_valid() and formset.is_valid():
+            transfer = form.save()
+            
+            # Process and merge duplicate items before saving
+            merged_items = merge_duplicate_transfer_items(formset.cleaned_data)
+            
+            # Clear the original formset and create new items with merged data
+            for item_data in merged_items:
+                if item_data and not item_data.get('DELETE', False):
+                    StoreTransferItem.objects.create(
+                        transfer=transfer,
+                        stock=item_data['stock'],
+                        item_grade=item_data['item_grade'],
+                        plus_qty=item_data['plus_qty'],
+                        minus_qty=item_data['minus_qty'],
+                        cs_quantity=item_data['cs_quantity'],
+                        kg_quantity=item_data['kg_quantity']
+                    )
+            
+            messages.success(request, f'Store transfer {transfer.voucher_no} created successfully!')
+            return redirect("adminapp:store_transfer_list")
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = StoreTransferForm()
+        formset = StoreTransferItemFormSet()
+    
+    # Get available stocks for the from_store
+    stocks = Stock.objects.none()
+    if request.GET.get('from_store'):
+        stocks = Stock.objects.filter(
+            store_id=request.GET.get('from_store')
+        ).select_related('item', 'brand', 'category')
+    
+    context = {
+        "form": form, 
+        "formset": formset,
+        "stocks": stocks,
+        "stores": Store.objects.all()
+    }
+    return render(request, "adminapp/store_transfer_form.html", context)
+
+def merge_duplicate_transfer_items(formset_data):
+    """
+    Merge duplicate stock items in transfer by summing their quantities
+    """
+    merged_items = defaultdict(lambda: {
+        'cs_quantity': Decimal('0'),
+        'kg_quantity': Decimal('0'),
+        'plus_qty': Decimal('0'),
+        'minus_qty': Decimal('0'),
+        'stock': None,
+        'item_grade': None
+    })
+    
+    for item_data in formset_data:
+        if not item_data or item_data.get('DELETE', False):
+            continue
+            
+        stock = item_data.get('stock')
+        item_grade = item_data.get('item_grade', '')
+        
+        if not stock:
+            continue
+            
+        # Create a unique key for grouping duplicates
+        # Include item_grade in the key to handle different grades separately
+        key = (stock.id, item_grade or '')
+        
+        # Sum up the quantities
+        merged_items[key]['cs_quantity'] += item_data.get('cs_quantity', Decimal('0'))
+        merged_items[key]['kg_quantity'] += item_data.get('kg_quantity', Decimal('0'))
+        merged_items[key]['plus_qty'] += item_data.get('plus_qty', Decimal('0'))
+        merged_items[key]['minus_qty'] += item_data.get('minus_qty', Decimal('0'))
+        merged_items[key]['stock'] = stock
+        merged_items[key]['item_grade'] = item_grade
+    
+    return list(merged_items.values())
+
+@transaction.atomic
+def edit_store_transfer(request, transfer_id):
+    transfer = get_object_or_404(StoreTransfer, id=transfer_id)
+    
+    if request.method == "POST":
+        form = StoreTransferForm(request.POST, instance=transfer)
+        formset = StoreTransferItemFormSet(request.POST, instance=transfer)
+        
+        if form.is_valid() and formset.is_valid():
+            # Reverse the original transfer effects on stock
+            reverse_transfer_stock_effects(transfer)
+            
+            # Update the transfer
+            transfer = form.save()
+            
+            # Clear existing items
+            transfer.items.all().delete()
+            
+            # Process and merge duplicate items
+            merged_items = merge_duplicate_transfer_items(formset.cleaned_data)
+            
+            # Create new items with merged data
+            for item_data in merged_items:
+                if item_data and not item_data.get('DELETE', False):
+                    StoreTransferItem.objects.create(
+                        transfer=transfer,
+                        stock=item_data['stock'],
+                        item_grade=item_data['item_grade'],
+                        plus_qty=item_data['plus_qty'],
+                        minus_qty=item_data['minus_qty'],
+                        cs_quantity=item_data['cs_quantity'],
+                        kg_quantity=item_data['kg_quantity']
+                    )
+            
+            messages.success(request, f'Store transfer {transfer.voucher_no} updated successfully!')
+            return redirect("adminapp:store_transfer_list")
+    else:
+        form = StoreTransferForm(instance=transfer)
+        formset = StoreTransferItemFormSet(instance=transfer)
+    
+    stocks = Stock.objects.filter(
+        store=transfer.from_store
+    ).select_related('item', 'brand', 'category')
+    
+    context = {
+        "form": form, 
+        "formset": formset,
+        "transfer": transfer,
+        "stocks": stocks,
+        "stores": Store.objects.all()
+    }
+    return render(request, "adminapp/store_transfer_form.html", context)
+
+def reverse_transfer_stock_effects(transfer):
+    """
+    Reverse the stock effects of a transfer (for editing/deleting)
+    """
+    for item in transfer.items.all():
+        # Add back to from_store
+        from_stock = item.stock
+        from_stock.cs_quantity += item.cs_quantity
+        from_stock.kg_quantity += item.kg_quantity
+        from_stock.save()
+        
+        # Remove from to_store
+        try:
+            to_stock = Stock.objects.get(
+                store=transfer.to_store,
+                category=from_stock.category,
+                brand=from_stock.brand,
+                unit=from_stock.unit,
+                glaze=from_stock.glaze,
+                item=from_stock.item,
+                species=from_stock.species,
+                selling_type=from_stock.selling_type,
+                item_grade=item.item_grade or from_stock.item_grade,
+            )
+            to_stock.cs_quantity -= item.cs_quantity
+            to_stock.kg_quantity -= item.kg_quantity
+            
+            # Delete the stock record if quantities become zero
+            if to_stock.cs_quantity <= 0 and to_stock.kg_quantity <= 0:
+                to_stock.delete()
+            else:
+                to_stock.save()
+                
+        except Stock.DoesNotExist:
+            pass  # Stock might have been manually deleted
+
+@transaction.atomic
+def delete_store_transfer(request, transfer_id):
+    transfer = get_object_or_404(StoreTransfer, id=transfer_id)
+    
+    if request.method == "POST":
+        # Reverse the stock effects
+        reverse_transfer_stock_effects(transfer)
+        
+        voucher_no = transfer.voucher_no
+        transfer.delete()
+        
+        messages.success(request, f'Store transfer {voucher_no} deleted successfully!')
+        return redirect("adminapp:store_transfer_list")
+    
+    return render(request, "adminapp/confirm_delete.html", {
+        "object": transfer,
+        "object_name": "Store Transfer"
+    })
+
+def store_transfer_list(request):
+    transfers = StoreTransfer.objects.all().order_by("-date").select_related(
+        'from_store', 'to_store'
+    )
+    
+    # Add search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        transfers = transfers.filter(
+            voucher_no__icontains=search_query
+        )
+    
+    # Add pagination
+    paginator = Paginator(transfers, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        "transfers": page_obj,
+        "search_query": search_query
+    }
+    return render(request, "adminapp/store_transfer_list.html", context)
+
+def store_transfer_detail(request, transfer_id):
+    transfer = get_object_or_404(
+        StoreTransfer.objects.select_related('from_store', 'to_store'), 
+        id=transfer_id
+    )
+    items = transfer.items.all().select_related('stock', 'stock__item', 'stock__brand')
+    
+    context = {
+        "transfer": transfer,
+        "items": items
+    }
+    return render(request, "adminapp/store_transfer_detail.html", context)
+
+# AJAX endpoints for dynamic form behavior
+@require_http_methods(["GET"])
+def get_store_stocks(request, store_id):
+    """
+    AJAX endpoint to get stocks for a specific store
+    """
+    stocks = Stock.objects.filter(store_id=store_id).select_related(
+        'item', 'brand', 'category'
+    )
+    
+    stock_data = []
+    for stock in stocks:
+        stock_data.append({
+            'id': stock.id,
+            'item_name': stock.item.name,
+            'brand_name': stock.brand.name,
+            'category_name': stock.category.name,
+            'unit': stock.unit,
+            'glaze': stock.glaze or '',
+            'species': stock.species or '',
+            'item_grade': stock.item_grade or '',
+            'cs_quantity': float(stock.cs_quantity),
+            'kg_quantity': float(stock.kg_quantity),
+            'display_name': f"{stock.item.name} - {stock.brand.name} ({stock.unit})"
+        })
+    
+    return JsonResponse({'stocks': stock_data})
+
+@require_http_methods(["GET"])
+def get_stock_details(request, stock_id):
+    """
+    AJAX endpoint to get details of a specific stock
+    """
+    try:
+        stock = Stock.objects.select_related(
+            'item', 'brand', 'category'
+        ).get(id=stock_id)
+        
+        stock_data = {
+            'id': stock.id,
+            'item_name': stock.item.name,
+            'brand_name': stock.brand.name,
+            'category_name': stock.category.name,
+            'unit': stock.unit,
+            'glaze': stock.glaze or '',
+            'species': stock.species or '',
+            'item_grade': stock.item_grade or '',
+            'cs_quantity': float(stock.cs_quantity),
+            'kg_quantity': float(stock.kg_quantity)
+        }
+        
+        return JsonResponse({'stock': stock_data})
+    except Stock.DoesNotExist:
+        return JsonResponse({'error': 'Stock not found'}, status=404)
+
+def validate_transfer_quantities(request):
+    """
+    AJAX endpoint to validate if transfer quantities are available in stock
+    """
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        stock_id = data.get('stock_id')
+        cs_quantity = Decimal(str(data.get('cs_quantity', 0)))
+        kg_quantity = Decimal(str(data.get('kg_quantity', 0)))
+        
+        try:
+            stock = Stock.objects.get(id=stock_id)
+            
+            errors = []
+            if cs_quantity > stock.cs_quantity:
+                errors.append(f'CS quantity ({cs_quantity}) exceeds available stock ({stock.cs_quantity})')
+            
+            if kg_quantity > stock.kg_quantity:
+                errors.append(f'KG quantity ({kg_quantity}) exceeds available stock ({stock.kg_quantity})')
+            
+            return JsonResponse({
+                'valid': len(errors) == 0,
+                'errors': errors,
+                'available_cs': float(stock.cs_quantity),
+                'available_kg': float(stock.kg_quantity)
+            })
+            
+        except Stock.DoesNotExist:
+            return JsonResponse({
+                'valid': False,
+                'errors': ['Stock not found']
+            })
+    
+    return JsonResponse({'valid': False, 'errors': ['Invalid request']})
 
 
 

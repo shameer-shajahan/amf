@@ -1,13 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Local Purchase Workout Summary</title>
+{% extends 'admin_base.html' %}
+{% block title %} Spot Purchase Workout Summary {% endblock %}
+{% block content %}
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -710,12 +705,11 @@
             }
         }
     </style>
-</head>
-<body>
+
     <div class="container">
         <div class="page-header">
             <h2>📊 Local Purchase Workout Summary</h2>
-            <p>Comprehensive analysis and filtering dashboard</p>
+            <!-- <p>Comprehensive analysis and filtering dashboard</p> -->
         </div>
 
         <div class="filter-card">
@@ -1085,5 +1079,5 @@
             });
         });
     </script>
-</body>
-</html>
+
+{%endblock%}
