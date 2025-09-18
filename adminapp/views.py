@@ -44,6 +44,17 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 import logging
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
+from django.http import JsonResponse
+from django.views.generic import ListView
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from .models import StoreTransfer, StoreTransferItem, Stock, Store
+from .forms import StoreTransferForm, StoreTransferItemFormSet
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +145,7 @@ def master(request):
 # -------------------------------
 # Operational & Location Masters
 # -------------------------------
+
 
 class ProcessingCenterCreateView(CreateView):
     model = ProcessingCenter
@@ -792,26 +804,28 @@ def create_spot_purchase(request):
         if purchase_form.is_valid() and item_formset.is_valid() and expense_form.is_valid():
             purchase = purchase_form.save()
 
+            # Save expense first to calculate total_expense
+            expense = expense_form.save(commit=False)
+            expense.purchase = purchase
+            expense.save()  # This will calculate total_expense in the model's save method
+
+            # Save items with proper calculations
             items = item_formset.save(commit=False)
             for item in items:
                 item.purchase = purchase
-                item.amount = item.quantity * item.rate  # Ensure amount is calculated
-                item.save()
+                item.save()  # Let the model's save method handle amount and rate calculation
             item_formset.save_m2m()
 
-            expense = expense_form.save(commit=False)
-            expense.purchase = purchase
-            expense.save()
+            # Use the model's calculate_totals method instead of manual calculation
+            purchase.calculate_totals()
 
-            purchase.update_totals()
-            return redirect('adminapp:create_peeling_shed_supply')
+            return redirect('adminapp:spot_purchase_list')
 
     else:
         purchase_form = SpotPurchaseForm()
         item_formset = SpotPurchaseItemFormSet()
         expense_form = SpotPurchaseExpenseForm()
 
-    # ✅ Always return something at the end
     return render(request, 'adminapp/purchases/spot_purchase_form.html', {
         'purchase_form': purchase_form,
         'item_formset': item_formset,
@@ -821,12 +835,12 @@ def create_spot_purchase(request):
 def edit_spot_purchase(request, pk):
     purchase = get_object_or_404(SpotPurchase, pk=pk)
     SpotPurchaseItemFormSet = inlineformset_factory(
-    SpotPurchase,
-    SpotPurchaseItem,
-    form=SpotPurchaseItemForm,
-    extra=0,
-    can_delete=True
-)
+        SpotPurchase,
+        SpotPurchaseItem,
+        form=SpotPurchaseItemForm,
+        extra=0,
+        can_delete=True
+    )
 
     # Get expense or set to None if it doesn't exist
     try:
@@ -842,23 +856,25 @@ def edit_spot_purchase(request, pk):
         if purchase_form.is_valid() and item_formset.is_valid() and expense_form.is_valid():
             purchase = purchase_form.save()
 
+            # Save expense first to calculate total_expense
+            expense = expense_form.save(commit=False)
+            expense.purchase = purchase
+            expense.save()  # This will calculate total_expense in the model's save method
+
+            # Save items with proper calculations
             items = item_formset.save(commit=False)
             for item in items:
                 item.purchase = purchase
-                item.amount = item.quantity * item.rate  # Auto calculate amount
-                item.save()
+                item.save()  # Let the model's save method handle amount and rate calculation
             item_formset.save_m2m()
 
             # Handle deleted items
             for obj in item_formset.deleted_objects:
                 obj.delete()
 
-            # Save expense (create if it doesn't exist)
-            expense = expense_form.save(commit=False)
-            expense.purchase = purchase
-            expense.save()
+            # Use the model's calculate_totals method instead of manual calculation
+            purchase.calculate_totals()
 
-            purchase.update_totals()
             return redirect('adminapp:spot_purchase_list')
 
         # 🐍 Debugging form errors
@@ -876,6 +892,7 @@ def edit_spot_purchase(request, pk):
         'item_formset': item_formset,
         'expense_form': expense_form,
     })
+
 
 def spot_purchase_list(request):
     purchases = SpotPurchase.objects.all().order_by('-date')
@@ -1193,7 +1210,7 @@ def create_peeling_shed_supply(request):
                 # Example: supply.total_amount = total_amount
                 # supply.save()
 
-                return redirect('adminapp:create_peeling_shed_supply')
+                return redirect('adminapp:peeling_shed_supply_list')
         else:
             print("Form Errors:", form.errors)
             print("Formset Errors:", formset.errors)
@@ -1221,13 +1238,17 @@ def get_spot_purchases_by_date(request):
 
 def get_spot_purchase_items(request):
     spot_purchase_id = request.GET.get('spot_purchase_id')
-    items = SpotPurchaseItem.objects.filter(purchase_id=spot_purchase_id)
+    items = SpotPurchaseItem.objects.filter(
+        purchase_id=spot_purchase_id,
+        item__is_peeling=True  # Only show items where is_peeling is True on the related item
+    )
 
     data = [
         {
             'id': item.id,
             'name': item.item.name,
-            'quantity': float(item.quantity),          }
+            'quantity': float(item.quantity),
+        }
         for item in items
     ]
     return JsonResponse(data, safe=False)
@@ -1312,7 +1333,8 @@ def update_peeling_shed_supply(request, pk):
     })
 
 
-# create freezing entry spot
+
+# Create Freezing Entry Spot with Stock Management (FIXED)
 def create_freezing_entry_spot(request):
     if request.method == 'POST':
         form = FreezingEntrySpotForm(request.POST)
@@ -1324,15 +1346,16 @@ def create_freezing_entry_spot(request):
 
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
-                freezing_entry = form.save(commit=False)
-
+                # First calculate totals
                 total_kg = Decimal(0)
                 total_slab = Decimal(0)
                 total_c_s = Decimal(0)
                 total_usd = Decimal(0)
                 total_inr = Decimal(0)
                 yield_percentages = []
+                stock_updates = []  # Store stock updates for later processing
 
+                # Process formset and collect stock data
                 for f in formset:
                     if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
                         slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
@@ -1342,6 +1365,42 @@ def create_freezing_entry_spot(request):
                         inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
                         yield_percent = f.cleaned_data.get('yield_percentage')
 
+                        # Extract data from formset for stock creation
+                        store = f.cleaned_data.get('store')
+                        item = f.cleaned_data.get('item')
+                        item_quality = f.cleaned_data.get('item_quality')
+                        unit = f.cleaned_data.get('unit')  # Keep as PackingUnit FK instance
+                        glaze = f.cleaned_data.get('glaze')  # Keep as GlazePercentage FK instance
+                        brand = f.cleaned_data.get('brand')
+                        species = f.cleaned_data.get('species')  # Keep as Species FK instance
+                        grade = f.cleaned_data.get('grade')  # Keep as ItemGrade FK instance
+                        freezing_category = f.cleaned_data.get('freezing_category')
+                        
+                        # Extract additional fields for stock
+                        usd_rate_per_kg = f.cleaned_data.get('usd_rate_per_kg') or Decimal(0)
+                        usd_rate_item = f.cleaned_data.get('usd_rate_item') or Decimal(0)
+                        usd_rate_item_to_inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
+
+                        # Store stock update data for processing after main entry is saved
+                        if store and item and brand and freezing_category:
+                            stock_updates.append({
+                                'store': store,
+                                'item': item,
+                                'item_quality': item_quality,
+                                'unit': unit,  # Keep as FK instance
+                                'glaze': glaze,  # Keep as FK instance
+                                'brand': brand,
+                                'species': species,  # Keep as FK instance
+                                'grade': grade,  # Keep as FK instance
+                                'freezing_category': freezing_category,
+                                'cs': cs,
+                                'kg': kg,
+                                'usd_rate_per_kg': usd_rate_per_kg,
+                                'usd_rate_item': usd_rate_item,
+                                'usd_rate_item_to_inr': usd_rate_item_to_inr,
+                            })
+
+                        # Calculate totals
                         total_slab += slab
                         total_c_s += cs
                         total_kg += kg
@@ -1350,25 +1409,80 @@ def create_freezing_entry_spot(request):
                         if yield_percent is not None:
                             yield_percentages.append(yield_percent)
 
-                # Assign totals
+                # Create and save the main freezing entry first
+                freezing_entry = form.save(commit=False)
                 freezing_entry.total_slab = total_slab
                 freezing_entry.total_c_s = total_c_s
                 freezing_entry.total_kg = total_kg
                 freezing_entry.total_usd = total_usd
                 freezing_entry.total_inr = total_inr
                 freezing_entry.total_yield_percentage = (
-                    sum(yield_percentages) if yield_percentages else Decimal(0)
+                    sum(yield_percentages) / len(yield_percentages) if yield_percentages else Decimal(0)
                 )
-
-                # Save main form and formset
                 freezing_entry.save()
+
+                # Save formset with the saved instance
                 formset.instance = freezing_entry
                 formset.save()
 
+                # Now process stock updates with the saved freezing entry
+                for stock_data in stock_updates:
+                    try:
+                        # Prepare stock filter criteria using FK instances directly
+                        stock_filters = {
+                            'store': stock_data['store'],
+                            'item': stock_data['item'],
+                            'brand': stock_data['brand'],
+                            'item_quality': stock_data['item_quality'],
+                            'unit': stock_data['unit'],  # Use FK instance directly
+                            'glaze': stock_data['glaze'],  # Use FK instance directly
+                            'species': stock_data['species'],  # Use FK instance directly
+                            'item_grade': stock_data['grade'],  # Use FK instance directly (note: item_grade not grade)
+                            'freezing_category': stock_data['freezing_category'],
+                        }
+                        
+                        # Remove None values to avoid issues
+                        stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+
+                        # Try to find existing stock with same characteristics
+                        existing_stock = Stock.objects.filter(**stock_filters).first()
+                        
+                        if existing_stock:
+                            # Update existing stock
+                            existing_stock.cs_quantity += stock_data['cs']
+                            existing_stock.kg_quantity += stock_data['kg']
+                            existing_stock.usd_rate_per_kg = stock_data['usd_rate_per_kg']
+                            existing_stock.usd_rate_item = stock_data['usd_rate_item']
+                            existing_stock.usd_rate_item_to_inr = stock_data['usd_rate_item_to_inr']
+                            existing_stock.save()
+                            
+                            print(f"Stock updated: {existing_stock}")
+                            
+                        else:
+                            # Create new stock entry - REMOVED 'category' field
+                            new_stock_data = {
+                                **stock_filters,
+                                'cs_quantity': stock_data['cs'],
+                                'kg_quantity': stock_data['kg'],
+                                'usd_rate_per_kg': stock_data['usd_rate_per_kg'],
+                                'usd_rate_item': stock_data['usd_rate_item'],
+                                'usd_rate_item_to_inr': stock_data['usd_rate_item_to_inr'],
+                            }
+                            
+                            stock = Stock.objects.create(**new_stock_data)
+                            print(f"Stock created: {stock}")
+
+                    except Exception as e:
+                        print(f"Error creating/updating stock: {e}")
+                        messages.error(request, f"Error updating stock for {stock_data['item'].name}: {str(e)}")
+                        # Continue processing other items instead of failing completely
+
+            messages.success(request, 'Freezing entry created successfully!')
             return redirect('adminapp:freezing_entry_spot_list')
         else:
             print("Form Errors:", form.errors)
             print("Formset Errors:", formset.errors)
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = FreezingEntrySpotForm()
         form.fields['spot_agent'].queryset = PurchasingAgent.objects.none()
@@ -1513,13 +1627,6 @@ def get_spot_purchase_items_by_date(request):
 
     return JsonResponse({"items": data})
 
-def delete_freezing_entry_spot(request, pk):
-    entry = get_object_or_404(FreezingEntrySpot, pk=pk)
-    if request.method == 'POST':
-        entry.delete()
-        return redirect('adminapp:freezing_entry_spot_list')
-    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
-
 class FreezingEntrySpotDetailView(View):
     template_name = "adminapp/freezing/freezing_entry_spot_detail.html"
 
@@ -1554,13 +1661,19 @@ def freezing_entry_spot_update(request, pk):
             with transaction.atomic():
                 entry = form.save(commit=False)
 
+                # First, reverse all stock changes from this specific entry
+                reverse_stock_changes_for_spot_entry(freezing_entry)
+
+                # Initialize totals
                 total_kg = Decimal(0)
                 total_slab = Decimal(0)
                 total_c_s = Decimal(0)
                 total_usd = Decimal(0)
                 total_inr = Decimal(0)
                 yield_percentages = []
+                stock_updates = []  # Store stock updates for later processing
 
+                # Process formset and create new stock entries
                 for f in formset:
                     if f.cleaned_data and not f.cleaned_data.get("DELETE", False):
                         slab = f.cleaned_data.get("slab_quantity") or Decimal(0)
@@ -1570,6 +1683,42 @@ def freezing_entry_spot_update(request, pk):
                         inr = f.cleaned_data.get("usd_rate_item_to_inr") or Decimal(0)
                         yield_percent = f.cleaned_data.get("yield_percentage")
 
+                        # Extract data from formset for stock updates
+                        store = f.cleaned_data.get('store')
+                        item = f.cleaned_data.get('item')
+                        item_quality = f.cleaned_data.get('item_quality')
+                        unit = f.cleaned_data.get('unit')  # Keep as PackingUnit FK instance
+                        glaze = f.cleaned_data.get('glaze')  # Keep as GlazePercentage FK instance
+                        brand = f.cleaned_data.get('brand')
+                        species = f.cleaned_data.get('species')  # Keep as Species FK instance
+                        grade = f.cleaned_data.get('grade')  # Keep as ItemGrade FK instance
+                        freezing_category = f.cleaned_data.get('freezing_category')
+                        
+                        # Extract additional fields for stock
+                        usd_rate_per_kg = f.cleaned_data.get('usd_rate_per_kg') or Decimal(0)
+                        usd_rate_item = f.cleaned_data.get('usd_rate_item') or Decimal(0)
+                        usd_rate_item_to_inr = f.cleaned_data.get('usd_rate_item_to_inr') or Decimal(0)
+
+                        # Store stock update data for processing
+                        if store and item and brand and freezing_category:
+                            stock_updates.append({
+                                'store': store,
+                                'item': item,
+                                'item_quality': item_quality,
+                                'unit': unit,  # Keep as FK instance
+                                'glaze': glaze,  # Keep as FK instance
+                                'brand': brand,
+                                'species': species,  # Keep as FK instance
+                                'grade': grade,  # Keep as FK instance
+                                'freezing_category': freezing_category,
+                                'cs': cs,
+                                'kg': kg,
+                                'usd_rate_per_kg': usd_rate_per_kg,
+                                'usd_rate_item': usd_rate_item,
+                                'usd_rate_item_to_inr': usd_rate_item_to_inr,
+                            })
+
+                        # Calculate totals
                         total_slab += slab
                         total_c_s += cs
                         total_kg += kg
@@ -1585,17 +1734,71 @@ def freezing_entry_spot_update(request, pk):
                 entry.total_usd = total_usd
                 entry.total_inr = total_inr
                 entry.total_yield_percentage = (
-                    sum(yield_percentages) if yield_percentages else Decimal(0)
+                    sum(yield_percentages) / len(yield_percentages) if yield_percentages else Decimal(0)
                 )
 
                 entry.save()
                 formset.instance = entry
                 formset.save()
 
+                # Now process stock updates with the saved entry
+                for stock_data in stock_updates:
+                    try:
+                        # Prepare stock filter criteria using FK instances directly
+                        stock_filters = {
+                            'store': stock_data['store'],
+                            'item': stock_data['item'],
+                            'brand': stock_data['brand'],
+                            'item_quality': stock_data['item_quality'],
+                            'unit': stock_data['unit'],  # Use FK instance directly
+                            'glaze': stock_data['glaze'],  # Use FK instance directly
+                            'species': stock_data['species'],  # Use FK instance directly
+                            'item_grade': stock_data['grade'],  # Use FK instance directly (note: item_grade not grade)
+                            'freezing_category': stock_data['freezing_category'],
+                        }
+                        
+                        # Remove None values
+                        stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+
+                        # Try to find existing stock with same characteristics
+                        existing_stock = Stock.objects.filter(**stock_filters).first()
+                        
+                        if existing_stock:
+                            # Update existing stock
+                            existing_stock.cs_quantity += stock_data['cs']
+                            existing_stock.kg_quantity += stock_data['kg']
+                            existing_stock.usd_rate_per_kg = stock_data['usd_rate_per_kg']
+                            existing_stock.usd_rate_item = stock_data['usd_rate_item']
+                            existing_stock.usd_rate_item_to_inr = stock_data['usd_rate_item_to_inr']
+                            existing_stock.save()
+                            
+                            print(f"Stock updated: {existing_stock}")
+                            
+                        else:
+                            # Create new stock entry - REMOVED 'category' field
+                            new_stock_data = {
+                                **stock_filters,
+                                'cs_quantity': stock_data['cs'],
+                                'kg_quantity': stock_data['kg'],
+                                'usd_rate_per_kg': stock_data['usd_rate_per_kg'],
+                                'usd_rate_item': stock_data['usd_rate_item'],
+                                'usd_rate_item_to_inr': stock_data['usd_rate_item_to_inr'],
+                            }
+                            
+                            stock = Stock.objects.create(**new_stock_data)
+                            print(f"Stock created: {stock}")
+
+                    except Exception as e:
+                        print(f"Error creating/updating stock: {e}")
+                        messages.error(request, f"Error updating stock for {stock_data['item'].name}: {str(e)}")
+                        # Continue processing other items instead of failing completely
+
+            messages.success(request, 'Freezing entry updated successfully!')
             return redirect("adminapp:freezing_entry_spot_list")
         else:
             print("Form Errors:", form.errors)
             print("Formset Errors:", formset.errors)
+            messages.error(request, 'Please correct the errors below.')
 
     else:
         form = FreezingEntrySpotForm(instance=freezing_entry)
@@ -1612,12 +1815,135 @@ def freezing_entry_spot_update(request, pk):
         {"form": form, "formset": formset, "entry": freezing_entry},
     )
 
+def reverse_stock_changes_for_spot_entry(freezing_entry):
+    """
+    Helper function to reverse stock changes for a specific freezing entry
+    """
+    try:
+        # Get all items from this freezing entry
+        items = freezing_entry.items.all()
+        
+        for item in items:
+            # Build stock filter criteria using FK instances directly
+            stock_filters = {
+                'store': item.store,
+                'item': item.item,
+                'brand': item.brand,
+                'item_quality': item.item_quality,
+                'unit': item.unit,  # Use FK instance directly
+                'glaze': item.glaze,  # Use FK instance directly
+                'species': item.species,  # Use FK instance directly
+                'item_grade': item.grade,  # Use FK instance directly (note: item_grade not grade)
+                'freezing_category': item.freezing_category,
+            }
+            
+            # Remove None values
+            stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+            
+            # Find and update stock
+            try:
+                # Find all matching stocks (there might be multiple)
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                for stock in matching_stocks:
+                    # Subtract the quantities (reverse the addition)
+                    stock.cs_quantity -= (item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (item.kg or Decimal(0))
+                    
+                    # If both quantities become zero or negative, delete the stock entry
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting empty stock entry: {stock}")
+                        stock.delete()
+                    else:
+                        # Ensure quantities don't go negative
+                        stock.cs_quantity = max(stock.cs_quantity, Decimal(0))
+                        stock.kg_quantity = max(stock.kg_quantity, Decimal(0))
+                        stock.save()
+                        print(f"Reversed stock quantities: {stock}")
+                    
+            except Exception as e:
+                print(f"Error during stock reversal for item {item.item.name}: {e}")
+                
+    except Exception as e:
+        print(f"Error reversing stock changes: {e}")
+
+def delete_freezing_entry_spot(request, pk):
+    entry = get_object_or_404(FreezingEntrySpot, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Subtract quantities from stock entries (don't delete entire stock records)
+                delete_stock_entries_for_spot_entry(entry)
+                
+                # Then delete the entry
+                entry.delete()
+                
+                messages.success(request, 'Freezing entry deleted and stock quantities updated successfully!')
+                
+        except Exception as e:
+            print(f"Error deleting freezing entry: {e}")
+            messages.error(request, f'Error deleting entry: {str(e)}')
+            
+        return redirect('adminapp:freezing_entry_spot_list')
+    
+    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+def delete_stock_entries_for_spot_entry(freezing_entry):
+    """
+    Helper function to subtract quantities from stock entries (not delete the entire stock record)
+    """
+    try:
+        # Get all items from this freezing entry and subtract their quantities from matching stock entries
+        items = freezing_entry.items.all()
+        
+        for item in items:
+            # Build stock filter criteria using FK instances directly
+            stock_filters = {
+                'store': item.store,
+                'item': item.item,
+                'brand': item.brand,
+                'item_quality': item.item_quality,
+                'unit': item.unit,  # Use FK instance directly
+                'glaze': item.glaze,  # Use FK instance directly
+                'species': item.species,  # Use FK instance directly
+                'item_grade': item.grade,  # Use FK instance directly (note: item_grade not grade)
+                'freezing_category': item.freezing_category,
+            }
+            
+            # Remove None values
+            stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+            
+            # Find matching stock entries and subtract quantities
+            try:
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                for stock in matching_stocks:
+                    # Subtract the quantities from this freezing entry item
+                    stock.cs_quantity -= (item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (item.kg or Decimal(0))
+                    
+                    # If quantities become zero or negative, delete the stock record
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting empty stock record: {stock}")
+                        stock.delete()
+                    else:
+                        # Ensure quantities don't go negative and save
+                        stock.cs_quantity = max(stock.cs_quantity, Decimal(0))
+                        stock.kg_quantity = max(stock.kg_quantity, Decimal(0))
+                        print(f"Updated stock quantities for {item.item.name}: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
+                        stock.save()
+                    
+            except Exception as e:
+                print(f"Error updating stock for item {item.item.name}: {e}")
+                
+    except Exception as e:
+        print(f"Error updating stock entries: {e}")
+        raise e
 
 
 
-
-
-# Create Freezing Entry Local
+# Create Freezing Entry Local with Stock Management
 def create_freezing_entry_local(request):
     if request.method == 'POST':
         form = FreezingEntryLocalForm(request.POST)
@@ -1625,13 +1951,16 @@ def create_freezing_entry_local(request):
 
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
-                freezing_entry = form.save(commit=False)
-                freezing_entry.created_by = request.user
-                freezing_entry.save()
+                # First calculate totals
+                total_kg = Decimal(0)
+                total_slab = Decimal(0)
+                total_c_s = Decimal(0)
+                total_usd = Decimal(0)
+                total_inr = Decimal(0)
+                stock_updates = []  # Store stock updates for later processing
 
+                # Get Dollar Rate
                 dollar_rate_to_inr = Decimal(0)
-
-                # Fetch Dollar Rate from Settings or latest table
                 try:
                     from .models import DollarRate
                     dollar_obj = DollarRate.objects.latest("id")
@@ -1639,24 +1968,133 @@ def create_freezing_entry_local(request):
                 except:
                     pass
 
+                # Process formset and collect stock data
                 for f in formset.forms:
-                    if not f.cleaned_data or f.cleaned_data.get("DELETE"):
-                        continue
+                    if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
+                        slab = f.cleaned_data.get('slab_quantity') or Decimal(0)
+                        cs = f.cleaned_data.get('c_s_quantity') or Decimal(0)
+                        kg = f.cleaned_data.get('kg') or Decimal(0)
+                        usd_rate_per_kg = f.cleaned_data.get('usd_rate_per_kg') or Decimal(0)
 
-                    item = f.save(commit=False)
-                    item.freezing_entry = freezing_entry
+                        # Calculate USD and INR amounts
+                        usd_item = kg * usd_rate_per_kg
+                        inr_item = usd_item * dollar_rate_to_inr
 
-                    # Auto-calc fields
-                    kg = f.cleaned_data.get("kg") or Decimal(0)
-                    usd_rate_per_kg = f.cleaned_data.get("usd_rate_per_kg") or Decimal(0)
+                        # Extract data from formset for stock creation
+                        store = f.cleaned_data.get('store')
+                        item = f.cleaned_data.get('item')
+                        item_quality = f.cleaned_data.get('item_quality')
+                        unit = f.cleaned_data.get('unit')  # Keep as PackingUnit FK instance
+                        glaze = f.cleaned_data.get('glaze')  # Keep as GlazePercentage FK instance
+                        brand = f.cleaned_data.get('brand')
+                        species = f.cleaned_data.get('species')  # Keep as Species FK instance
+                        grade = f.cleaned_data.get('grade')  # Keep as ItemGrade FK instance
+                        freezing_category = f.cleaned_data.get('freezing_category')  # Keep as FreezingCategory FK instance
 
-                    usd_item = kg * usd_rate_per_kg
-                    inr_item = usd_item * dollar_rate_to_inr
+                        # Store stock update data for processing after main entry is saved
+                        if store and item and brand:
+                            stock_updates.append({
+                                'store': store,
+                                'item': item,
+                                'item_quality': item_quality,
+                                'unit': unit,  # Keep as FK instance
+                                'glaze': glaze,  # Keep as FK instance
+                                'brand': brand,
+                                'species': species,  # Keep as FK instance
+                                'grade': grade,  # Keep as FK instance
+                                'freezing_category': freezing_category,  # Keep as FK instance
+                                'cs': cs,
+                                'kg': kg,
+                                'usd_item': usd_item,
+                                'inr_item': inr_item,
+                                'usd_rate_per_kg': usd_rate_per_kg,
+                            })
 
-                    item.usd_rate_item = usd_item
-                    item.usd_rate_item_to_inr = inr_item
+                        # Calculate totals
+                        total_slab += slab
+                        total_c_s += cs
+                        total_kg += kg
+                        total_usd += usd_item
+                        total_inr += inr_item
 
-                    item.save()
+                # Create and save the main freezing entry first
+                freezing_entry = form.save(commit=False)
+                freezing_entry.created_by = request.user
+                freezing_entry.total_slab = total_slab
+                freezing_entry.total_c_s = total_c_s
+                freezing_entry.total_kg = total_kg
+                freezing_entry.total_usd = total_usd
+                freezing_entry.total_inr = total_inr
+                freezing_entry.save()
+
+                # Save formset with calculations
+                for f in formset.forms:
+                    if f.cleaned_data and not f.cleaned_data.get("DELETE", False):
+                        item = f.save(commit=False)
+                        item.freezing_entry = freezing_entry
+
+                        # Auto-calc fields
+                        kg = f.cleaned_data.get("kg") or Decimal(0)
+                        usd_rate_per_kg = f.cleaned_data.get("usd_rate_per_kg") or Decimal(0)
+
+                        usd_item = kg * usd_rate_per_kg
+                        inr_item = usd_item * dollar_rate_to_inr
+
+                        item.usd_rate_item = usd_item
+                        item.usd_rate_item_to_inr = inr_item
+                        item.save()
+
+                # Now process stock updates with the saved freezing entry
+                for stock_data in stock_updates:
+                    try:
+                        # Prepare stock filter criteria using FK instances directly (like in spot function)
+                        stock_filters = {
+                            'store': stock_data['store'],
+                            'item': stock_data['item'],
+                            'brand': stock_data['brand'],
+                            'item_quality': stock_data['item_quality'],
+                            'unit': stock_data['unit'],  # Use FK instance directly
+                            'glaze': stock_data['glaze'],  # Use FK instance directly
+                            'species': stock_data['species'],  # Use FK instance directly
+                            'item_grade': stock_data['grade'],  # Use FK instance directly (note: item_grade not grade)
+                            'freezing_category': stock_data['freezing_category'],  # Use FK instance directly
+                        }
+                        
+                        # Remove None values to avoid issues
+                        stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+
+                        # Try to find existing stock with same characteristics
+                        existing_stock = Stock.objects.filter(**stock_filters).first()
+                        
+                        if existing_stock:
+                            # Update existing stock
+                            existing_stock.cs_quantity += stock_data['cs']
+                            existing_stock.kg_quantity += stock_data['kg']
+                            existing_stock.usd_rate_per_kg = stock_data['usd_rate_per_kg']
+                            existing_stock.usd_rate_item = stock_data['usd_item']
+                            existing_stock.usd_rate_item_to_inr = stock_data['inr_item']
+                            existing_stock.save()
+                            
+                            print(f"Stock updated: {existing_stock}")
+                            
+                        else:
+                            # Create new stock entry (removed non-existent fields)
+                            new_stock_data = {
+                                **stock_filters,
+                                'cs_quantity': stock_data['cs'],
+                                'kg_quantity': stock_data['kg'],
+                                'usd_rate_per_kg': stock_data['usd_rate_per_kg'],
+                                'usd_rate_item': stock_data['usd_item'],
+                                'usd_rate_item_to_inr': stock_data['inr_item'],
+                            }
+                            
+                            stock = Stock.objects.create(**new_stock_data)
+                            print(f"Stock created: {stock}")
+
+                    except Exception as e:
+                        print(f"Error creating/updating stock: {e}")
+                        messages.error(request, f"Error updating stock for {stock_data['item'].name}: {str(e)}")
+                        # Continue processing other items instead of failing completely
 
                 messages.success(request, "Freezing Entry created successfully ✅")
                 return redirect("adminapp:freezing_entry_local_list")
@@ -1733,13 +2171,6 @@ def freezing_entry_local_list(request):
     entries = FreezingEntryLocal.objects.all()
     return render(request, 'adminapp/freezing/freezing_entry_local_list.html', {'entries': entries})
 
-def delete_freezing_entry_local(request, pk):
-    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
-    if request.method == 'POST':
-        entry.delete()
-        return redirect('adminapp:freezing_entry_local_list')
-    return render(request, 'adminapp/freezing/freezing_entry_local_confirm_delete.html', {'entry': entry})
-
 def freezing_entry_local_detail(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
     items = entry.items.all().select_related(
@@ -1760,117 +2191,6 @@ def freezing_entry_local_detail(request, pk):
         'items': items
     }
     return render(request, 'adminapp/freezing/freezing_entry_local_detail.html', context)
-
-def freezing_entry_local_update(request, pk):
-    freezing_entry = get_object_or_404(FreezingEntryLocal, pk=pk)
-    FreezingEntryLocalItemFormSet = inlineformset_factory(
-        FreezingEntryLocal,
-        FreezingEntryLocalItem,
-        form=FreezingEntryLocalItemForm,
-        extra=0,
-        can_delete=True  # This is crucial for deletion functionality
-    )
-    
-    if request.method == "POST":
-        form = FreezingEntryLocalForm(request.POST, instance=freezing_entry)
-        formset = FreezingEntryLocalItemFormSet(
-            request.POST, instance=freezing_entry, prefix="form"
-        )
-        
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
-                # Save the main form first
-                freezing_entry = form.save(commit=False)
-                freezing_entry.save()
-
-                # Get dollar rate
-                dollar_rate_to_inr = Decimal(0)
-                try:
-                    from .models import DollarRate
-                    dollar_obj = DollarRate.objects.latest("id")
-                    dollar_rate_to_inr = dollar_obj.rate
-                except:
-                    pass
-
-                # Process each form manually to handle calculations before saving
-                instances = formset.save(commit=False)
-                
-                # Handle deletions first
-                for obj in formset.deleted_objects:
-                    obj.delete()
-                
-                # Process remaining instances
-                for instance in instances:
-                    # Get the corresponding form to access cleaned_data
-                    form_data = None
-                    for form in formset.forms:
-                        if hasattr(form, 'instance') and form.instance == instance:
-                            form_data = form.cleaned_data
-                            break
-                    
-                    if form_data:
-                        # Auto-calculate fields from form data
-                        slab_quantity = form_data.get('slab_quantity') or Decimal(0)
-                        usd_rate_per_kg = form_data.get('usd_rate_per_kg') or Decimal(0)
-                        
-                        # Get unit details for calculations (you might need to adjust this)
-                        unit = form_data.get('unit')
-                        precision = Decimal(2)  # Default precision
-                        factor = Decimal(0.25)  # Default factor
-                        
-                        if unit:
-                            try:
-                                # Fetch unit details if you have a Unit model
-                                # unit_obj = Unit.objects.get(id=unit.id)
-                                # precision = unit_obj.precision
-                                # factor = unit_obj.factor
-                                pass
-                            except:
-                                pass
-                        
-                        # Calculate dependent fields
-                        if slab_quantity and precision:
-                            instance.c_s_quantity = slab_quantity / precision
-                        else:
-                            instance.c_s_quantity = Decimal(0)
-                            
-                        if slab_quantity and factor:
-                            instance.kg = slab_quantity * factor
-                        else:
-                            instance.kg = Decimal(0)
-                        
-                        # Calculate USD amounts
-                        if instance.kg and usd_rate_per_kg:
-                            instance.usd_rate_item = instance.kg * usd_rate_per_kg
-                        else:
-                            instance.usd_rate_item = Decimal(0)
-                        
-                        # Calculate INR amount
-                        if instance.usd_rate_item and dollar_rate_to_inr:
-                            instance.usd_rate_item_to_inr = instance.usd_rate_item * dollar_rate_to_inr
-                        else:
-                            instance.usd_rate_item_to_inr = Decimal(0)
-                    
-                    instance.freezing_entry = freezing_entry
-                    instance.save()
-
-                messages.success(request, "Freezing Entry updated successfully ✅")
-                return redirect("adminapp:freezing_entry_local_list")
-        else:
-            print("Form Errors:", form.errors)
-            print("Formset Errors:", [f.errors for f in formset.forms if f.errors])
-            print("Formset Non Form Errors:", formset.non_form_errors())
-    else:
-        form = FreezingEntryLocalForm(instance=freezing_entry)
-        formset = FreezingEntryLocalItemFormSet(
-            instance=freezing_entry, prefix="form"
-        )
-        
-    return render(
-        request,
-        "adminapp/freezing/freezing_entry_local_update.html",
-        {"form": form, "formset": formset, "entry": freezing_entry},
-    )
 
 def get_items_by_local_date(request):
     date = request.GET.get('date')
@@ -1913,6 +2233,329 @@ def get_item_qualities(request):
     except Exception as e:
         # Handle any database errors
         return JsonResponse({"error": "Database error occurred"}, status=500)
+
+def delete_freezing_entry_local(request, pk):
+    entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Delete all stock entries associated with this freezing entry
+                delete_stock_entries_for_local_entry(entry)
+                
+                # Then delete the entry
+                entry.delete()
+                
+                messages.success(request, 'Local freezing entry and associated stock deleted successfully!')
+                
+        except Exception as e:
+            print(f"Error deleting local freezing entry: {e}")
+            messages.error(request, f'Error deleting entry: {str(e)}')
+            
+        return redirect('adminapp:freezing_entry_local_list')
+    
+    return render(request, 'adminapp/freezing/freezing_entry_local_confirm_delete.html', {'entry': entry})
+
+def delete_stock_entries_for_local_entry(freezing_entry):
+    """
+    Helper function to subtract quantities from stock entries (not delete the entire stock record)
+    """
+    try:
+        # Get all items from this freezing entry and subtract their quantities from matching stock entries
+        items = freezing_entry.items.all()
+        
+        for item in items:
+            # Build stock filter criteria using Stock model fields
+            stock_filters = {
+                'store': item.store,
+                'item': item.item,
+                'brand': item.brand,
+                'item_quality': item.item_quality,
+                'unit': item.unit,  # Keep as FK instance
+                'glaze': item.glaze,  # Keep as FK instance
+                'species': item.species,  # Keep as FK instance
+                'item_grade': item.grade,  # Use item_grade field name
+                'freezing_category': item.freezing_category,  # Keep as FK instance
+            }
+            
+            # Remove None values
+            stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+            
+            # Find matching stock entries and subtract quantities
+            try:
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                for stock in matching_stocks:
+                    # Subtract the quantities from this freezing entry item
+                    stock.cs_quantity -= (item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (item.kg or Decimal(0))
+                    
+                    # If quantities become zero or negative, delete the stock record
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting empty stock record: {stock}")
+                        stock.delete()
+                    else:
+                        # Save the updated quantities
+                        print(f"Updated stock quantities for {item.item.name}: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
+                        stock.save()
+                    
+            except Exception as e:
+                print(f"Error updating stock for item {item.item.name}: {e}")
+                
+    except Exception as e:
+        print(f"Error updating stock entries: {e}")
+        raise e
+
+def reverse_stock_changes_for_local_entry(freezing_entry):
+    """
+    Improved stock reversal function that handles multiple stock records properly
+    """
+    try:
+        # Get all items from the freezing entry to reverse their quantities
+        entry_items = FreezingEntryLocalItem.objects.filter(freezing_entry=freezing_entry)
+        
+        for entry_item in entry_items:
+            try:
+                # Build filter criteria to find the exact stock record using FK instances
+                stock_filters = {
+                    'store': entry_item.store,
+                    'item': entry_item.item,
+                    'brand': entry_item.brand,
+                    'item_quality': entry_item.item_quality,
+                    'unit': entry_item.unit,  # Keep as FK instance
+                    'glaze': entry_item.glaze,  # Keep as FK instance
+                    'species': entry_item.species,  # Keep as FK instance
+                    'item_grade': entry_item.grade,  # Use item_grade field name
+                    'freezing_category': entry_item.freezing_category,  # Keep as FK instance
+                }
+                
+                # Remove None values
+                stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+                
+                # Find all matching stock records
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                print(f"Found {matching_stocks.count()} matching stock records for item {entry_item.item.name}")
+                
+                for stock in matching_stocks:
+                    # Reverse the quantities
+                    stock.cs_quantity -= (entry_item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (entry_item.kg or Decimal(0))
+                    
+                    # If quantities become zero or negative, delete the stock record
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting stock record: {stock}")
+                        stock.delete()
+                    else:
+                        print(f"Updating stock quantities: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
+                        stock.save()
+                        
+            except Exception as e:
+                print(f"Error reversing stock for item {entry_item.item.name}: {e}")
+                continue
+                
+    except Exception as e:
+        print(f"Error during stock reversal: {e}")
+        # Don't raise the exception, just log it and continue
+
+def freezing_entry_local_update(request, pk):
+    freezing_entry = get_object_or_404(FreezingEntryLocal, pk=pk)
+    FreezingEntryLocalItemFormSet = inlineformset_factory(
+        FreezingEntryLocal,
+        FreezingEntryLocalItem,
+        form=FreezingEntryLocalItemForm,
+        extra=0,
+        can_delete=True
+    )
+    
+    if request.method == "POST":
+        form = FreezingEntryLocalForm(request.POST, instance=freezing_entry)
+        formset = FreezingEntryLocalItemFormSet(
+            request.POST, instance=freezing_entry, prefix="form"
+        )
+        
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                # First, reverse all stock changes from this specific entry
+                reverse_stock_changes_for_local_entry(freezing_entry)
+
+                # Initialize totals (matching create function)
+                total_kg = Decimal('0')
+                total_slab = Decimal('0')
+                total_c_s = Decimal('0')
+                total_usd = Decimal('0')
+                total_inr = Decimal('0')
+                stock_updates = []
+
+                # Get Dollar Rate (matching create function)
+                dollar_rate_to_inr = Decimal('0')
+                try:
+                    from .models import DollarRate
+                    dollar_obj = DollarRate.objects.latest("id")
+                    dollar_rate_to_inr = Decimal(str(dollar_obj.rate))
+                    print(f"Dollar rate retrieved: {dollar_rate_to_inr}")
+                except Exception as e:
+                    print(f"Error getting dollar rate: {e}")
+                    pass
+
+                # Save formset to get access to deleted_objects
+                instances = formset.save(commit=False)
+                
+                # Handle deletions
+                for obj in formset.deleted_objects:
+                    obj.delete()
+
+                # Process formset and collect stock data (matching create function logic)
+                for f in formset.forms:
+                    if f.cleaned_data and not f.cleaned_data.get('DELETE', False):
+                        # Get values directly from cleaned_data (like create function)
+                        slab = f.cleaned_data.get('slab_quantity') or Decimal('0')
+                        cs = f.cleaned_data.get('c_s_quantity') or Decimal('0')
+                        kg = f.cleaned_data.get('kg') or Decimal('0')
+                        usd_rate_per_kg = f.cleaned_data.get('usd_rate_per_kg') or Decimal('0')
+
+                        # Calculate USD and INR amounts (matching create function)
+                        usd_item = kg * usd_rate_per_kg
+                        inr_item = usd_item * dollar_rate_to_inr
+
+                        # Extract data from formset for stock creation (matching create function)
+                        store = f.cleaned_data.get('store')
+                        item = f.cleaned_data.get('item')
+                        item_quality = f.cleaned_data.get('item_quality')
+                        unit = f.cleaned_data.get('unit')
+                        glaze = f.cleaned_data.get('glaze')
+                        brand = f.cleaned_data.get('brand')
+                        species = f.cleaned_data.get('species')
+                        grade = f.cleaned_data.get('grade')
+                        freezing_category = f.cleaned_data.get('freezing_category')
+
+                        # Store stock update data for processing after main entry is saved
+                        if store and item and brand:
+                            stock_updates.append({
+                                'store': store,
+                                'item': item,
+                                'item_quality': item_quality,
+                                'unit': unit,
+                                'glaze': glaze,
+                                'brand': brand,
+                                'species': species,
+                                'grade': grade,
+                                'freezing_category': freezing_category,
+                                'cs': cs,
+                                'kg': kg,
+                                'usd_item': usd_item,
+                                'inr_item': inr_item,
+                                'usd_rate_per_kg': usd_rate_per_kg,
+                                'form_instance': f,
+                                'calculated_values': {
+                                    'usd_rate_item': usd_item,
+                                    'usd_rate_item_to_inr': inr_item,
+                                }
+                            })
+
+                        # Calculate totals (matching create function)
+                        total_slab += slab
+                        total_c_s += cs
+                        total_kg += kg
+                        total_usd += usd_item
+                        total_inr += inr_item
+
+                        print(f"Processing form: slab={slab}, cs={cs}, kg={kg}, usd={usd_item}, inr={inr_item}")
+
+                # Update the main freezing entry with totals (like create function)
+                entry = form.save(commit=False)
+                entry.total_slab = total_slab
+                entry.total_c_s = total_c_s
+                entry.total_kg = total_kg
+                entry.total_usd = total_usd
+                entry.total_inr = total_inr
+                entry.save()
+
+                # Save formset instances with calculated values (matching create function)
+                for instance in instances:
+                    # Find the corresponding calculated values
+                    for stock_update in stock_updates:
+                        if stock_update['form_instance'].instance == instance:
+                            calc_vals = stock_update['calculated_values']
+                            instance.usd_rate_item = calc_vals['usd_rate_item']
+                            instance.usd_rate_item_to_inr = calc_vals['usd_rate_item_to_inr']
+                            break
+                    
+                    instance.freezing_entry = freezing_entry
+                    instance.save()
+
+                # Now process stock updates (matching create function logic)
+                for stock_data in stock_updates:
+                    try:
+                        # Prepare stock filter criteria using FK instances directly
+                        stock_filters = {
+                            'store': stock_data['store'],
+                            'item': stock_data['item'],
+                            'brand': stock_data['brand'],
+                            'item_quality': stock_data['item_quality'],
+                            'unit': stock_data['unit'],
+                            'glaze': stock_data['glaze'],
+                            'species': stock_data['species'],
+                            'item_grade': stock_data['grade'],  # Note: item_grade not grade
+                            'freezing_category': stock_data['freezing_category'],
+                        }
+                        
+                        # Remove None values
+                        stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+
+                        # Try to find existing stock with same characteristics
+                        existing_stock = Stock.objects.filter(**stock_filters).first()
+                        
+                        if existing_stock:
+                            # Update existing stock (matching create function)
+                            existing_stock.cs_quantity += stock_data['cs']
+                            existing_stock.kg_quantity += stock_data['kg']
+                            existing_stock.usd_rate_per_kg = stock_data['usd_rate_per_kg']
+                            existing_stock.usd_rate_item = stock_data['usd_item']
+                            existing_stock.usd_rate_item_to_inr = stock_data['inr_item']
+                            existing_stock.save()
+                            
+                            print(f"Stock updated: {existing_stock}")
+                            
+                        else:
+                            # Create new stock entry (matching create function)
+                            new_stock_data = {
+                                **stock_filters,
+                                'cs_quantity': stock_data['cs'],
+                                'kg_quantity': stock_data['kg'],
+                                'usd_rate_per_kg': stock_data['usd_rate_per_kg'],
+                                'usd_rate_item': stock_data['usd_item'],
+                                'usd_rate_item_to_inr': stock_data['inr_item'],
+                            }
+                            
+                            stock = Stock.objects.create(**new_stock_data)
+                            print(f"Stock created: {stock}")
+
+                    except Exception as e:
+                        print(f"Error creating/updating stock: {e}")
+                        messages.error(request, f"Error updating stock for {stock_data['item'].name}: {str(e)}")
+                        # Continue processing other items instead of failing completely
+
+                # Debug output for final totals
+                print(f"Final totals - Slab: {total_slab}, C/S: {total_c_s}, KG: {total_kg}, USD: {total_usd}, INR: {total_inr}")
+
+                messages.success(request, "Freezing Entry updated successfully ✅")
+                return redirect("adminapp:freezing_entry_local_list")
+        else:
+            print("Form Errors:", form.errors)
+            print("Formset Errors:", [f.errors for f in formset.forms if f.errors])
+            print("Formset Non Form Errors:", formset.non_form_errors())
+    else:
+        form = FreezingEntryLocalForm(instance=freezing_entry)
+        formset = FreezingEntryLocalItemFormSet(
+            instance=freezing_entry, prefix="form"
+        )
+        
+    return render(
+        request,
+        "adminapp/freezing/freezing_entry_local_update.html",
+        {"form": form, "formset": formset, "entry": freezing_entry},
+    )
 
 
 class FreezingWorkOutView(View):
@@ -2023,6 +2666,8 @@ class FreezingWorkOutView(View):
             'combined_summary': list(combined_data.values()),
         }
         return render(request, self.template_name, context)
+
+
 
 
 # PRE SHIPMENT WORK OUT 
@@ -3068,7 +3713,6 @@ def peeling_shed_supply_report_print(request):
 
 
 
-# DIAGNOSTIC VERSION - Check what fields actually exist
 def freezing_report(request):
     # First, let's check what fields actually exist on the models
     from django.db import connection
@@ -4321,7 +4965,7 @@ def return_tenant_detail(request, pk):
 
 
 
-# # Tenant Stock Balance Views
+# Tenant Stock Balance Views
 def tenant_stock_balance(request):
     """
     Calculate current stock balance for all tenants
@@ -5028,10 +5672,6 @@ def bill_pdf(request, bill_id):
     
     return render_to_pdf('bill_template.html', context)
 
-
-
-
-
 def bill_list_by_status(request, status):
     """Generic view to list bills by status."""
     bills = TenantBill.objects.filter(status=status).select_related("tenant").order_by("-created_at")
@@ -5040,22 +5680,17 @@ def bill_list_by_status(request, status):
         "status": status,
     })
 
-
 def bill_list_draft(request):
     return bill_list_by_status(request, "draft")
-
 
 def bill_list_finalized(request):
     return bill_list_by_status(request, "finalized")
 
-
 def bill_list_sent(request):
     return bill_list_by_status(request, "sent")
 
-
 def bill_list_paid(request):
     return bill_list_by_status(request, "paid")
-
 
 def bill_list_cancelled(request):
     return bill_list_by_status(request, "cancelled")
@@ -5065,339 +5700,787 @@ def bill_list_cancelled(request):
 
 
 
-# views.py
-from django.shortcuts import render, redirect, get_object_or_404
-from django.db import transaction
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.core.paginator import Paginator
-from .models import StoreTransfer, StoreTransferItem, Stock, Store
-from .forms import StoreTransferForm, StoreTransferItemFormSet
-import json
-from decimal import Decimal
-from collections import defaultdict
+from django.forms import formset_factory
+from django.db import transaction
 
+# Create a simple formset (not inline)
+StoreTransferItemFormSet = formset_factory(
+    StoreTransferItemForm, 
+    extra=0, 
+    can_delete=True
+)
 
-
-@transaction.atomic
+@login_required
 def create_store_transfer(request):
-    if request.method == "POST":
+    if request.method == 'POST':
         form = StoreTransferForm(request.POST)
         formset = StoreTransferItemFormSet(request.POST)
         
+        # DEBUG: Print all formset-related POST data
+        print("=== FULL POST DATA DEBUG ===")
+        for key, value in request.POST.items():
+            print(f"{key}: {value}")
+        print("=== END POST DATA DEBUG ===")
+        
+        print("=== FORMSET DEBUG ===")
+        print("TOTAL_FORMS:", request.POST.get('form-TOTAL_FORMS'))
+        print("INITIAL_FORMS:", request.POST.get('form-INITIAL_FORMS'))
+        print("Form is valid:", form.is_valid())
+        print("Formset is valid:", formset.is_valid())
+        
+        if not form.is_valid():
+            print("Form errors:", form.errors)
+            
+        if not formset.is_valid():
+            print("Formset errors:", formset.errors)
+            print("Non-form errors:", formset.non_form_errors())
+            
+            # Debug each form in formset
+            for i, item_form in enumerate(formset):
+                if item_form.errors:
+                    print(f"Item form {i} errors:", item_form.errors)
+
         if form.is_valid() and formset.is_valid():
-            transfer = form.save()
-            
-            # Process and merge duplicate items before saving
-            merged_items = merge_duplicate_transfer_items(formset.cleaned_data)
-            
-            # Clear the original formset and create new items with merged data
-            for item_data in merged_items:
-                if item_data and not item_data.get('DELETE', False):
-                    StoreTransferItem.objects.create(
-                        transfer=transfer,
-                        stock=item_data['stock'],
-                        item_grade=item_data['item_grade'],
-                        plus_qty=item_data['plus_qty'],
-                        minus_qty=item_data['minus_qty'],
-                        cs_quantity=item_data['cs_quantity'],
-                        kg_quantity=item_data['kg_quantity']
-                    )
-            
-            messages.success(request, f'Store transfer {transfer.voucher_no} created successfully!')
-            return redirect("adminapp:store_transfer_list")
+            try:
+                with transaction.atomic():
+                    # Save the transfer
+                    transfer = form.save()
+                    print(f"Transfer saved: {transfer}")
+                    
+                    items_saved = 0
+                    
+                    # Process each form in the formset
+                    for i, item_form in enumerate(formset):
+                        if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                            # Check if item is selected and has quantity
+                            item = item_form.cleaned_data.get('item')
+                            cs_quantity = item_form.cleaned_data.get('cs_quantity', 0) or 0
+                            kg_quantity = item_form.cleaned_data.get('kg_quantity', 0) or 0
+                            
+                            print(f"Processing item form {i}: Item={item}, CS={cs_quantity}, KG={kg_quantity}")
+                            
+                            if item and (cs_quantity > 0 or kg_quantity > 0):
+                                # Create transfer item manually since this isn't an inline formset
+                                transfer_item = StoreTransferItem(
+                                    transfer=transfer,
+                                    item=item,
+                                    brand=item_form.cleaned_data.get('brand'),
+                                    item_quality=item_form.cleaned_data.get('item_quality'),
+                                    freezing_category=item_form.cleaned_data.get('freezing_category'),
+                                    unit=item_form.cleaned_data.get('unit'),
+                                    glaze=item_form.cleaned_data.get('glaze'),
+                                    species=item_form.cleaned_data.get('species'),
+                                    item_grade=item_form.cleaned_data.get('item_grade'),
+                                    cs_quantity=cs_quantity,
+                                    kg_quantity=kg_quantity,
+                                )
+                                transfer_item.save()
+                                items_saved += 1
+                                
+                                print(f"Saved transfer item {items_saved}: {transfer_item}")
+                                
+                                # Process stock transfer
+                                process_stock_transfer(transfer, transfer_item)
+                            else:
+                                print(f"Skipping item form {i}: no item or no quantity")
+                    
+                    if items_saved > 0:
+                        messages.success(request, f"Transfer created successfully with {items_saved} items!")
+                        return redirect('adminapp:store_transfer_list')
+                    else:
+                        transfer.delete()
+                        messages.error(request, "No valid items were added to the transfer.")
+                        
+            except Exception as e:
+                print(f"Error creating transfer: {str(e)}")
+                messages.error(request, f"Error creating transfer: {str(e)}")
         else:
-            messages.error(request, 'Please correct the errors below.')
+            messages.error(request, "Please correct the errors below.")
     else:
+        # GET request
         form = StoreTransferForm()
         formset = StoreTransferItemFormSet()
-    
-    # Get available stocks for the from_store
-    stocks = Stock.objects.none()
-    if request.GET.get('from_store'):
-        stocks = Stock.objects.filter(
-            store_id=request.GET.get('from_store')
-        ).select_related('item', 'brand', 'category')
-    
-    context = {
+
+    return render(request, "adminapp/create_transfer.html", {
         "form": form, 
-        "formset": formset,
-        "stocks": stocks,
-        "stores": Store.objects.all()
-    }
-    return render(request, "adminapp/store_transfer_form.html", context)
-
-def merge_duplicate_transfer_items(formset_data):
-    """
-    Merge duplicate stock items in transfer by summing their quantities
-    """
-    merged_items = defaultdict(lambda: {
-        'cs_quantity': Decimal('0'),
-        'kg_quantity': Decimal('0'),
-        'plus_qty': Decimal('0'),
-        'minus_qty': Decimal('0'),
-        'stock': None,
-        'item_grade': None
-    })
-    
-    for item_data in formset_data:
-        if not item_data or item_data.get('DELETE', False):
-            continue
-            
-        stock = item_data.get('stock')
-        item_grade = item_data.get('item_grade', '')
-        
-        if not stock:
-            continue
-            
-        # Create a unique key for grouping duplicates
-        # Include item_grade in the key to handle different grades separately
-        key = (stock.id, item_grade or '')
-        
-        # Sum up the quantities
-        merged_items[key]['cs_quantity'] += item_data.get('cs_quantity', Decimal('0'))
-        merged_items[key]['kg_quantity'] += item_data.get('kg_quantity', Decimal('0'))
-        merged_items[key]['plus_qty'] += item_data.get('plus_qty', Decimal('0'))
-        merged_items[key]['minus_qty'] += item_data.get('minus_qty', Decimal('0'))
-        merged_items[key]['stock'] = stock
-        merged_items[key]['item_grade'] = item_grade
-    
-    return list(merged_items.values())
-
-@transaction.atomic
-def edit_store_transfer(request, transfer_id):
-    transfer = get_object_or_404(StoreTransfer, id=transfer_id)
-    
-    if request.method == "POST":
-        form = StoreTransferForm(request.POST, instance=transfer)
-        formset = StoreTransferItemFormSet(request.POST, instance=transfer)
-        
-        if form.is_valid() and formset.is_valid():
-            # Reverse the original transfer effects on stock
-            reverse_transfer_stock_effects(transfer)
-            
-            # Update the transfer
-            transfer = form.save()
-            
-            # Clear existing items
-            transfer.items.all().delete()
-            
-            # Process and merge duplicate items
-            merged_items = merge_duplicate_transfer_items(formset.cleaned_data)
-            
-            # Create new items with merged data
-            for item_data in merged_items:
-                if item_data and not item_data.get('DELETE', False):
-                    StoreTransferItem.objects.create(
-                        transfer=transfer,
-                        stock=item_data['stock'],
-                        item_grade=item_data['item_grade'],
-                        plus_qty=item_data['plus_qty'],
-                        minus_qty=item_data['minus_qty'],
-                        cs_quantity=item_data['cs_quantity'],
-                        kg_quantity=item_data['kg_quantity']
-                    )
-            
-            messages.success(request, f'Store transfer {transfer.voucher_no} updated successfully!')
-            return redirect("adminapp:store_transfer_list")
-    else:
-        form = StoreTransferForm(instance=transfer)
-        formset = StoreTransferItemFormSet(instance=transfer)
-    
-    stocks = Stock.objects.filter(
-        store=transfer.from_store
-    ).select_related('item', 'brand', 'category')
-    
-    context = {
-        "form": form, 
-        "formset": formset,
-        "transfer": transfer,
-        "stocks": stocks,
-        "stores": Store.objects.all()
-    }
-    return render(request, "adminapp/store_transfer_form.html", context)
-
-def reverse_transfer_stock_effects(transfer):
-    """
-    Reverse the stock effects of a transfer (for editing/deleting)
-    """
-    for item in transfer.items.all():
-        # Add back to from_store
-        from_stock = item.stock
-        from_stock.cs_quantity += item.cs_quantity
-        from_stock.kg_quantity += item.kg_quantity
-        from_stock.save()
-        
-        # Remove from to_store
-        try:
-            to_stock = Stock.objects.get(
-                store=transfer.to_store,
-                category=from_stock.category,
-                brand=from_stock.brand,
-                unit=from_stock.unit,
-                glaze=from_stock.glaze,
-                item=from_stock.item,
-                species=from_stock.species,
-                selling_type=from_stock.selling_type,
-                item_grade=item.item_grade or from_stock.item_grade,
-            )
-            to_stock.cs_quantity -= item.cs_quantity
-            to_stock.kg_quantity -= item.kg_quantity
-            
-            # Delete the stock record if quantities become zero
-            if to_stock.cs_quantity <= 0 and to_stock.kg_quantity <= 0:
-                to_stock.delete()
-            else:
-                to_stock.save()
-                
-        except Stock.DoesNotExist:
-            pass  # Stock might have been manually deleted
-
-@transaction.atomic
-def delete_store_transfer(request, transfer_id):
-    transfer = get_object_or_404(StoreTransfer, id=transfer_id)
-    
-    if request.method == "POST":
-        # Reverse the stock effects
-        reverse_transfer_stock_effects(transfer)
-        
-        voucher_no = transfer.voucher_no
-        transfer.delete()
-        
-        messages.success(request, f'Store transfer {voucher_no} deleted successfully!')
-        return redirect("adminapp:store_transfer_list")
-    
-    return render(request, "adminapp/confirm_delete.html", {
-        "object": transfer,
-        "object_name": "Store Transfer"
+        "formset": formset
     })
 
-def store_transfer_list(request):
-    transfers = StoreTransfer.objects.all().order_by("-date").select_related(
-        'from_store', 'to_store'
-    )
-    
-    # Add search functionality
-    search_query = request.GET.get('search', '')
-    if search_query:
-        transfers = transfers.filter(
-            voucher_no__icontains=search_query
+def process_stock_transfer(transfer, transfer_item):
+    """Process stock transfer between stores"""
+    try:
+        cs_qty = transfer_item.cs_quantity or 0
+        kg_qty = transfer_item.kg_quantity or 0
+        
+        if cs_qty <= 0 and kg_qty <= 0:
+            return
+            
+        # Find source stock
+        source_stock = Stock.objects.filter(
+            store=transfer.from_store,
+            item=transfer_item.item,
+            brand=transfer_item.brand,
+            item_quality=transfer_item.item_quality,
+            freezing_category=transfer_item.freezing_category,
+            unit=transfer_item.unit,
+            glaze=transfer_item.glaze,
+            species=transfer_item.species,
+            item_grade=transfer_item.item_grade,
+        ).first()
+        
+        if not source_stock:
+            print(f"WARNING: No source stock found for {transfer_item.item}")
+            return
+            
+        # Check sufficient stock
+        if (source_stock.cs_quantity or 0) < cs_qty:
+            raise ValueError(f"Insufficient CS quantity for {transfer_item.item}. Required: {cs_qty}, Available: {source_stock.cs_quantity}")
+        if (source_stock.kg_quantity or 0) < kg_qty:
+            raise ValueError(f"Insufficient KG quantity for {transfer_item.item}. Required: {kg_qty}, Available: {source_stock.kg_quantity}")
+        
+        # Deduct from source
+        source_stock.cs_quantity = (source_stock.cs_quantity or 0) - cs_qty
+        source_stock.kg_quantity = (source_stock.kg_quantity or 0) - kg_qty
+        source_stock.save()
+        print(f"Updated source stock: {source_stock}")
+        
+        # Add to destination
+        dest_stock, created = Stock.objects.get_or_create(
+            store=transfer.to_store,
+            item=transfer_item.item,
+            brand=transfer_item.brand,
+            item_quality=transfer_item.item_quality,
+            freezing_category=transfer_item.freezing_category,
+            unit=transfer_item.unit,
+            glaze=transfer_item.glaze,
+            species=transfer_item.species,
+            item_grade=transfer_item.item_grade,
+            defaults={'cs_quantity': 0, 'kg_quantity': 0}
         )
-    
-    # Add pagination
-    paginator = Paginator(transfers, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    context = {
-        "transfers": page_obj,
-        "search_query": search_query
-    }
-    return render(request, "adminapp/store_transfer_list.html", context)
+        
+        dest_stock.cs_quantity = (dest_stock.cs_quantity or 0) + cs_qty
+        dest_stock.kg_quantity = (dest_stock.kg_quantity or 0) + kg_qty
+        dest_stock.save()
+        print(f"Updated dest stock: {dest_stock} (created: {created})")
+        
+    except Exception as e:
+        print(f"Stock transfer error: {str(e)}")
+        raise
 
-def store_transfer_detail(request, transfer_id):
-    transfer = get_object_or_404(
-        StoreTransfer.objects.select_related('from_store', 'to_store'), 
-        id=transfer_id
-    )
-    items = transfer.items.all().select_related('stock', 'stock__item', 'stock__brand')
-    
-    context = {
-        "transfer": transfer,
-        "items": items
-    }
-    return render(request, "adminapp/store_transfer_detail.html", context)
+@login_required
+def get_stock_by_store(request):
+    store_id = request.GET.get("store_id")
+    if not store_id:
+        return JsonResponse({"stocks": []})
 
-# AJAX endpoints for dynamic form behavior
-@require_http_methods(["GET"])
-def get_store_stocks(request, store_id):
-    """
-    AJAX endpoint to get stocks for a specific store
-    """
     stocks = Stock.objects.filter(store_id=store_id).select_related(
-        'item', 'brand', 'category'
+        "item", "brand", "category", "item_quality", "freezing_category",
+        "unit", "glaze", "species", "item_grade"
     )
+
+    stocks_list = []
+    for s in stocks:
+        stocks_list.append({
+            "stock_id": s.id,
+            "item_id": s.item.id,
+            "item_name": s.item.name,
+            "brand_id": s.brand.id,
+            "brand_name": s.brand.name,
+            "category_id": s.category.id,
+            "category_name": s.category.name,
+            "quality_id": s.item_quality.id if s.item_quality else None,
+            "quality_name": s.item_quality.name if s.item_quality else None,
+            "freezing_category_id": s.freezing_category.id if s.freezing_category else None,
+            "freezing_category_name": s.freezing_category.name if s.freezing_category else None,
+            "unit_id": s.unit.id if s.unit else None,
+            "unit_name": s.unit.description if s.unit else None,
+            "glaze_id": s.glaze.id if s.glaze else None,
+            "glaze_name": s.glaze.name if s.glaze else None,
+            "species_id": s.species.id if s.species else None,
+            "species_name": s.species.name if s.species else None,
+            "grade_id": s.item_grade.id if s.item_grade else None,
+            "grade_name": s.item_grade.name if s.item_grade else None,
+            "cs_quantity": float(s.cs_quantity),
+            "kg_quantity": float(s.kg_quantity),
+        })
+
+    return JsonResponse({"stocks": stocks_list})
+
+
+
+
+
+
+
+
+
+
+# API endpoint to get available stock for validation
+def get_available_stock(request):
+    """API endpoint to check available stock for transfer validation"""
+    store_id = request.GET.get('store_id')
+    item_id = request.GET.get('item_id')
+    item_grade_id = request.GET.get('item_grade_id')
     
-    stock_data = []
-    for stock in stocks:
-        stock_data.append({
-            'id': stock.id,
-            'item_name': stock.item.name,
-            'brand_name': stock.brand.name,
-            'category_name': stock.category.name,
-            'unit': stock.unit,
-            'glaze': stock.glaze or '',
-            'species': stock.species or '',
-            'item_grade': stock.item_grade or '',
-            'cs_quantity': float(stock.cs_quantity),
-            'kg_quantity': float(stock.kg_quantity),
-            'display_name': f"{stock.item.name} - {stock.brand.name} ({stock.unit})"
+    if not all([store_id, item_id, item_grade_id]):
+        return JsonResponse({'error': 'Missing parameters'}, status=400)
+    
+    try:
+        stock = Stock.objects.get(
+            store_id=store_id,
+            item_id=item_id,
+            item_grade_id=item_grade_id
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'cs_qty': float(stock.cs_qty),
+            'kg_qty': float(stock.kg_qty),
+            'rate': float(stock.rate)
+        })
+        
+    except Stock.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Stock not found',
+            'cs_qty': 0,
+            'kg_qty': 0
         })
     
-    return JsonResponse({'stocks': stock_data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
-@require_http_methods(["GET"])
-def get_stock_details(request, stock_id):
-    """
-    AJAX endpoint to get details of a specific stock
-    """
+
+class StoreTransferListView(LoginRequiredMixin, ListView):
+    """List all store transfers"""
+    model = StoreTransfer
+    template_name = 'adminapp/transfer_list.html'
+    context_object_name = 'transfers'
+    paginate_by = 20
+    ordering = ['-date', '-id']
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Store Transfers'
+        return context
+
+@login_required
+def transfer_detail(request, pk):
+    """View transfer details"""
+    transfer = get_object_or_404(StoreTransfer, pk=pk)
+    items = StoreTransferItem.objects.filter(transfer=transfer).select_related(
+        'item', 'brand', 'item_quality', 'species', 'item_grade', 'freezing_category'
+    )
+    
+    context = {
+        'transfer': transfer,
+        'items': items,
+        'title': f'Transfer Details - {transfer.voucher_no}'
+    }
+    return render(request, 'adminapp/transfer_detail.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_transfer(request, pk):
+    """Delete a store transfer and its items"""
+    transfer = get_object_or_404(StoreTransfer, pk=pk)
+    transfer_no = transfer.voucher_no
+
     try:
+        transfer.delete()  # This will also delete related StoreTransferItem if on_delete=CASCADE
+
+        if request.headers.get("Content-Type") == "application/json":
+            return JsonResponse({
+                "success": True,
+                "message": f'Transfer "{transfer_no}" deleted successfully.'
+            })
+        else:
+            messages.success(request, f'Transfer "{transfer_no}" deleted successfully.')
+            return redirect("adminapp:transfer_list")
+
+    except Exception as e:
+        if request.headers.get("Content-Type") == "application/json":
+            return JsonResponse({
+                "success": False,
+                "message": f"Error deleting transfer: {str(e)}"
+            }, status=500)
+        else:
+            messages.error(request, f"Error deleting transfer: {str(e)}")
+            return redirect("adminapp:store_transfer_list")
+
+
+
+
+
+
+# In your views.py - USE THIS VERSION
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+
+@login_required
+@require_http_methods(["GET"])
+def get_stock_details(request):
+    stock_id = request.GET.get('stock_id')
+    
+    if not stock_id:
+        return JsonResponse({'success': False, 'error': 'Stock ID required'})
+    
+    try:
+        # ONLY use confirmed relational fields from the error message:
+        # store, category, brand, item, item_quality, freezing_category, source_spot_entry, source_local_entry
+        
         stock = Stock.objects.select_related(
-            'item', 'brand', 'category'
+            'store',
+            'category', 
+            'brand', 
+            'item', 
+            'item_quality', 
+            'freezing_category'
         ).get(id=stock_id)
         
-        stock_data = {
-            'id': stock.id,
-            'item_name': stock.item.name,
-            'brand_name': stock.brand.name,
-            'category_name': stock.category.name,
-            'unit': stock.unit,
-            'glaze': stock.glaze or '',
-            'species': stock.species or '',
-            'item_grade': stock.item_grade or '',
-            'cs_quantity': float(stock.cs_quantity),
-            'kg_quantity': float(stock.kg_quantity)
+        # Build the response based on actual model fields
+        stock_details = {
+            'category_id': stock.category.id if stock.category else None,
+            'brand_id': stock.brand.id if stock.brand else None,
+            'item_id': stock.item.id if stock.item else None,
+            'item_quality_id': stock.item_quality.id if stock.item_quality else None,
+            'freezing_category_id': stock.freezing_category.id if stock.freezing_category else None,
         }
         
-        return JsonResponse({'stock': stock_data})
-    except Stock.DoesNotExist:
-        return JsonResponse({'error': 'Stock not found'}, status=404)
-
-def validate_transfer_quantities(request):
-    """
-    AJAX endpoint to validate if transfer quantities are available in stock
-    """
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        stock_id = data.get('stock_id')
-        cs_quantity = Decimal(str(data.get('cs_quantity', 0)))
-        kg_quantity = Decimal(str(data.get('kg_quantity', 0)))
+        # Handle non-relational fields safely
+        # These might be direct CharField/IntegerField values, not relationships
+        if hasattr(stock, 'species') and stock.species:
+            stock_details['species'] = str(stock.species)
+            
+        if hasattr(stock, 'glaze') and stock.glaze:
+            stock_details['glaze'] = str(stock.glaze)
+            
+        if hasattr(stock, 'grade') and stock.grade:
+            stock_details['grade'] = str(stock.grade)
+            
+        if hasattr(stock, 'item_grade') and stock.item_grade:
+            stock_details['item_grade'] = str(stock.item_grade)
+            
+        if hasattr(stock, 'unit') and stock.unit:
+            stock_details['unit'] = str(stock.unit)
         
-        try:
-            stock = Stock.objects.get(id=stock_id)
-            
-            errors = []
-            if cs_quantity > stock.cs_quantity:
-                errors.append(f'CS quantity ({cs_quantity}) exceeds available stock ({stock.cs_quantity})')
-            
-            if kg_quantity > stock.kg_quantity:
-                errors.append(f'KG quantity ({kg_quantity}) exceeds available stock ({stock.kg_quantity})')
-            
-            return JsonResponse({
-                'valid': len(errors) == 0,
-                'errors': errors,
-                'available_cs': float(stock.cs_quantity),
-                'available_kg': float(stock.kg_quantity)
-            })
-            
-        except Stock.DoesNotExist:
-            return JsonResponse({
-                'valid': False,
-                'errors': ['Stock not found']
-            })
+        return JsonResponse({
+            'success': True,
+            'stock_details': stock_details
+        })
+        
+    except Stock.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Stock not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error: {str(e)}'})
+
+
+# Alternative version if you want to inspect your model first
+@login_required
+@require_http_methods(["GET"])
+def get_stock_details_debug(request):
+    """Debug version to see what fields are available"""
+    stock_id = request.GET.get('stock_id')
     
-    return JsonResponse({'valid': False, 'errors': ['Invalid request']})
+    if not stock_id:
+        return JsonResponse({'success': False, 'error': 'Stock ID required'})
+    
+    try:
+        # Get stock without select_related first
+        stock = Stock.objects.get(id=stock_id)
+        
+        # Get all field names
+        field_names = [f.name for f in stock._meta.get_fields()]
+        related_fields = [f.name for f in stock._meta.get_fields() if f.is_relation]
+        
+        # Build response with available fields
+        stock_details = {}
+        
+        # Check each possible field
+        for field_name in ['category', 'brand', 'item', 'item_quality', 'freezing_category', 'unit', 'glaze']:
+            if hasattr(stock, field_name):
+                try:
+                    field_value = getattr(stock, field_name)
+                    if field_value and hasattr(field_value, 'id'):
+                        stock_details[f'{field_name}_id'] = field_value.id
+                    elif field_value:
+                        stock_details[field_name] = str(field_value)
+                except:
+                    pass
+        
+        # Check for direct value fields
+        for field_name in ['species', 'item_grade', 'grade']:
+            if hasattr(stock, field_name):
+                try:
+                    field_value = getattr(stock, field_name)
+                    if field_value:
+                        stock_details[field_name] = str(field_value)
+                except:
+                    pass
+        
+        return JsonResponse({
+            'success': True,
+            'stock_details': stock_details,
+            'debug_info': {
+                'all_fields': field_names,
+                'related_fields': related_fields
+            }
+        })
+        
+    except Stock.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Stock not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# Simplified version focusing on known working fields
+@login_required
+@require_http_methods(["GET"])
+def get_stock_details_simple(request):
+    stock_id = request.GET.get('stock_id')
+    
+    if not stock_id:
+        return JsonResponse({'success': False, 'error': 'Stock ID required'})
+    
+    try:
+        # Only use the confirmed working related fields
+        stock = Stock.objects.select_related(
+            'category',
+            'brand', 
+            'item', 
+            'item_quality', 
+            'freezing_category'
+        ).get(id=stock_id)
+        
+        stock_details = {
+            'category_id': stock.category.id if stock.category else None,
+            'brand_id': stock.brand.id if stock.brand else None,
+            'item_id': stock.item.id if stock.item else None,
+            'item_quality_id': stock.item_quality.id if stock.item_quality else None,
+            'freezing_category_id': stock.freezing_category.id if stock.freezing_category else None,
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'stock_details': stock_details
+        })
+        
+    except Stock.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Stock not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+
+
+
+
+
+
+# views.py
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import ListView, DetailView, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q, F, Sum
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from .models import Stock, Store, ItemCategory, ItemBrand, Item, ItemQuality, FreezingCategory
+
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
+from .models import Stock, Store, ItemCategory, ItemBrand
+
+from django.db.models import Q
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
+from .models import Stock, Store, ItemCategory, ItemBrand
+
+class StockListView(LoginRequiredMixin, ListView):
+    model = Stock
+    template_name = 'adminapp/stock/stock_list.html'
+    context_object_name = 'stocks'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Stock.objects.select_related(
+            'store', 'brand', 'item', 
+            'item_quality', 'freezing_category', 'unit', 'glaze', 'species', 'item_grade'
+        ).order_by('item__name')  # removed non-existent fields
+
+        search = self.request.GET.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(item__name__icontains=search) |
+                Q(brand__name__icontains=search) |
+                Q(store__name__icontains=search) |
+                Q(species__icontains=search) |
+                Q(glaze__icontains=search)
+            )
+
+        store_id = self.request.GET.get('store')
+        if store_id:
+            qs = qs.filter(store_id=store_id)
+
+        category_id = self.request.GET.get('category')
+        if category_id:
+            # category is now linked through item.category
+            qs = qs.filter(item__category_id=category_id)
+
+        brand_id = self.request.GET.get('brand')
+        if brand_id:
+            qs = qs.filter(brand_id=brand_id)
+
+        low_stock = self.request.GET.get('low_stock')
+        if low_stock == 'true':
+            qs = qs.filter(Q(cs_quantity__lt=10) | Q(kg_quantity__lt=10))
+
+        source = self.request.GET.get('source')
+        if source == 'spot':
+            qs = qs.filter(usd_rate_item__isnull=False)  # adjust to your actual spot field
+        elif source == 'local':
+            qs = qs.filter(usd_rate_item_to_inr__isnull=False)  # adjust to your actual local field
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        qs = self.get_queryset()
+
+        context.update({
+            'stores': Store.objects.all(),
+            'categories': ItemCategory.objects.all(),
+            'brands': ItemBrand.objects.all(),
+            'search_query': self.request.GET.get('search', ''),
+            'selected_store': self.request.GET.get('store', ''),
+            'selected_category': self.request.GET.get('category', ''),
+            'selected_brand': self.request.GET.get('brand', ''),
+            'low_stock_filter': self.request.GET.get('low_stock', ''),
+            'source_filter': self.request.GET.get('source', ''),
+            'total_stocks': qs.count(),
+            'low_stock_count': qs.filter(Q(cs_quantity__lt=10) | Q(kg_quantity__lt=10)).count()
+        })
+
+        return context
+
+class StockDetailView(LoginRequiredMixin, DetailView):
+    """Detail view for individual stock item"""
+    model = Stock
+    template_name = 'adminapp/stock/stock_detail.html'
+    context_object_name = 'stock'
+    
+    def get_queryset(self):
+        return Stock.objects.select_related(
+            'store', 'category', 'brand', 'item', 'item_quality',
+            'freezing_category', 'source_spot_entry', 'source_local_entry'
+        )
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        stock = self.object
+        
+        # Get related stock items (same item, different stores/qualities)
+        related_stocks = Stock.objects.filter(
+            item=stock.item
+        ).exclude(pk=stock.pk).select_related(
+            'store', 'brand', 'item_quality'
+        )[:5]
+        
+        context['related_stocks'] = related_stocks
+        
+        # Calculate total quantity across units
+        context['total_quantity_display'] = self.get_total_quantity_display(stock)
+        
+        # Stock status
+        context['stock_status'] = self.get_stock_status(stock)
+        
+        return context
+    
+    def get_total_quantity_display(self, stock):
+        """Format total quantity for display"""
+        quantities = []
+        if stock.cs_quantity > 0:
+            quantities.append(f"{stock.cs_quantity} {stock.unit}")
+        if stock.kg_quantity > 0:
+            quantities.append(f"{stock.kg_quantity} kg")
+        return " | ".join(quantities) if quantities else "No stock"
+    
+    def get_stock_status(self, stock):
+        """Determine stock status based on quantities"""
+        total_cs = float(stock.cs_quantity or 0)
+        total_kg = float(stock.kg_quantity or 0)
+        
+        if total_cs == 0 and total_kg == 0:
+            return {'status': 'out_of_stock', 'class': 'danger', 'text': 'Out of Stock'}
+        elif total_cs < 10 and total_kg < 10:
+            return {'status': 'low_stock', 'class': 'warning', 'text': 'Low Stock'}
+        else:
+            return {'status': 'in_stock', 'class': 'success', 'text': 'In Stock'}
+
+class StockDashboardView(LoginRequiredMixin, TemplateView):
+    """Dashboard view showing stock overview and analytics"""
+    template_name = 'adminapp/stock/stock_dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Overall statistics
+        total_items = Stock.objects.count()
+        total_stores = Store.objects.count()
+        total_categories = ItemCategory.objects.count()
+        
+        # Stock status breakdown
+        out_of_stock = Stock.objects.filter(
+            cs_quantity=0, kg_quantity=0
+        ).count()
+        
+        low_stock = Stock.objects.filter(
+            Q(cs_quantity__gt=0, cs_quantity__lt=10) |
+            Q(kg_quantity__gt=0, kg_quantity__lt=10)
+        ).exclude(cs_quantity=0, kg_quantity=0).count()
+        
+        in_stock = total_items - out_of_stock - low_stock
+        
+        # Stock by store
+        stock_by_store = Stock.objects.values(
+            'store__name'
+        ).annotate(
+            total_items=Count('id'),
+            total_cs=Sum('cs_quantity'),
+            total_kg=Sum('kg_quantity')
+        ).order_by('-total_items')[:10]
+        
+        # Stock by category
+        stock_by_category = Stock.objects.values(
+            'category__name'
+        ).annotate(
+            total_items=Count('id'),
+            total_cs=Sum('cs_quantity'),
+            total_kg=Sum('kg_quantity')
+        ).order_by('-total_items')[:10]
+        
+        week_ago = timezone.now() - timedelta(days=7)
+        recent_spot_updates = Stock.objects.filter(
+            last_updated_from_spot__gte=week_ago
+        ).count()
+        recent_local_updates = Stock.objects.filter(
+            last_updated_from_local__gte=week_ago
+        ).count()
+        
+        # Top brands by stock count
+        top_brands = Stock.objects.values(
+            'brand__name'
+        ).annotate(
+            total_items=Count('id')
+        ).order_by('-total_items')[:5]
+        
+        context.update({
+            'total_items': total_items,
+            'total_stores': total_stores,
+            'total_categories': total_categories,
+            'out_of_stock': out_of_stock,
+            'low_stock': low_stock,
+            'in_stock': in_stock,
+            'stock_by_store': stock_by_store,
+            'stock_by_category': stock_by_category,
+            'recent_spot_updates': recent_spot_updates,
+            'recent_local_updates': recent_local_updates,
+            'top_brands': top_brands,
+        })
+        
+        return context
+
+# API Views for AJAX requests
+def stock_search_api(request):
+    """API endpoint for stock search with JSON response"""
+    search = request.GET.get('search', '')
+    
+    stocks = Stock.objects.filter(
+        Q(item__name__icontains=search) |
+        Q(brand__name__icontains=search) |
+        Q(store__name__icontains=search)
+    ).select_related(
+        'store', 'item', 'brand'
+    )[:10]
+    
+    results = []
+    for stock in stocks:
+        results.append({
+            'id': stock.id,
+            'item_name': stock.item.name,
+            'store_name': stock.store.name,
+            'brand_name': stock.brand.name,
+            'cs_quantity': str(stock.cs_quantity),
+            'kg_quantity': str(stock.kg_quantity),
+            'unit': stock.unit,
+        })
+    
+    return JsonResponse({'results': results})
+
+def stock_quick_info(request, pk):
+    """Quick info API for stock item"""
+    stock = get_object_or_404(Stock, pk=pk)
+    
+    data = {
+        'item_name': stock.item.name,
+        'store_name': stock.store.name,
+        'brand_name': stock.brand.name,
+        'cs_quantity': str(stock.cs_quantity),
+        'kg_quantity': str(stock.kg_quantity),
+        'unit': stock.unit,
+        'glaze': stock.glaze or 'N/A',
+        'species': stock.species or 'N/A',
+        'item_grade': stock.item_grade or 'N/A',
+        'last_updated_spot': stock.last_updated_from_spot.strftime('%Y-%m-%d %H:%M') if stock.last_updated_from_spot else 'Never',
+        'last_updated_local': stock.last_updated_from_local.strftime('%Y-%m-%d %H:%M') if stock.last_updated_from_local else 'Never',
+    }
+    
+    return JsonResponse(data)
+
+@login_required
+@require_http_methods(["POST"])
+def delete_stock(request, pk):
+    """Function-based view to delete a stock item"""
+    stock = get_object_or_404(Stock, pk=pk)
+    stock_name = f"{stock.item.name} - {stock.store.name}"
+    
+    try:
+        stock.delete()
+        
+        # Check if it's an AJAX request
+        if request.headers.get('Content-Type') == 'application/json':
+            return JsonResponse({
+                'success': True,
+                'message': f'Stock item "{stock_name}" has been successfully deleted.'
+            })
+        else:
+            messages.success(
+                request, 
+                f'Stock item "{stock_name}" has been successfully deleted.'
+            )
+            return redirect('adminapp:list')  # Make sure this matches your URL name
+        
+    except Exception as e:
+        if request.headers.get('Content-Type') == 'application/json':
+            return JsonResponse({
+                'success': False,
+                'message': f'Error deleting stock item: {str(e)}'
+            }, status=500)
+        else:
+            messages.error(
+                request, 
+                f'Error deleting stock item: {str(e)}'
+            )
+            return redirect('adminapp:detail', pk=pk)  # Make sure this matches your URL name
+
+
+
 
 
 

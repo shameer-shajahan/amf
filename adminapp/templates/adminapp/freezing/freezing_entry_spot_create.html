@@ -737,6 +737,9 @@ textarea:focus {
 }
     </style>
 
+            <h4><a href="{% url 'adminapp:item_grade_create' %}">create grade </a></h4>
+
+
     <form method="post">
         {% csrf_token %}
 
@@ -1138,11 +1141,11 @@ textarea:focus {
 
             $.get("{% url 'adminapp:get_sheds_by_date' %}", { date: selectedDate }, function (data) {
                 const shedSet = new Set();
-                const itemSet = new Set();
+
 
                 data.sheds.forEach(supply => {
                     shedSet.add(`<option value="${supply.shed_id}">${supply.shed_name}</option>`);
-                    itemSet.add(`<option value="${supply.item_id}">${supply.item_name}</option>`);
+
                 });
 
                 $('[name$="-shed"]').each(function () {
@@ -1150,10 +1153,7 @@ textarea:focus {
                     shedSet.forEach(opt => $(this).append(opt));
                 });
 
-                $('[name$="-item"]').each(function () {
-                    $(this).empty().append('<option value="">---------</option>');
-                    itemSet.forEach(opt => $(this).append(opt));
-                });
+              
             }).fail(() => alert("Failed to load sheds/items for the selected date."));
         });
     </script>

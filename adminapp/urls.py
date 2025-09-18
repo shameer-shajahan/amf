@@ -299,18 +299,21 @@ urlpatterns = [
     path("bills/cancelled/", views.bill_list_cancelled, name="bill_list_cancelled"),
 
 
-    #  stock
-    path('store-transfers/', views.store_transfer_list, name='store_transfer_list'),
-    path('store-transfers/create/', views.create_store_transfer, name='create_store_transfer'),
-    path('store-transfers/<int:transfer_id>/', views.store_transfer_detail, name='store_transfer_detail'),
-    path('store-transfers/<int:transfer_id>/edit/', views.edit_store_transfer, name='edit_store_transfer'),
-    path('store-transfers/<int:transfer_id>/delete/', views.delete_store_transfer, name='delete_store_transfer'),
+    path('transfers/', views.StoreTransferListView.as_view(), name='store_transfer_list'),
+    path('transfers/create/', views.create_store_transfer, name='create_store_transfer'),
+    path('transfers/<int:pk>/', views.transfer_detail, name='transfer_detail'),
+    path('api/get-stock-by-store/', views.get_stock_by_store, name='get_stock_by_store'),
+    path("transfers/<int:pk>/delete/", views.delete_transfer, name="delete_transfer"),
+    path("api/get-stock-details/", views.get_stock_details, name="get_stock_details"),
+
+
+    path('stock/list/', views.StockListView.as_view(), name='list'),
+    path('dashboard/', views.StockDashboardView.as_view(), name='dashboard'),
+    path('detail/<int:pk>/', views.StockDetailView.as_view(), name='detail'),
+    path('stock/<int:pk>/delete-direct/', views.delete_stock, name='stock_delete_direct'),
     
-    # AJAX endpoints
-    path('api/stores/<int:store_id>/stocks/', views.get_store_stocks, name='get_store_stocks'),
-    path('api/stocks/<int:stock_id>/', views.get_stock_details, name='get_stock_details'),
-    path('api/validate-transfer-quantities/', views.validate_transfer_quantities, name='validate_transfer_quantities'), 
-
-
+    # API endpoints
+    path('api/search/', views.stock_search_api, name='search_api'),
+    path('api/quick-info/<int:pk>/', views.stock_quick_info, name='quick_info'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

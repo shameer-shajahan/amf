@@ -227,11 +227,12 @@ class SpotPurchaseForm(forms.ModelForm):
 class SpotPurchaseItemForm(forms.ModelForm):
     class Meta:
         model = SpotPurchaseItem
-        fields = ['item', 'quantity', 'rate', 'boxes']
+        fields = ['item','total_rate', 'quantity', 'rate', 'boxes']
         widgets = {
             'item': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'boxes': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'total_rate': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'rate': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
@@ -699,150 +700,57 @@ class TenantBillForm(forms.ModelForm):
 
 
 
-# forms.py - Updated forms with better validation
+
+
+
+
+
+
+
 
 from django import forms
 from django.forms import inlineformset_factory
-from django.core.exceptions import ValidationError
-from .models import StoreTransfer, StoreTransferItem, Stock
-from collections import defaultdict
 from decimal import Decimal
-
+from .models import StoreTransfer, StoreTransferItem, Stock, PackingUnit, GlazePercentage, Species, ItemGrade
 
 class StoreTransferForm(forms.ModelForm):
     class Meta:
         model = StoreTransfer
-        fields = ["voucher_no", "date", "from_store", "to_store"]
+        fields = ['voucher_no', 'date', 'from_store', 'to_store']
         widgets = {
+            'voucher_no': forms.TextInput(attrs={'class': 'form-control'}),
             'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'voucher_no': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
-            'from_store': forms.Select(attrs={'class': 'form-control', 'required': True}),
-            'to_store': forms.Select(attrs={'class': 'form-control', 'required': True}),
+            'from_store': forms.Select(attrs={'class': 'form-control'}),
+            'to_store': forms.Select(attrs={'class': 'form-control'}),
         }
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        from_store = cleaned_data.get('from_store')
-        to_store = cleaned_data.get('to_store')
-        
-        if from_store and to_store and from_store == to_store:
-            raise ValidationError("From store and To store cannot be the same.")
-        
-        return cleaned_data
-
 
 class StoreTransferItemForm(forms.ModelForm):
+    selected_stock_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
+
     class Meta:
         model = StoreTransferItem
-        exclude = ['plus_qty','minus_qty']
-        fields = ["stock", "item_grade", "cs_quantity", "kg_quantity"]
+        fields = [
+            "item", "brand", "item_quality", "freezing_category",
+            "unit", "glaze", "species", "item_grade", "cs_quantity", "kg_quantity"
+        ]
         widgets = {
-            'stock': forms.Select(attrs={'class': 'form-control stock-select'}),
-            'item_grade': forms.TextInput(attrs={'class': 'form-control'}),
-            'cs_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-            'kg_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            "item": forms.Select(attrs={"class": "form-control item-select"}),
+            "item_quality": forms.Select(attrs={"class": "form-control quality-select"}),
+            "brand": forms.Select(attrs={"class": "form-control brand-select"}),
+            "freezing_category": forms.Select(attrs={"class": "form-control freezing-select"}),
+            "unit": forms.Select(attrs={"class": "form-control unit-select"}),
+            "glaze": forms.Select(attrs={"class": "form-control glaze-select"}),
+            "species": forms.Select(attrs={"class": "form-control species-select"}),
+            "item_grade": forms.Select(attrs={"class": "form-control grade-select"}),
+            "cs_quantity": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "kg_quantity": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
         }
-    
-    def __init__(self, *args, **kwargs):
-        from_store = kwargs.pop('from_store', None)
-        super().__init__(*args, **kwargs)
-        
-        if from_store:
-            self.fields['stock'].queryset = Stock.objects.filter(
-                store=from_store
-            ).select_related('item', 'brand', 'category')
-        else:
-            self.fields['stock'].queryset = Stock.objects.none()
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        stock = cleaned_data.get('stock')
-        cs_quantity = cleaned_data.get('cs_quantity', 0)
-        kg_quantity = cleaned_data.get('kg_quantity', 0)
-        
-        if not stock:
-            return cleaned_data
-        
-        # Validate that transfer quantities don't exceed available stock
-        if cs_quantity and cs_quantity > stock.cs_quantity:
-            raise ValidationError({
-                'cs_quantity': f'CS quantity ({cs_quantity}) exceeds available stock ({stock.cs_quantity})'
-            })
-        
-        if kg_quantity and kg_quantity > stock.kg_quantity:
-            raise ValidationError({
-                'kg_quantity': f'KG quantity ({kg_quantity}) exceeds available stock ({stock.kg_quantity})'
-            })
-        
-        # Ensure at least one quantity is provided
-        if not cs_quantity and not kg_quantity:
-            raise ValidationError("Either CS quantity or KG quantity must be provided.")
-        
-        return cleaned_data
 
-
-# Custom formset with validation for duplicate handling
-class StoreTransferItemFormSet(forms.BaseInlineFormSet):
-    def clean(self):
-        """
-        Custom validation to check for duplicate stocks and validate total quantities
-        """
-        if any(self.errors):
-            return
-        
-        if not self.forms:
-            raise ValidationError("At least one item must be added to the transfer.")
-        
-        # Track stock quantities for validation
-        stock_quantities = defaultdict(lambda: {'cs': Decimal('0'), 'kg': Decimal('0')})
-        
-        for form in self.forms:
-            if not form.cleaned_data or form.cleaned_data.get('DELETE', False):
-                continue
-            
-            stock = form.cleaned_data.get('stock')
-            item_grade = form.cleaned_data.get('item_grade', '')
-            cs_quantity = form.cleaned_data.get('cs_quantity', Decimal('0'))
-            kg_quantity = form.cleaned_data.get('kg_quantity', Decimal('0'))
-            
-            if not stock:
-                continue
-            
-            # Create key for tracking (stock + grade combination)
-            key = (stock.id, item_grade or '')
-            stock_quantities[key]['cs'] += cs_quantity
-            stock_quantities[key]['kg'] += kg_quantity
-        
-        # Validate against available stock quantities
-        for (stock_id, item_grade), quantities in stock_quantities.items():
-            try:
-                stock = Stock.objects.get(id=stock_id)
-                
-                if quantities['cs'] > stock.cs_quantity:
-                    raise ValidationError(
-                        f"Total CS quantity for {stock.item.name} ({quantities['cs']}) "
-                        f"exceeds available stock ({stock.cs_quantity})"
-                    )
-                
-                if quantities['kg'] > stock.kg_quantity:
-                    raise ValidationError(
-                        f"Total KG quantity for {stock.item.name} ({quantities['kg']}) "
-                        f"exceeds available stock ({stock.kg_quantity})"
-                    )
-            except Stock.DoesNotExist:
-                raise ValidationError(f"Stock with ID {stock_id} not found")
-
-
-# Create the formset with custom validation
 StoreTransferItemFormSet = inlineformset_factory(
     StoreTransfer,
     StoreTransferItem,
     form=StoreTransferItemForm,
-    formset=StoreTransferItemFormSet,
-    fields=["stock", "item_grade", "plus_qty", "minus_qty", "cs_quantity", "kg_quantity"],
     extra=1,
-    can_delete=True,
-    min_num=1,
-    validate_min=True
+    can_delete=True
 )
 

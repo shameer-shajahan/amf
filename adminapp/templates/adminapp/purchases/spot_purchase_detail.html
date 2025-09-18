@@ -146,7 +146,7 @@
         }
 
         .quantity-cell {
-            text-align: right;
+
             font-weight: 600;
             color: #0056b3;
         }
@@ -439,7 +439,6 @@
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th>Item Type</th>
                         <th>Item</th>
                         <th>Quantity</th>
                         <th>Rate</th>
@@ -449,7 +448,6 @@
                 <tbody>
                     {% for item in purchase.items.all %}
                     <tr>
-                        <td>{{ item.item_type }}</td>
                         <td><strong>{{ item.item }}</strong></td>
                         <td class="quantity-cell">{{ item.quantity| floatformat:2  }}</td>
                         <td class="currency-cell">{{ item.rate| floatformat:2  }}</td>
@@ -493,8 +491,8 @@
                         <td class="currency-cell">{{ purchase.expense.other_expense| floatformat:2  }}</td>
                     </tr>
                     <tr class="total-row">
-                        <th>Total Expense</th>
-                        <td class="currency-cell">{{ purchase.expense.total_expense| floatformat:2  }}</td>
+                        <th>Total Purchase Amount</th>
+                        <td class="currency-cell">{{ purchase.total_purchase_amount| floatformat:2  }}</td>
                     </tr>
                 </tbody>
             </table>

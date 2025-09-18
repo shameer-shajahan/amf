@@ -110,13 +110,13 @@
                     <th class="table-header">
                       <div class="header-content">
                         <i class="fa-solid fa-indian-rupee-sign header-icon"></i>
-                        <span class="header-text">Total Amount</span>
+                        <span class="header-text">Item Amount</span>
                       </div>
                     </th>
                     <th class="table-header">
                       <div class="header-content">
                         <i class="fas fa-chart-line header-icon"></i>
-                        <span class="header-text">Total Expense</span>
+                        <span class="header-text">Total Amount</span>
                       </div>
                     </th>
                     <th class="table-header text-center">
@@ -167,7 +167,7 @@
                     <td class="table-cell">
                       <div class="expense-display">
                         <span class="currency-symbol">₹</span>
-                        <span class="expense-value">{{ purchase.total_expense|floatformat:2 }}</span>
+                        <span class="expense-value">{{ purchase.total_purchase_amount|floatformat:2 }}</span>
                       </div>
                     </td>
                     

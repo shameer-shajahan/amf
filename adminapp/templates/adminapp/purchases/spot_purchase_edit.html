@@ -1,300 +1,308 @@
-<!-- design -->
-{%extends 'admin_base.html'%}
+{% extends 'admin_base.html' %}
 
-{%block content%}
-    <style>
+{% block content %}
+<style>
+    .main-navigation {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: flex-end;
+    }
 
-        .main-navigation {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: flex-end;
-        }
+    .main-navigation .nav-list {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+    }
 
-        .main-navigation .nav-list {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
+    .main-navigation .nav-list .nav-item {
+        display: inline-block;
+    }
 
-        .main-navigation .nav-list .nav-item {
-            display: inline-block;
-        }
+    .main-navigation .nav-list .nav-item .nav-link {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: all 0.3s;
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
 
-        .main-navigation .nav-list .nav-item .nav-link {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: all 0.3s;
-            font-weight: 500;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+    .main-navigation .nav-list .nav-item .nav-link:hover {
+        background-color: #0069d9;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
 
-        .main-navigation .nav-list .nav-item .nav-link:hover {
-            background-color: #0069d9;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
+    .page-heading, .section-title {
+        color: #007BFF;
+        margin-bottom: 20px;
+    }
 
-        .page-heading, .section-title {
-            color: #007BFF;
-            margin-bottom: 20px;
-        }
+    .content-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
 
-        .content-section {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
+    .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
 
+    .field-wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .field-label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .text-input, 
+    .number-input,
+    .date-input,
+    .dropdown-select {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 14px;
+        transition: border-color 0.3s;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .text-input:focus, 
+    .dropdown-select:focus, 
+    .number-input:focus,
+    .date-input:focus,
+    .textarea-field:focus {
+        border-color: #007BFF !important;
+        outline: 2px solid #007BFF !important;
+        outline-offset: 0px;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+    }
+
+    .dropdown-select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+    }
+
+    .data-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: visible;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        background: white;
+    }
+
+    .data-table {
+        width: 100%;
+        min-width: 800px;
+        table-layout: auto;
+        border-collapse: collapse;
+        background: #fff;
+    }
+
+    .data-table .table-header,
+    .data-table .table-cell {
+        padding: 12px 8px;
+        border: 1px solid #ddd;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 12px;
+    }
+
+    .data-table .table-header {
+        background: #f5f7fa;
+        font-weight: 600;
+        color: #333;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
+
+    .data-table .table-cell .cell-input,
+    .data-table .table-cell .cell-select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+    }
+
+    .table-row {
+        background: #fff;
+    }
+
+    .table-row:nth-child(even) {
+        background: #f9fbfd;
+    }
+
+    .remove-button {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 11px;
+        transition: background-color 0.3s;
+        min-width: 70px;
+    }
+
+    .remove-button:hover {
+        background-color: #c0392b;
+    }
+
+    .remove-button.deletion-marked {
+        background-color: #27ae60;
+        color: white;
+    }
+
+    .remove-button.deletion-marked:hover {
+        background-color: #229954;
+    }
+
+    .table-row.deletion-marked {
+        opacity: 0.6;
+        background-color: #f8f9fa !important;
+    }
+
+    .table-row.deletion-marked .table-cell {
+        text-decoration: line-through;
+    }
+
+    .table-row.deletion-marked .remove-button {
+        text-decoration: none;
+    }
+
+    .summary-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    .summary-header {
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #0056b3;
+        border-left: 5px solid #0056b3;
+        padding-left: 10px;
+    }
+
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .summary-table .summary-table-header, 
+    .summary-table .summary-table-cell {
+        padding: 12px 15px;
+        border: 1px solid #e2e6ea;
+        font-size: 0.95rem;
+        text-align: center;
+    }
+
+    .summary-table .summary-table-header {
+        background-color: #0056b3;
+        color: white;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+
+    .summary-table .summary-table-cell {
+        font-weight: 600;
+        background: #f9fbfd;
+    }
+
+    .summary-table .summary-value {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+
+    .action-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .action-button:hover {
+        background-color: #0069d9;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .action-button:active {
+        transform: translateY(0);
+    }
+
+    .validation-error {
+        color: #e74c3c;
+        font-size: 0.9em;
+        margin-top: 5px;
+    }
+
+    @media (max-width: 768px) {
         .field-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(2, 1fr);
         }
+    }
 
-        .field-wrapper {
-            display: flex;
-            flex-direction: column;
+    @media (max-width: 480px) {
+        .field-grid {
+            grid-template-columns: 1fr;
         }
+    }
+</style>
 
-        .field-label {
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
-        }
+<div>
+    <nav class="main-navigation">
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a href="{% url 'adminapp:spot_purchase_list' %}" class="nav-link">← Back to List</a>
+            </li>
+        </ul>
+    </nav>
 
-        .text-input, 
-        .number-input,
-        .date-input,
-        .dropdown-select {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            background: #fff;
-            font-size: 14px;
-            transition: border-color 0.3s;
-            width: 100%;
-            box-sizing: border-box;
-        }
+    <h2 class="page-heading">Edit Spot Purchase</h2>
 
-        .text-input:focus, 
-        .dropdown-select:focus, 
-        .number-input:focus,
-        .date-input:focus,
-        .textarea-field:focus {
-            border-color: #007BFF !important;
-            outline: 2px solid #007BFF !important;
-            outline-offset: 0px;
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
-        }
-
-        .dropdown-select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3e%3cpath d='M1 4l5 5 5-5' stroke='%23333' stroke-width='2'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            padding-right: 30px;
-        }
-
-        /* Items table container with horizontal scroll */
-        .data-table-wrapper {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: auto;
-            overflow-y: visible;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            background: white;
-        }
-
-        .data-table {
-            width: 100%;
-            min-width: 800px;
-            table-layout: auto;
-            border-collapse: collapse;
-            background: #fff;
-        }
-
-        .data-table .table-header,
-        .data-table .table-cell {
-            padding: 12px 8px;
-            border: 1px solid #ddd;
-            text-align: center;
-            vertical-align: middle;
-            font-size: 12px;
-        }
-
-        .data-table .table-header {
-            background: #f5f7fa;
-            font-weight: 600;
-            color: #333;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-transform: uppercase;
-            font-size: 11px;
-        }
-
-        .data-table .table-cell .cell-input,
-        .data-table .table-cell .cell-select {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 12px;
-            box-sizing: border-box;
-        }
-
-        .table-row {
-            background: #fff;
-        }
-
-        .table-row:nth-child(even) {
-            background: #f9fbfd;
-        }
-
-        .remove-button {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 11px;
-            transition: background-color 0.3s;
-            min-width: 70px;
-        }
-
-        .remove-button:hover {
-            background-color: #c0392b;
-        }
-
-        .remove-button.deletion-marked {
-            background-color: #27ae60;
-            color: white;
-        }
-
-        .remove-button.deletion-marked:hover {
-            background-color: #229954;
-        }
-
-        .table-row.deletion-marked {
-            opacity: 0.6;
-            background-color: #f8f9fa !important;
-        }
-
-        .table-row.deletion-marked .table-cell {
-            text-decoration: line-through;
-        }
-
-        .table-row.deletion-marked .remove-button {
-            text-decoration: none;
-        }
-
-        .summary-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .summary-header {
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #0056b3;
-            border-left: 5px solid #0056b3;
-            padding-left: 10px;
-        }
-
-        .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .summary-table .summary-table-header, 
-        .summary-table .summary-table-cell {
-            padding: 12px 15px;
-            border: 1px solid #e2e6ea;
-            font-size: 0.95rem;
-            text-align: center;
-        }
-
-        .summary-table .summary-table-header {
-            background-color: #0056b3;
-            color: white;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-        }
-
-        .summary-table .summary-table-cell {
-            font-weight: 600;
-            background: #f9fbfd;
-        }
-
-        .summary-table .summary-value {
-            font-weight: bold;
-            color: #0d6efd;
-        }
-
-        .action-button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 500;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .action-button:hover {
-            background-color: #0069d9;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .action-button:active {
-            transform: translateY(0);
-        }
-
-        .validation-error {
-            color: #e74c3c;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-
-        @media (max-width: 768px) {
-            .field-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .field-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-<div >
-    <form method="post" style="margin-top: 7rem;">
+    <form method="post" style="margin-top: 2rem;">
         {% csrf_token %}
         {{ item_formset.management_form }}
     
@@ -351,7 +359,8 @@
                         <tr>
                             <th class="table-header">Item</th>
                             <th class="table-header">Quantity</th>
-                            <th class="table-header">Rate</th>
+                            <th class="table-header">Total Rate</th>
+                            <th class="table-header">Rate/kg</th>
                             <th class="table-header">Boxes</th>
                             <th class="table-header">Action</th>
                         </tr>
@@ -359,7 +368,7 @@
                     <tbody id="form-container">
                         {% for form in item_formset %}
                             <tr class="table-row" data-form-index="{{ forloop.counter0 }}">
-                                <!-- Include all hidden fields (including ID) -->
+                                <!-- Include all hidden fields (including ID and DELETE) -->
                                 {% for hidden in form.hidden_fields %}
                                     {{ hidden }}
                                 {% endfor %}
@@ -377,9 +386,27 @@
                                     {% endif %}
                                 </td>
                                 <td class="table-cell">
-                                    {{ form.rate }}
-                                    {% if form.rate.errors %}
-                                        <div class="validation-error">{{ form.rate.errors }}</div>
+                                    {% if form.total_rate %}
+                                        {{ form.total_rate }}
+                                        {% if form.total_rate.errors %}
+                                            <div class="validation-error">{{ form.total_rate.errors }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ form.rate }}
+                                        {% if form.rate.errors %}
+                                            <div class="validation-error">{{ form.rate.errors }}</div>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="table-cell">
+                                    {% if form.total_rate %}
+                                        {{ form.rate }}
+                                        {% if form.rate.errors %}
+                                            <div class="validation-error">{{ form.rate.errors }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- If no total_rate field, this column shows calculated rate -->
+                                        <input type="text" readonly class="cell-input" id="calculated-rate-{{ forloop.counter0 }}" value="0.00">
                                     {% endif %}
                                 </td>
                                 <td class="table-cell">
@@ -390,16 +417,20 @@
                                 </td>
                                 <td class="table-cell">
                                     {% if form.instance.pk %}
-                                        <div style="display: none;">{{ form.DELETE }}</div>
+                                        <!-- Existing item - show DELETE checkbox (hidden) and toggle button -->
+                                        {% if form.DELETE %}
+                                            <div style="display: none;">{{ form.DELETE }}</div>
+                                        {% endif %}
                                         <button type="button" class="remove-button" onclick="toggleDeletion(this)">DELETE</button>
                                     {% else %}
-                                        <button type="button" class="remove-button">DELETE</button>
+                                        <!-- New item - direct remove button -->
+                                        <button type="button" class="remove-button" onclick="removeNewItem(this)">DELETE</button>
                                     {% endif %}
                                 </td>
                                 
                                 <!-- Display any non-field errors -->
                                 {% if form.non_field_errors %}
-                                    <tr><td colspan="5"><div class="validation-error">{{ form.non_field_errors }}</div></td></tr>
+                                    <tr><td colspan="6"><div class="validation-error">{{ form.non_field_errors }}</div></td></tr>
                                 {% endif %}
                             </tr>
                         {% endfor %}
@@ -417,6 +448,8 @@
                         <th class="summary-table-header">Total Quantity</th>
                         <th class="summary-table-header">Total Amount</th>
                         <th class="summary-table-header">Total Items</th>
+                        <th class="summary-table-header">Total Expense</th>
+                        <th class="summary-table-header">Total Purchase Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -424,6 +457,8 @@
                         <td class="summary-table-cell"><span id="quantity-total" class="summary-value">0.00</span></td>
                         <td class="summary-table-cell"><span id="amount-total" class="summary-value">0.00</span></td>
                         <td class="summary-table-cell"><span id="items-total" class="summary-value">0</span></td>
+                        <td class="summary-table-cell"><span id="expense-total" class="summary-value">0.00</span></td>
+                        <td class="summary-table-cell"><span id="total-purchase-amount" class="summary-value" style="color: #dc3545; font-weight: bold;">0.00</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -478,17 +513,14 @@
                     </tbody>
                 </table>
             </div>
-            <div style="margin-top: 15px;">
-                <strong>Total Expense: <span id="expense-total" class="summary-value" style="color: #0d6efd;">0.00</span></strong>
-            </div>
         </div>
     
         <div style="text-align: center; margin-top: 30px;">
-            <button type="submit" class="action-button">Save Purchase</button>
+            <button type="submit" class="action-button">Update Purchase</button>
         </div>
     </form>
     
-    <!-- Hidden empty form template -->
+    <!-- Hidden empty form template for adding new items -->
     <template id="form-template">
         <tr class="table-row">
             {% with item_formset.empty_form as form %}
@@ -499,14 +531,25 @@
                     {{ form.quantity }}
                 </td>
                 <td class="table-cell">
-                    {{ form.rate }}
+                    {% if form.total_rate %}
+                        {{ form.total_rate }}
+                    {% else %}
+                        {{ form.rate }}
+                    {% endif %}
+                </td>
+                <td class="table-cell">
+                    {% if form.total_rate %}
+                        {{ form.rate }}
+                    {% else %}
+                        <input type="text" readonly class="cell-input" value="0.00">
+                    {% endif %}
                 </td>
                 <td class="table-cell">
                     {{ form.boxes }}
                 </td>
             {% endwith %}
             <td class="table-cell">
-                <button type="button" class="remove-button">DELETE</button>
+                <button type="button" class="remove-button" onclick="removeNewItem(this)">DELETE</button>
             </td>
         </tr>
     </template>
@@ -527,21 +570,34 @@
             }
     
             const quantityInput = row.querySelector('input[name$="-quantity"]');
-            const rateInput = row.querySelector('input[name$="-rate"]');
+            let amountInput = row.querySelector('input[name$="-total_rate"]');
+            
+            // If no total_rate field, fall back to rate field
+            if (!amountInput) {
+                amountInput = row.querySelector('input[name$="-rate"]');
+            }
     
             const quantity = parseFloat(quantityInput?.value) || 0;
-            const rate = parseFloat(rateInput?.value) || 0;
+            const amount = parseFloat(amountInput?.value) || 0;
     
-            if (quantity > 0 || rate > 0) {
+            if (quantity > 0 || amount > 0) {
                 totalItems += 1;
                 totalQuantity += quantity;
-                totalAmount += quantity * rate;
+                
+                // If we have total_rate, use it directly; otherwise calculate quantity * rate
+                if (row.querySelector('input[name$="-total_rate"]')) {
+                    totalAmount += amount; // amount is total_rate
+                } else {
+                    totalAmount += quantity * amount; // amount is rate per kg
+                }
             }
         });
     
         document.getElementById('quantity-total').textContent = totalQuantity.toFixed(2);
         document.getElementById('amount-total').textContent = totalAmount.toFixed(2);
         document.getElementById('items-total').textContent = totalItems;
+        
+        calculateTotalPurchaseAmount();
     }
     
     function calculateExpenseTotals() {
@@ -563,12 +619,64 @@
         });
     
         document.getElementById('expense-total').textContent = totalExpense.toFixed(2);
+        calculateTotalPurchaseAmount();
+    }
+    
+    function calculateTotalPurchaseAmount() {
+        const totalAmount = parseFloat(document.getElementById('amount-total').textContent) || 0;
+        const totalExpense = parseFloat(document.getElementById('expense-total').textContent) || 0;
+        const totalPurchaseAmount = totalAmount + totalExpense;
+        
+        const totalPurchaseElement = document.getElementById('total-purchase-amount');
+        if (totalPurchaseElement) {
+            totalPurchaseElement.textContent = totalPurchaseAmount.toFixed(2);
+        }
+    }
+    
+    // Handle rate calculations for rows with both total_rate and rate fields
+    function handleRateCalculation(changedInput) {
+        const row = changedInput.closest('.table-row');
+        const quantityInput = row.querySelector('input[name$="-quantity"]');
+        const totalRateInput = row.querySelector('input[name$="-total_rate"]');
+        const rateInput = row.querySelector('input[name$="-rate"]');
+        
+        if (!totalRateInput || !rateInput) return; // Skip if not both fields present
+        
+        const quantity = parseFloat(quantityInput?.value) || 0;
+        const totalRate = parseFloat(totalRateInput?.value) || 0;
+        const rate = parseFloat(rateInput?.value) || 0;
+        
+        // If total_rate changed, calculate rate per kg
+        if (changedInput.name.includes('total_rate')) {
+            if (quantity > 0) {
+                const calculatedRate = totalRate / quantity;
+                rateInput.value = calculatedRate.toFixed(2);
+            } else {
+                rateInput.value = '0.00';
+            }
+        }
+        // If rate changed, calculate total_rate
+        else if (changedInput.name.includes('rate') && !changedInput.name.includes('total_rate')) {
+            const calculatedTotalRate = rate * quantity;
+            totalRateInput.value = calculatedTotalRate.toFixed(2);
+        }
+        // If quantity changed, recalculate based on existing rate
+        else if (changedInput.name.includes('quantity')) {
+            if (rate > 0) {
+                const calculatedTotalRate = rate * quantity;
+                totalRateInput.value = calculatedTotalRate.toFixed(2);
+            } else if (totalRate > 0 && quantity > 0) {
+                const calculatedRate = totalRate / quantity;
+                rateInput.value = calculatedRate.toFixed(2);
+            }
+        }
     }
     
     // Update totals on input change
     document.addEventListener('input', function (e) {
         if (e.target.name) {
             if (e.target.name.includes('quantity') || e.target.name.includes('rate')) {
+                handleRateCalculation(e.target);
                 calculateAllTotals();
             }
     
@@ -606,36 +714,17 @@
         }
     }
     
-    // Handle delete button clicks and checkbox changes
-    document.addEventListener('click', function (e) {
-        if (e.target.classList.contains('remove-button') && e.target.tagName === 'BUTTON') {
-            const row = e.target.closest('.table-row');
-            if (row) {
-                // Check if this row has a delete checkbox (existing item)
-                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
-                if (deleteCheckbox) {
-                    // This is handled by toggleDeletion function
-                    return;
-                } else {
-                    // This is a new item, remove it completely
-                    if (document.querySelectorAll('.table-row').length > 1) {
-                        row.remove();
-                        updateFormCount(-1);
-                        calculateAllTotals();
-                    } else {
-                        alert("At least one item is required.");
-                    }
-                }
-            }
-        }
-    });
-    
-    // Handle delete checkbox changes (for existing items)
-    document.addEventListener('change', function (e) {
-        if (e.target.name && e.target.name.includes('-DELETE')) {
+    // Remove new item function
+    function removeNewItem(button) {
+        const row = button.closest('.table-row');
+        if (document.querySelectorAll('.table-row').length > 1) {
+            row.remove();
+            updateFormCount(-1);
             calculateAllTotals();
+        } else {
+            alert("At least one item is required.");
         }
-    });
+    }
     
     // Add more button functionality
     document.getElementById('add-item-btn').addEventListener('click', function () {
@@ -662,107 +751,68 @@
     }
     
     // Call on page load
-    calculateAllTotals();
-    calculateExpenseTotals();
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateAllTotals();
+        calculateExpenseTotals();
+    });
     
     // F1 key shortcut for adding more items
-    $(document).ready(function() {
-        $(document).on('keydown', function(e) {
-            if (e.keyCode === 112 || e.which === 112) {
-                e.preventDefault();
-                $('#add-item-btn').click();
-                return false;
-            }
-        });
+    document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 112 || e.which === 112) {
+            e.preventDefault();
+            document.getElementById('add-item-btn').click();
+            return false;
+        }
     });
     
     // Delete key shortcut for removing the focused item
-    $(document).ready(function () {
-        function removeFormRow(form) {
-            if ($(".table-row").length > 1) {
-                // Check if this is an existing form (has an ID field with value)
-                const idInput = form.find('input[name$="-id"]');
-                if (idInput.length && idInput.val()) {
-                    // Mark for deletion instead of removing
-                    const deleteCheckbox = form.find('input[name$="-DELETE"]');
-                    const deleteButton = form.find('.remove-button');
-                    
-                    if (deleteCheckbox.length) {
-                        if (!deleteCheckbox.prop('checked')) {
-                            deleteCheckbox.prop('checked', true);
-                            form.addClass('deletion-marked');
-                            deleteButton.text('RESTORE').addClass('deletion-marked');
-                        }
-                    } else {
-                        form.remove();
-                        updateFormCount(-1);
-                    }
-                } else {
-                    form.remove();
-                    updateFormCount(-1);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === "Delete") {
+            let activeElement = document.activeElement.closest(".table-row");
+            if (activeElement) {
+                e.preventDefault();
+                const deleteButton = activeElement.querySelector('.remove-button');
+                if (deleteButton) {
+                    deleteButton.click();
                 }
-                calculateAllTotals();
-            } else {
-                alert("At least one item is required.");
             }
         }
-    
-        $(document).on("keydown", function (e) {
-            if (e.key === "Delete") {
-                let activeElement = $(document.activeElement).closest(".table-row");
-                if (activeElement.length) {
-                    e.preventDefault();
-                    removeFormRow(activeElement);
-                }
-            }
-        });
     });
     
     // Arrow key navigation for form fields
-    $(document).ready(function() {
-        function getNavigableElements() {
-            return $('input:not([type="hidden"]), select, textarea').filter(':visible');
+    document.addEventListener('keydown', function(e) {
+        const activeElement = document.activeElement;
+        if (!activeElement.matches('input, select, textarea')) return;
+        
+        const navigableElements = Array.from(document.querySelectorAll('input:not([type="hidden"]):visible, select:visible, textarea:visible'));
+        const currentIndex = navigableElements.indexOf(activeElement);
+        
+        if (e.keyCode === 37) { // Left arrow
+            if (activeElement.tagName === 'SELECT' || 
+                (activeElement.tagName === 'INPUT' && activeElement.selectionStart === 0)) {
+                e.preventDefault();
+                if (currentIndex > 0) {
+                    navigableElements[currentIndex - 1].focus();
+                }
+            }
+        } else if (e.keyCode === 39) { // Right arrow
+            if (activeElement.tagName === 'SELECT' || 
+                (activeElement.tagName === 'INPUT' && activeElement.selectionStart === activeElement.value.length)) {
+                e.preventDefault();
+                if (currentIndex < navigableElements.length - 1) {
+                    navigableElements[currentIndex + 1].focus();
+                }
+            }
         }
-    
-        $(document).on('keydown', 'input, select, textarea', function(e) {
-            if (e.keyCode === 37 || e.which === 37) {
-                if ($(this).is('select') || 
-                    ($(this).is('input') && this.selectionStart === 0)) {
-                    
-                    e.preventDefault();
-                    let navigableElements = getNavigableElements();
-                    let currentIndex = navigableElements.index(this);
-                    
-                    if (currentIndex > 0) {
-                        navigableElements.eq(currentIndex - 1).focus();
-                    }
-                    return false;
-                }
-            }
-            
-            if (e.keyCode === 39 || e.which === 39) {
-                if ($(this).is('select') || 
-                    ($(this).is('input') && this.selectionStart === this.value.length)) {
-                    
-                    e.preventDefault();
-                    let navigableElements = getNavigableElements();
-                    let currentIndex = navigableElements.index(this);
-                    
-                    if (currentIndex < navigableElements.length - 1) {
-                        navigableElements.eq(currentIndex + 1).focus();
-                    }
-                    return false;
-                }
-            }
-        });
     });
     </script>
     
+    <!-- Flatpickr for date inputs -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
     document.addEventListener("DOMContentLoaded", function() {
-        flatpickr(".datepicker", {
+        flatpickr(".datepicker, input[type='date']", {
             dateFormat: "d/m/Y",
             defaultDate: "today"
         });
@@ -770,4 +820,4 @@
     </script>
 </div>
 
-{%endblock%}
+{% endblock %}

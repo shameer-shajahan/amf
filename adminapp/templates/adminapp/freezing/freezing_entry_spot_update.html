@@ -1,4 +1,3 @@
-
 {% extends 'admin_base.html' %}
 {%block title%} Update Freezing Entry{%endblock%}
 {% block content %}
@@ -544,7 +543,195 @@
         <button type="submit" class="button">Update Entry</button>
     </form>
 
-    <!-- Clone & Add More Formset with Slab / CS / KG Calculation -->
+    <!-- Enhanced Calculation System with Auto Total KG Update -->
+    <script>
+    $(document).ready(function () {
+        let dollarRate = 0;
+
+        // Fetch dollar rate on page load
+        $.getJSON("{% url 'adminapp:get_dollar_rate' %}", function (data) {
+            if (data.dollar_rate_to_inr) {
+                dollarRate = parseFloat(data.dollar_rate_to_inr);
+            }
+        }).fail(function() {
+            console.log('Could not fetch dollar rate, using default 0');
+        });
+
+        // Global function to calculate totals including KG
+        function calculateAllTotals() {
+            let totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0, totalYield = 0;
+            let validRowCount = 0;
+
+            $('.formset-form').each(function () {
+                // Skip deleted forms
+                const deleteCheckbox = $(this).find('input[name$="-DELETE"]');
+                const isMarkedForDeletion = deleteCheckbox.length > 0 && deleteCheckbox.is(':checked');
+                const hasDeleteClass = $(this).hasClass('to-delete');
+                
+                if (isMarkedForDeletion || hasDeleteClass) {
+                    return; // Skip this iteration
+                }
+
+                const getVal = (selector) => {
+                    const element = $(this).find(selector);
+                    const val = parseFloat(element.val());
+                    return isNaN(val) ? 0 : val;
+                };
+
+                const usdRate = getVal('[name$="usd_rate_item"]');
+                const inrRate = getVal('[name$="usd_rate_item_to_inr"]');
+                const slabQty = getVal('[name$="slab_quantity"]');
+                const csQty = getVal('[name$="c_s_quantity"]');
+                const kgWeight = getVal('[name$="kg"]:not([name$="usd_rate_per_kg"])');
+                const yieldPercentage = getVal('[name$="yield_percentage"]');
+                
+                // Only count rows that have some data
+                if (slabQty > 0 || usdRate > 0 || kgWeight > 0) {
+                    totalUSD += usdRate;
+                    totalINR += inrRate;
+                    totalSlab += slabQty;
+                    totalCS += csQty;
+                    totalKG += kgWeight;
+                    totalYield += yieldPercentage;
+                    validRowCount++;
+                }
+            });
+
+            // Calculate average yield percentage
+            const avgYield = validRowCount > 0 ? (totalYield / validRowCount) : 0;
+
+            // Update the total fields
+            $('#id_total_usd').val(totalUSD.toFixed(2));
+            $('#id_total_inr').val(totalINR.toFixed(2));
+            $('#id_total_slab').val(totalSlab.toFixed(2));
+            $('#id_total_c_s').val(totalCS.toFixed(2));
+            $('#id_total_kg').val(totalKG.toFixed(2));
+            $('#id_total_yield_percentage').val(avgYield.toFixed(2));
+
+            console.log('Total KG calculated:', totalKG.toFixed(2));
+        }
+
+        // Enhanced row calculation that updates totals immediately
+        function recalcRowWithTotals($row) {
+            let slabQty = parseFloat($row.find('[name$="slab_quantity"]').val()) || 0;
+            let usdPerKg = parseFloat($row.find('[name$="usd_rate_per_kg"]').val()) || 0;
+            let precision = parseFloat($row.data('precision')) || 0;
+            let factor = parseFloat($row.data('factor')) || 0;
+
+            console.log('Recalculating row - Slab Qty:', slabQty, 'Factor:', factor);
+
+            // Calculate CS Quantity
+            if (slabQty && precision) {
+                $row.find('[name$="c_s_quantity"]').val((slabQty / precision).toFixed(2));
+            } else if (!slabQty) {
+                $row.find('[name$="c_s_quantity"]').val('0.00');
+            }
+
+            // Calculate KG - This is crucial for total KG calculation
+            if (slabQty && factor) {
+                const calculatedKg = (slabQty * factor).toFixed(2);
+                $row.find('[name$="kg"]:not([name$="usd_rate_per_kg"])').val(calculatedKg);
+                console.log('KG calculated for this row:', calculatedKg);
+            } else if (!slabQty) {
+                $row.find('[name$="kg"]:not([name$="usd_rate_per_kg"])').val('0.00');
+            }
+
+            // Calculate USD Rate Item
+            let kg = parseFloat($row.find('[name$="kg"]:not([name$="usd_rate_per_kg"])').val()) || 0;
+            if (kg && usdPerKg) {
+                $row.find('[name$="usd_rate_item"]:not([name$="usd_rate_item_to_inr"])').val((usdPerKg * kg).toFixed(2));
+            } else {
+                $row.find('[name$="usd_rate_item"]:not([name$="usd_rate_item_to_inr"])').val('0.00');
+            }
+
+            // Calculate USD Rate Item to INR
+            let usdItem = parseFloat($row.find('[name$="usd_rate_item"]:not([name$="usd_rate_item_to_inr"])').val()) || 0;
+            if (usdItem && dollarRate) {
+                $row.find('[name$="usd_rate_item_to_inr"]').val((usdItem * dollarRate).toFixed(2));
+            } else {
+                $row.find('[name$="usd_rate_item_to_inr"]').val('0.00');
+            }
+
+            // IMMEDIATELY calculate totals after row calculation
+            setTimeout(calculateAllTotals, 10);
+        }
+
+        // Make functions globally accessible
+        window.calculateTotals = calculateAllTotals;
+        window.recalcRow = recalcRowWithTotals;
+
+        // Slab quantity change handler - KEY for auto KG total update
+        $(document).on('input change keyup paste', '[name$="slab_quantity"]', function() {
+            console.log('Slab quantity changed:', $(this).val());
+            let $row = $(this).closest('.formset-form');
+            recalcRowWithTotals($row);
+        });
+
+        // USD rate per kg change handler
+        $(document).on('input change keyup', '[name$="usd_rate_per_kg"]', function() {
+            let $row = $(this).closest('.formset-form');
+            recalcRowWithTotals($row);
+        });
+
+        // Unit change handler
+        $(document).on('change', '[name$="unit"]', function () {
+            let $row = $(this).closest('.formset-form');
+            let unitId = $(this).val();
+
+            if (!unitId) {
+                $row.removeData('precision').removeData('factor');
+                recalcRowWithTotals($row);
+                return;
+            }
+
+            // Fetch unit details and recalculate
+            $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
+                $row.data('precision', data.precision);
+                $row.data('factor', data.factor);
+                console.log('Unit details loaded - Precision:', data.precision, 'Factor:', data.factor);
+                recalcRowWithTotals($row);
+            }).fail(function() {
+                console.log('Could not fetch unit details for unit ID:', unitId);
+            });
+        });
+
+        // Handle DELETE checkbox changes
+        $(document).on('change', '[name$="-DELETE"]', function() {
+            setTimeout(calculateAllTotals, 100);
+        });
+
+        // Initialize existing forms with calculation classes
+        $('.formset-form').each(function() {
+            $(this).find('[name*="slab_quantity"]').addClass('slab-quantity');
+            $(this).find('[name*="c_s_quantity"]').addClass('cs-quantity');
+            $(this).find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
+            $(this).find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
+            $(this).find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
+            $(this).find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
+            $(this).find('[name*="unit"]').addClass('unit-select');
+
+            // Load existing unit data for calculation
+            const unitSelect = $(this).find('[name$="unit"]');
+            const unitId = unitSelect.val();
+            if (unitId) {
+                const $row = $(this);
+                $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
+                    $row.data('precision', data.precision);
+                    $row.data('factor', data.factor);
+                }).fail(function() {
+                    console.log('Could not fetch unit details for existing unit ID:', unitId);
+                });
+            }
+        });
+
+        // Initial calculation on page load
+        setTimeout(function() {
+            calculateAllTotals();
+        }, 1500);
+    });
+    </script>
+
+    <!-- Clone & Add More Formset -->
     <script>
     $(document).ready(function () {
         const formsetContainer = $('#formset-container');
@@ -640,8 +827,6 @@
 
             // Focus first blank field
             newForm.find('[name*="grade"]').focus();
-
-            console.log('New form cloned from last form, USD fields cleared');
         });
 
         // NEW FUNCTION: Initialize calculations for newly added forms
@@ -658,8 +843,7 @@
                 $.getJSON("{% url 'adminapp:get_unit_details_local' %}", { unit_id: selectedUnit }, function (data) {
                     $newForm.data('precision', data.precision);
                     $newForm.data('factor', data.factor);
-                    recalcRow($newForm);
-                    calculateTotals();
+                    recalcRowWithTotals($newForm);
                 }).fail(function() {
                     console.log('Could not fetch unit details for unit ID:', selectedUnit);
                 });
@@ -668,8 +852,7 @@
             // Trigger immediate calculation if slab_quantity has a value
             const slabValue = $newForm.find('.slab-quantity').val();
             if (slabValue) {
-                recalcRow($newForm);
-                calculateTotals();
+                recalcRowWithTotals($newForm);
             }
         }
     });
@@ -694,17 +877,15 @@
                     deleteCheckbox.prop("checked", false);
                     row.removeClass("to-delete");
                     $(this).text("Remove").removeClass("restore");
-                    console.log('Unmarked form for deletion');
                 } else {
                     // Mark for deletion
                     deleteCheckbox.prop("checked", true);
                     row.addClass("to-delete");
                     $(this).text("Restore").addClass("restore");
-                    console.log('Marked form for deletion');
                 }
                 
                 // Recalculate totals immediately
-                calculateTotals();
+                calculateAllTotals();
             } else {
                 // For new forms without ID field, remove completely
                 if ($(".formset-form").length > 1) {
@@ -729,7 +910,7 @@
                         });
                         
                         // Recalculate totals after removal
-                        calculateTotals();
+                        calculateAllTotals();
                     });
                 } else {
                     alert("At least one form is required.");
@@ -756,113 +937,6 @@
             const row = $(this).closest(".formset-form");
             row.addClass("to-delete");
             row.find(".remove-btn").text("Restore").addClass("restore");
-        });
-    });
-    </script>
-
-    <!-- Unit Calculation -->
-    <script>
-    $(document).ready(function () {
-        let dollarRate = 0;
-
-        // Fetch dollar rate on page load
-        $.getJSON("{% url 'adminapp:get_dollar_rate' %}", function (data) {
-            if (data.dollar_rate_to_inr) {
-                dollarRate = parseFloat(data.dollar_rate_to_inr);
-            }
-        }).fail(function() {
-            console.log('Could not fetch dollar rate, using default 0');
-        });
-
-        // Helper to recalc a single formset row
-        function recalcRow($row) {
-            let slabQty = parseFloat($row.find('.slab-quantity').val()) || 0;
-            let usdPerKg = parseFloat($row.find('.usd-rate-per-kg').val()) || 0;
-            let precision = parseFloat($row.data('precision')) || 0;
-            let factor = parseFloat($row.data('factor')) || 0;
-
-            // Calculate CS Quantity only if we have slab quantity and precision
-            if (slabQty && precision) {
-                $row.find('.cs-quantity').val((slabQty / precision).toFixed(2));
-            } else if (!slabQty) {
-                $row.find('.cs-quantity').val('');
-            }
-
-            // Calculate KG only if we have slab quantity and factor
-            if (slabQty && factor) {
-                $row.find('.kg').val((slabQty * factor).toFixed(2));
-            } else if (!slabQty) {
-                $row.find('.kg').val('');
-            }
-
-            // Calculate USD Rate Item only if we have both KG and USD per KG
-            let kg = parseFloat($row.find('.kg').val()) || 0;
-            if (kg && usdPerKg) {
-                $row.find('.usd-rate-item').val((usdPerKg * kg).toFixed(2));
-            } else {
-                $row.find('.usd-rate-item').val('');
-            }
-
-            // Calculate USD Rate Item to INR
-            let usdItem = parseFloat($row.find('.usd-rate-item').val()) || 0;
-            if (usdItem && dollarRate) {
-                $row.find('.usd-rate-item-inr').val((usdItem * dollarRate).toFixed(2));
-            } else {
-                $row.find('.usd-rate-item-inr').val('');
-            }
-        }
-
-        // When unit changes → fetch precision/factor and recalc
-        $(document).on('change', '.unit-select', function () {
-            let $row = $(this).closest('.formset-form');
-            let unitId = $(this).val();
-
-            if (!unitId) {
-                $row.removeData('precision').removeData('factor');
-                recalcRow($row);
-                return;
-            }
-
-            $.getJSON("{% url 'adminapp:get_unit_details' %}", { unit_id: unitId }, function (data) {
-                $row.data('precision', data.precision);
-                $row.data('factor', data.factor);
-                recalcRow($row);
-            }).fail(function() {
-                console.log('Could not fetch unit details for unit ID:', unitId);
-            });
-        });
-
-        // Trigger recalculation on input changes
-        $(document).on('input', '.slab-quantity, .usd-rate-per-kg', function () {
-            let $row = $(this).closest('.formset-form');
-            recalcRow($row);
-        });
-
-        // Clear dependent fields when slab quantity is cleared
-        $(document).on('input', '.slab-quantity', function () {
-            let $row = $(this).closest('.formset-form');
-            if (!$(this).val()) {
-                $row.find('.cs-quantity, .kg, .usd-rate-item, .usd-rate-item-inr').val('');
-            }
-        });
-
-        // Clear dependent fields when USD rate per kg is cleared
-        $(document).on('input', '.usd-rate-per-kg', function () {
-            let $row = $(this).closest('.formset-form');
-            if (!$(this).val()) {
-                $row.find('.usd-rate-item, .usd-rate-item-inr').val('');
-            }
-        });
-
-        // Initialize existing forms with calculation classes
-        $('.formset-form').each(function() {
-            $(this).find('[name*="slab_quantity"]').addClass('slab-quantity');
-            $(this).find('[name*="c_s_quantity"]').addClass('cs-quantity');
-            $(this).find('[name*="kg"]:not([name*="usd_rate_per_kg"])').addClass('kg');
-            $(this).find('[name*="usd_rate_per_kg"]').addClass('usd-rate-per-kg');
-            $(this).find('[name*="usd_rate_item"]:not([name*="usd_rate_item_to_inr"])').addClass('usd-rate-item');
-            $(this).find('[name*="usd_rate_item_to_inr"]').addClass('usd-rate-item-inr');
-            $(this).find('[name*="unit"]').addClass('unit-select');
         });
     });
     </script>
@@ -928,74 +1002,6 @@
                     itemSet.forEach(opt => $(this).append(opt));
                 });
             }).fail(() => alert("Failed to load sheds/items for the selected date."));
-        });
-    </script>
-
-    <!-- FIXED Total Calculation -->
-    <script>
-        function calculateTotals() {
-            let totalUSD = 0, totalINR = 0, totalSlab = 0, totalCS = 0, totalKG = 0;
-
-            $('.formset-form').each(function () {
-                // Skip deleted forms - Check for both the DELETE checkbox and the to-delete class
-                const deleteCheckbox = $(this).find('input[name$="-DELETE"]');
-                const isMarkedForDeletion = deleteCheckbox.length > 0 && deleteCheckbox.is(':checked');
-                const hasDeleteClass = $(this).hasClass('to-delete');
-                
-                if (isMarkedForDeletion || hasDeleteClass) {
-                    console.log('Skipping deleted form in totals calculation');
-                    return; // Skip this iteration
-                }
-
-                const getVal = (name) => {
-                    const element = $(this).find(`[name$="${name}"]`);
-                    const val = parseFloat(element.val());
-                    return isNaN(val) ? 0 : val;
-                };
-
-                const usdRate = getVal('usd_rate_item');
-                const inrRate = getVal('usd_rate_item_to_inr');
-                const slabQty = getVal('slab_quantity');
-                const csQty = getVal('c_s_quantity');
-                const kgWeight = getVal('kg');
-                
-                totalUSD += usdRate;
-                totalINR += inrRate;
-                totalSlab += slabQty;
-                totalCS += csQty;
-                totalKG += kgWeight;
-                
-                console.log(`Including form values: USD=${usdRate}, INR=${inrRate}, Slab=${slabQty}, CS=${csQty}, KG=${kgWeight}`);
-            });
-
-            console.log(`Final totals: USD=${totalUSD}, INR=${totalINR}, Slab=${totalSlab}, CS=${totalCS}, KG=${totalKG}`);
-
-            $('#id_total_usd').val(totalUSD.toFixed(2));
-            $('#id_total_inr').val(totalINR.toFixed(2));
-            $('#id_total_slab').val(totalSlab.toFixed(2));
-            $('#id_total_c_s').val(totalCS.toFixed(2));
-            $('#id_total_kg').val(totalKG.toFixed(2));
-        }
-
-        // GLOBAL function accessible from other scripts
-        window.calculateTotals = calculateTotals;
-
-        // Trigger calculation on various events
-        $(document).ready(function() {
-            // Calculate totals when any form input changes (except DELETE checkboxes)
-            $(document).on('input change', '.formset-form :input:not([name$="-DELETE"])', function() {
-                console.log('Input changed, recalculating totals');
-                setTimeout(calculateTotals, 100); // Small delay to ensure all calculations complete
-            });
-            
-            // Specific trigger for DELETE checkbox changes
-            $(document).on('change', '.formset-form [name$="-DELETE"]', function() {
-                console.log('DELETE checkbox changed, recalculating totals');
-                calculateTotals();
-            });
-            
-            // Calculate totals on page load
-            setTimeout(calculateTotals, 500); // Delay to ensure all data is loaded
         });
     </script>
 

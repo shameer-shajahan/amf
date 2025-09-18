@@ -317,7 +317,8 @@
                     <tr>
                         <th class="table-header">Item</th>
                         <th class="table-header">Quantity</th>
-                        <th class="table-header">Rate</th>
+                        <th class="table-header">Total Rate </th>
+                        <th class="table-header">Rate/kg</th>
                         <th class="table-header">Boxes</th>
                         <th class="table-header">Action</th>
                     </tr>
@@ -335,6 +336,12 @@
                                 {{ form.quantity.as_widget }}
                                 {% if form.quantity.errors %}
                                     <div class="validation-error">{{ form.quantity.errors }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="table-cell">
+                                {{ form.total_rate.as_widget }}
+                                {% if form.total_rate.errors %}
+                                    <div class="validation-error">{{ form.total_rate.errors }}</div>
                                 {% endif %}
                             </td>
                             <td class="table-cell">
@@ -368,6 +375,8 @@
                     <th class="table-header">Total Quantity</th>
                     <th class="table-header">Total Amount</th>
                     <th class="table-header">Total Items</th>
+                    <th class="table-header">Total Expense</th>
+                    <th class="table-header">Total Purchase Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -375,6 +384,8 @@
                     <td class="table-cell"><span id="quantity-total" class="calculated-value">0.00</span></td>
                     <td class="table-cell"><span id="amount-total" class="calculated-value">0.00</span></td>
                     <td class="table-cell"><span id="items-count" class="calculated-value">0</span></td>
+                    <td class="table-cell"><span id="expense-total" class="calculated-value">0.00</span></td>
+                    <td class="table-cell"><span id="total-purchase-amount" class="calculated-value" style="color: #dc3545; font-weight: bold;">0.00</span></td>
                 </tr>
             </tbody>
         </table>
@@ -429,9 +440,7 @@
                 </tbody>
             </table>
         </div>
-        <div style="margin-top: 15px;">
-            <strong>Total Expense: <span id="expense-total" class="calculated-value" style="color: #0d6efd;">0.00</span></strong>
-        </div>
+
     </div>
 
     <div style="text-align: center; margin-top: 30px;">
@@ -450,6 +459,9 @@
                 {{ form.quantity.as_widget }}
             </td>
             <td class="table-cell">
+                {{ form.total_rate.as_widget }}
+            </td>
+            <td class="table-cell">
                 {{ form.rate.as_widget }}
             </td>
             <td class="table-cell">
@@ -463,7 +475,7 @@
 </template>
 
 <script>
-function calculatePurchaseTotals() {
+    function calculatePurchaseTotals() {
     let totalAmount = 0;
     let totalQuantity = 0;
     let totalItems = 0;
@@ -472,21 +484,23 @@ function calculatePurchaseTotals() {
 
     itemRows.forEach(row => {
         const quantityInput = row.querySelector('input[name$="-quantity"]');
-        const rateInput = row.querySelector('input[name$="-rate"]');
+        const totalRateInput = row.querySelector('input[name$="-total_rate"]');
 
         const quantity = parseFloat(quantityInput?.value) || 0;
-        const rate = parseFloat(rateInput?.value) || 0;
+        const totalRate = parseFloat(totalRateInput?.value) || 0;
 
-        if (quantity > 0 || rate > 0) {
+        if (quantity > 0 || totalRate > 0) {
             totalItems += 1;
             totalQuantity += quantity;
-            totalAmount += quantity * rate;
+            totalAmount += totalRate; // Use total_rate instead of quantity * total_rate
         }
     });
 
     document.getElementById('quantity-total').textContent = totalQuantity.toFixed(2);
     document.getElementById('amount-total').textContent = totalAmount.toFixed(2);
     document.getElementById('items-count').textContent = totalItems;
+    
+    calculateTotalPurchaseAmount();
 }
 
 function calculateExpenseTotals() {
@@ -508,15 +522,73 @@ function calculateExpenseTotals() {
     });
 
     document.getElementById('expense-total').textContent = totalExpense.toFixed(2);
+    
+    calculateTotalPurchaseAmount();
 }
 
-// Update totals on input change
+function calculateTotalPurchaseAmount() {
+    const totalAmount = parseFloat(document.getElementById('amount-total').textContent) || 0;
+    const totalExpense = parseFloat(document.getElementById('expense-total').textContent) || 0;
+    const totalPurchaseAmount = totalAmount + totalExpense;
+    
+    // Update total purchase amount display (you may need to add this element to your template)
+    const totalPurchaseElement = document.getElementById('total-purchase-amount');
+    if (totalPurchaseElement) {
+        totalPurchaseElement.textContent = totalPurchaseAmount.toFixed(2);
+    }
+}
+
+// Handle bidirectional rate calculations
+function handleRateCalculation(changedInput) {
+    const row = changedInput.closest('.item-row');
+    const quantityInput = row.querySelector('input[name$="-quantity"]');
+    const totalRateInput = row.querySelector('input[name$="-total_rate"]');
+    const rateInput = row.querySelector('input[name$="-rate"]');
+    
+    const quantity = parseFloat(quantityInput?.value) || 0;
+    const totalRate = parseFloat(totalRateInput?.value) || 0;
+    const rate = parseFloat(rateInput?.value) || 0;
+    
+    // If total_rate changed, calculate rate per kg
+    if (changedInput.name.includes('total_rate')) {
+        if (quantity > 0) {
+            const calculatedRate = totalRate / quantity;
+            rateInput.value = calculatedRate.toFixed(2);
+        } else {
+            rateInput.value = '0.00';
+        }
+    }
+    
+    // If rate changed, calculate total_rate
+    else if (changedInput.name.includes('rate')) {
+        const calculatedTotalRate = rate * quantity;
+        totalRateInput.value = calculatedTotalRate.toFixed(2);
+    }
+    
+    // If quantity changed, recalculate based on existing rate
+    else if (changedInput.name.includes('quantity')) {
+        if (rate > 0) {
+            // If we have a rate per kg, calculate total_rate
+            const calculatedTotalRate = rate * quantity;
+            totalRateInput.value = calculatedTotalRate.toFixed(2);
+        } else if (totalRate > 0 && quantity > 0) {
+            // If we have total_rate, calculate rate per kg
+            const calculatedRate = totalRate / quantity;
+            rateInput.value = calculatedRate.toFixed(2);
+        }
+    }
+}
+
+// Update totals and handle rate calculations on input change
 document.addEventListener('input', function (e) {
     if (e.target.name) {
-        if (e.target.name.includes('quantity') || e.target.name.includes('rate')) {
+        // Handle rate calculations
+        if (e.target.name.includes('quantity') || e.target.name.includes('rate') || e.target.name.includes('total_rate')) {
+            handleRateCalculation(e.target);
             calculatePurchaseTotals();
         }
 
+        // Handle expense calculations
         if (
             e.target.name.includes('ice_expense') ||
             e.target.name.includes('vehicle_rent') ||
@@ -528,6 +600,8 @@ document.addEventListener('input', function (e) {
         }
     }
 });
+
+// Rest of your existing JavaScript code remains the same...
 
 // Add delete button handler
 document.addEventListener('click', function (e) {
@@ -572,79 +646,6 @@ function updateFormCount(change) {
 // Call on page load
 calculatePurchaseTotals();
 calculateExpenseTotals();
-
-// F1 key shortcut for adding more items
-$(document).ready(function() {
-    $(document).on('keydown', function(e) {
-        if (e.keyCode === 112 || e.which === 112) {
-            e.preventDefault();
-            $('#add-more-items').click();
-            return false;
-        }
-    });
-});
-
-// Delete key shortcut for removing the focused item
-$(document).ready(function () {
-    function removeItemRow(form) {
-        if ($(".item-row").length > 1) {
-            form.remove();
-            updateFormCount(-1);
-            calculatePurchaseTotals();
-        } else {
-            alert("At least one item is required.");
-        }
-    }
-
-    $(document).on("keydown", function (e) {
-        if (e.key === "Delete") {
-            let activeElement = $(document.activeElement).closest(".item-row");
-            if (activeElement.length) {
-                e.preventDefault();
-                removeItemRow(activeElement);
-            }
-        }
-    });
-});
-
-// Arrow key navigation for form fields
-$(document).ready(function() {
-    function getNavigableElements() {
-        return $('input:not([type="hidden"]), select, textarea').filter(':visible');
-    }
-
-    $(document).on('keydown', 'input, select, textarea', function(e) {
-        if (e.keyCode === 37 || e.which === 37) {
-            if ($(this).is('select') || 
-                ($(this).is('input') && this.selectionStart === 0)) {
-                
-                e.preventDefault();
-                let navigableElements = getNavigableElements();
-                let currentIndex = navigableElements.index(this);
-                
-                if (currentIndex > 0) {
-                    navigableElements.eq(currentIndex - 1).focus();
-                }
-                return false;
-            }
-        }
-        
-        if (e.keyCode === 39 || e.which === 39) {
-            if ($(this).is('select') || 
-                ($(this).is('input') && this.selectionStart === this.value.length)) {
-                
-                e.preventDefault();
-                let navigableElements = getNavigableElements();
-                let currentIndex = navigableElements.index(this);
-                
-                if (currentIndex < navigableElements.length - 1) {
-                    navigableElements.eq(currentIndex + 1).focus();
-                }
-                return false;
-            }
-        }
-    });
-});
 </script>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
