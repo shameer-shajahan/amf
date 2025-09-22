@@ -36,7 +36,6 @@ from django.http import HttpResponse
 from django.template.loader import get_template
 from xhtml2pdf import pisa
 from collections import defaultdict
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
@@ -44,7 +43,6 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 import logging
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
@@ -54,7 +52,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import StoreTransfer, StoreTransferItem, Stock, Store
 from .forms import StoreTransferForm, StoreTransferItemFormSet
+from django.views.generic import ListView, DetailView, TemplateView
+from django.db.models import Q, F, Sum
+from django.core.paginator import Paginator
+from django.forms import formset_factory
+from .forms import StoreTransferForm, StoreTransferItemFormSet
+from django.views.generic import ListView, DetailView, TemplateView
+from django.db.models import Q, F, Sum
+from django.core.paginator import Paginator
+from django.forms import formset_factory
+from datetime import datetime, timedelta, date
+from decimal import Decimal
 import json
+import re
+
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,29 +88,181 @@ logger = logging.getLogger(__name__)
 # item category ennu parayunne elam item quality anu  model name itemQuality
 # item group ennu parayunne elam item category anu model name itemCategory
 
+# views.py - Permission checking decorators and mixins
+
+from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.contrib.auth.models import Permission
+from django.shortcuts import get_object_or_404, render, redirect
+from django.contrib import messages
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.contrib.auth.models import Permission
+from django.core.exceptions import PermissionDenied
+from django.contrib.contenttypes.models import ContentType
+
+def check_permission(permission_name):
+    """Decorator to check custom permissions"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not request.user.has_perm(f'adminapp.{permission_name}'):
+                messages.error(request, 'You do not have permission to access this page.')
+                return redirect('adminapp:admin_dashboard')
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+class CustomPermissionMixin(PermissionRequiredMixin):
+    """Custom permission mixin for class-based views"""
+    def handle_no_permission(self):
+        messages.error(self.request, 'You do not have permission to access this page.')
+        return redirect('adminapp:admin_dashboard')
+
+@check_permission('user_management_edit')
+def assign_user_permissions(request, user_id):
+    user = get_object_or_404(CustomUser, id=user_id)
+    
+    if request.method == 'POST':
+        selected_permissions = request.POST.getlist('permissions')
+        
+        # Clear existing permissions
+        user.user_permissions.clear()
+        
+        # Add selected permissions
+        for perm_id in selected_permissions:
+            try:
+                permission = Permission.objects.get(id=perm_id)
+                user.user_permissions.add(permission)
+            except Permission.DoesNotExist:
+                continue
+        
+        messages.success(request, f'Permissions updated for {user.full_name}')
+        return redirect('adminapp:users_list')
+    
+    # Get all custom permissions grouped by category
+    all_permissions = Permission.objects.filter(
+        content_type__app_label='adminapp'
+    ).order_by('name')
+    
+    print(f"Found {all_permissions.count()} permissions")  # Debug line
+    for perm in all_permissions:
+        print(f"- {perm.codename}: {perm.name}")  # Debug line
+    
+    user_permissions = user.user_permissions.all()
+    
+    # Group permissions by category
+    permission_groups = {
+        'Master Data': all_permissions.filter(codename__startswith='master_data'),
+        'Purchasing': all_permissions.filter(codename__startswith='purchasing'),
+        'Processing': all_permissions.filter(codename__startswith='processing'),
+        'Shipping': all_permissions.filter(codename__startswith='shipping'),
+        'Reports': all_permissions.filter(codename__startswith='reports'),
+        'Billing': all_permissions.filter(codename__startswith='billing'),
+        'Freezing': all_permissions.filter(codename__startswith='freezing'),
+        'Voucher': all_permissions.filter(codename__startswith='voucher'),
+        'User Management': all_permissions.filter(codename__startswith='user_management'),
+    }
+    
+    # Debug: Check what's in each group
+    for group_name, perms in permission_groups.items():
+        print(f"{group_name}: {perms.count()} permissions")
+    
+    context = {
+        'user': user,
+        'permission_groups': permission_groups,
+        'user_permissions': user_permissions,
+        'all_permissions_count': all_permissions.count(),  # Add this for template debugging
+    }
+    
+    return render(request, 'adminapp/assign_permissions.html', context)
+
+
+# Template context processor to make permissions available in templates
+def permission_processor(request):
+    """Add user permissions to template context"""
+    if request.user.is_authenticated:
+        return {
+            'user_permissions': {
+                'can_view_master_data': request.user.has_perm('adminapp.master_data_view'),
+                'can_add_master_data': request.user.has_perm('adminapp.master_data_add'),
+                'can_view_purchasing': request.user.has_perm('adminapp.purchasing_view'),
+                'can_add_purchasing': request.user.has_perm('adminapp.purchasing_add'),
+                'can_view_processing': request.user.has_perm('adminapp.processing_view'),
+
+                'can_add_shipping': request.user.has_perm('adminapp.shipping_add'),
+                'can_view_shipping': request.user.has_perm('adminapp.shipping_view'),
+                'can_edit_shipping': request.user.has_perm('adminapp.shipping_edit'),
+                'can_delete_shipping': request.user.has_perm('adminapp.shipping_delete'),
+
+                'can_add_freezing': request.user.has_perm('adminapp.freezing_add'),
+                'can_view_freezing': request.user.has_perm('adminapp.freezing_view'),
+                'can_edit_freezing': request.user.has_perm('adminapp.freezing_edit'),
+                'can_delete_freezing': request.user.has_perm('adminapp.freezing_delete'),
+
+                'can_add_voucher': request.user.has_perm('adminapp.voucher_add'),
+                'can_view_voucher': request.user.has_perm('adminapp.voucher_view'),
+                'can_edit_voucher': request.user.has_perm('adminapp.voucher_edit'),
+                'can_delete_voucher': request.user.has_perm('adminapp.voucher_delete'),
+
+                'can_view_reports': request.user.has_perm('adminapp.reports_view'),
+                'can_export_reports': request.user.has_perm('adminapp.reports_export'),
+
+                'can_view_billing': request.user.has_perm('adminapp.billing_view'),
+                'can_delete_billing': request.user.has_perm('adminapp.billing_delete'),
+                'can_manage_users': request.user.has_perm('adminapp.user_management_view'),
+            }
+        }
+    return {}
+
+
+
 
 # Check if user is an admin
 def is_admin(user):
     return user.is_authenticated and user.role == 'admin'
 
 # Admin login view
-def admin_login(request):
-    if request.user.is_authenticated and is_admin(request.user):
-        return redirect('adminapp:admin_dashboard')
-
+def user_login(request):
+    """Login view for both users and admin"""
+    if request.user.is_authenticated:
+        # Redirect based on user type
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('adminapp:admin_dashboard')
+        else:
+            return redirect('adminapp:user_dashboard')  # Assuming you have a user dashboard
+    
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('password')
-
-        user = authenticate(request, username=email, password=password)
-
-        if user is not None and is_admin(user):
-            login(request, user)
-            return redirect('adminapp:admin_dashboard')
+        
+        if email and password:
+            user = authenticate(request, username=email, password=password)
+            
+            if user is not None:
+                if user.is_active:
+                    login(request, user)
+                    messages.success(request, f'Welcome back, {user.full_name}!')
+                    
+                    # Redirect based on user type
+                    if user.is_staff or user.is_superuser:
+                        return redirect('adminapp:admin_dashboard')
+                    else:
+                        return redirect('adminapp:user_dashboard')  # Regular user dashboard
+                else:
+                    messages.error(request, 'Your account is inactive. Please contact administrator.')
+            else:
+                messages.error(request, 'Invalid email or password.')
         else:
-            messages.error(request, 'Invalid admin credentials.')
-
+            messages.error(request, 'Please enter both email and password.')
+    
     return render(request, 'adminapp/login.html')
+
 
 # Admin logout view
 def admin_logout(request):
@@ -105,7 +270,7 @@ def admin_logout(request):
     return redirect('adminapp:admin_login')
 
 @login_required
-@user_passes_test(is_admin)
+@check_permission('user_management_add')
 def create_user_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST, request.FILES)
@@ -119,7 +284,7 @@ def create_user_view(request):
         form = CustomUserCreationForm()
     return render(request, 'adminapp/create_user.html', {'form': form})
 
-
+@check_permission('user_management_view')
 def users_list_view(request):
     users = CustomUser.objects.all().order_by('-date_joined')
     
@@ -130,7 +295,8 @@ def users_list_view(request):
     return render(request, 'adminapp/list/users_list.html', context)
 
 
-class UserDeleteView(DeleteView):
+class UserDeleteView(CustomPermissionMixin,DeleteView):
+    permission_required = 'adminapp.user_management_delete'
     model = CustomUser
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:users_list')
@@ -139,6 +305,10 @@ class UserDeleteView(DeleteView):
 # Dashboard View
 def admin_dashboard(request):
     return render(request, 'adminapp/dashboard.html')
+
+def user_dashboard(request):
+    return render(request, 'adminapp/user_dashboard.html')
+
 
 def master(request):
     return render(request, 'adminapp/master.html')
@@ -261,6 +431,28 @@ class ShedDeleteView(DeleteView):
     model = Shed
     template_name = 'adminapp/confirm_delete.html'
     success_url = reverse_lazy('adminapp:peeling_center_list')
+
+class LocalPartyCreateView(CreateView):
+    model = LocalParty
+    form_class = LocalPartyForm
+    template_name = 'adminapp/forms/LocalParty_form.html'
+    success_url = reverse_lazy('adminapp:LocalParty_create')
+
+class LocalPartyListView(ListView):
+    model = LocalParty
+    template_name = 'adminapp/list/LocalParty_list.html'
+    context_object_name = 'purchasing_spots'
+
+class LocalPartyUpdateView(UpdateView):
+    model = LocalParty
+    form_class = PurchasingSpotForm
+    template_name = 'adminapp/forms/LocalParty_form.html'
+    success_url = reverse_lazy('adminapp:LocalParty_create')
+
+class LocalPartyDeleteView(DeleteView):
+    model = LocalParty
+    template_name = 'adminapp/confirm_delete.html'
+    success_url = reverse_lazy('adminapp:LocalParty_create')
 
 class PurchasingSpotCreateView(CreateView):
     model = PurchasingSpot
@@ -793,8 +985,8 @@ def settings_list(request):
     return render(request, 'adminapp/list/settings_list.html', {'settings': settings})
 
 
-# function for creating a Purchase Entry
-
+# function for SpotPurchase Entry
+@check_permission('purchasing_add')
 def create_spot_purchase(request):
     if request.method == 'POST':
         purchase_form = SpotPurchaseForm(request.POST)
@@ -832,6 +1024,7 @@ def create_spot_purchase(request):
         'expense_form': expense_form,
     })
 
+@check_permission('purchasing_edit')
 def edit_spot_purchase(request, pk):
     purchase = get_object_or_404(SpotPurchase, pk=pk)
     SpotPurchaseItemFormSet = inlineformset_factory(
@@ -893,11 +1086,12 @@ def edit_spot_purchase(request, pk):
         'expense_form': expense_form,
     })
 
-
+@check_permission('purchasing_view')
 def spot_purchase_list(request):
     purchases = SpotPurchase.objects.all().order_by('-date')
     return render(request, 'adminapp/purchases/spot_purchase_list.html', {'purchases': purchases})
 
+@check_permission('purchasing_delete')
 def spot_purchase_delete(request, pk):
     purchase = get_object_or_404(SpotPurchase, pk=pk)
     if request.method == 'POST':
@@ -905,6 +1099,7 @@ def spot_purchase_delete(request, pk):
         return redirect('adminapp:spot_purchase_list')
     return render(request, 'adminapp/purchases/spot_purchase_confirm_delete.html', {'purchase': purchase})
 
+@check_permission('purchasing_view')
 def spot_purchase_detail(request, pk):
     purchase = get_object_or_404(
         SpotPurchase.objects.select_related('expense', 'spot', 'supervisor', 'agent')
@@ -916,84 +1111,192 @@ def spot_purchase_detail(request, pk):
     })
 
 
+# function for LocalPurchase Entry
 
-
+@check_permission('purchasing_add')
 def local_purchase_create(request):
     if request.method == 'POST':
         form = LocalPurchaseForm(request.POST)
-        formset = LocalPurchaseItemFormSet(request.POST, prefix='form')  # ✅ Add prefix
+        formset = LocalPurchaseItemFormSet(request.POST, prefix='form')
 
+        # DEBUG: Print form data to see what's being submitted
+        print("POST data:", request.POST)
+        print("Form is valid:", form.is_valid())
+        print("Form errors:", form.errors)
+        print("Formset is valid:", formset.is_valid())
+        
+        # Check if party_name is in POST data
+        print("Party name in POST:", request.POST.get('party_name'))
+        
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
-                purchase = form.save()
+                # DEBUG: Check cleaned_data before saving
+                print("Form cleaned_data:", form.cleaned_data)
+                
+                # Create purchase instance but don't save yet
+                purchase = form.save(commit=False)
+                
+                # DEBUG: Check if party_name is set
+                print("Purchase party_name before save:", purchase.party_name)
+                print("Purchase date:", purchase.date)
+                print("Purchase voucher_number:", purchase.voucher_number)
+                
+                # Verify party_name is not None
+                if not purchase.party_name:
+                    print("ERROR: party_name is None!")
+                    messages.error(request, "Party name is required!")
+                    return render(request, 'adminapp/purchases/local_purchase_form.html', {
+                        'form': form,
+                        'formset': formset,
+                    })
+                
+                # Initialize totals
+                purchase.total_amount = 0
+                purchase.total_quantity = 0
+                purchase.total_items = 0
+                
+                # Save purchase first
+                purchase.save()
+                
+                # DEBUG: Check after save
+                print("Purchase ID after save:", purchase.id)
+                print("Purchase party_name after save:", purchase.party_name)
+                
+                # Initialize totals for calculation
                 total_amount = 0
                 total_quantity = 0
+                total_items = 0
 
+                # Process each item in the formset
                 for item_form in formset:
-                    item = item_form.save(commit=False)
-                    item.purchase = purchase
-                    item.amount = item.quantity * item.rate
-                    item.save()
-                    total_amount += item.amount
-                    total_quantity += item.quantity
+                    if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                        item = item_form.save(commit=False)
+                        item.purchase = purchase
+                        
+                        # Calculate amount (quantity * rate)
+                        quantity = item.quantity or 0
+                        rate = item.rate or 0
+                        item.amount = quantity * rate
+                        item.save()
+                        
+                        # Add to totals
+                        total_amount += item.amount
+                        total_quantity += quantity
+                        total_items += 1
 
+                # Update purchase with calculated totals
                 purchase.total_amount = total_amount
                 purchase.total_quantity = total_quantity
-                purchase.total_items = formset.total_form_count()
+                purchase.total_items = total_items
                 purchase.save()
 
-                return redirect('adminapp:admin_dashboard')  # update as needed
+                # Success message
+                messages.success(request, f'Local purchase created successfully. Total: {total_amount}')
+                
+                return redirect('adminapp:admin_dashboard')
+        else:
+            # DEBUG: Print detailed errors
+            print("=== FORM ERRORS ===")
+            for field, errors in form.errors.items():
+                print(f"Field '{field}': {errors}")
+            
+            print("=== FORMSET ERRORS ===")
+            for i, form_errors in enumerate(formset.errors):
+                if form_errors:
+                    print(f"Formset form {i} errors:", form_errors)
+            
+            # Add error messages to display to user
+            if form.errors:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
 
     else:
         form = LocalPurchaseForm()
-        formset = LocalPurchaseItemFormSet(prefix='form')  # ✅ Add prefix
+        formset = LocalPurchaseItemFormSet(prefix='form')
+
+    # DEBUG: Check if LocalParty objects exist
+    from .models import LocalParty  # Adjust import path as needed
+    party_count = LocalParty.objects.count()
+    print(f"Number of LocalParty objects: {party_count}")
+    
+    if party_count == 0:
+        messages.warning(request, "No parties found. Please create a party first.")
 
     return render(request, 'adminapp/purchases/local_purchase_form.html', {
         'form': form,
         'formset': formset,
     })
 
-# List View
+@check_permission('purchasing_view')
 def local_purchase_list(request):
     purchases = LocalPurchase.objects.all().order_by('-date')
     return render(request, 'adminapp/purchases/local_purchase_list.html', {'purchases': purchases})
 
-# Update View
+@check_permission('purchasing_edit')
 def local_purchase_update(request, pk):
     purchase = get_object_or_404(LocalPurchase, pk=pk)
+    
     if request.method == 'POST':
         form = LocalPurchaseForm(request.POST, instance=purchase)
         formset = LocalPurchaseItemFormSet(request.POST, instance=purchase, prefix='form')
+        
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
+                # Save the main purchase form
                 purchase = form.save()
+                
+                # Save formset (handles creates, updates, and deletes)
+                formset.save()
+                
+                # Recalculate totals from database to ensure accuracy
+                items = LocalPurchaseItem.objects.filter(purchase=purchase)
+                
                 total_amount = 0
                 total_quantity = 0
-                items = formset.save(commit=False)
+                total_items = items.count()
+                
                 for item in items:
-                    item.purchase = purchase
-                    item.amount = item.quantity * item.rate
+                    # Ensure amount is calculated correctly
+                    item.amount = (item.quantity or 0) * (item.rate or 0)
                     item.save()
+                    
                     total_amount += item.amount
-                    total_quantity += item.quantity
-
-                formset.save_m2m()
+                    total_quantity += (item.quantity or 0)
+                
+                # Update purchase totals
                 purchase.total_amount = total_amount
                 purchase.total_quantity = total_quantity
-                purchase.total_items = formset.total_form_count()
+                purchase.total_items = total_items
                 purchase.save()
-
+                
+                messages.success(request, f'Local purchase updated successfully. Total: {total_amount}')
                 return redirect('adminapp:local_purchase_list')
+        else:
+            # Handle errors
+            if form.errors:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
+                        
+            if formset.errors:
+                for i, form_errors in enumerate(formset.errors):
+                    if form_errors:
+                        for field, errors in form_errors.items():
+                            for error in errors:
+                                messages.error(request, f"Item {i+1} - {field}: {error}")
+    
     else:
         form = LocalPurchaseForm(instance=purchase)
         formset = LocalPurchaseItemFormSet(instance=purchase, prefix='form')
 
     return render(request, 'adminapp/purchases/local_purchase_edit.html', {
         'form': form,
-        'formset': formset
+        'formset': formset,
+        'purchase': purchase,
     })
 
-# Delete View
+@check_permission('purchasing_delete')
 def local_purchase_delete(request, pk):
     purchase = get_object_or_404(LocalPurchase, pk=pk)
     if request.method == 'POST':
@@ -1001,7 +1304,7 @@ def local_purchase_delete(request, pk):
         return redirect('adminapp:local_purchase_list')
     return render(request, 'adminapp/purchases/local_purchase_confirm_delete.html', {'purchase': purchase})
 
-# Detail View
+@check_permission('purchasing_view')
 def local_purchase_detail(request, pk):
     purchase = get_object_or_404(LocalPurchase, pk=pk)
     items = purchase.items.all()  # using related_name='items' from the model
@@ -1011,6 +1314,11 @@ def local_purchase_detail(request, pk):
         'title': f"Local Purchase Details - Voucher #{purchase.voucher_number}"
     })
 
+
+
+
+# function for Both purchase Workouts
+@check_permission('purchasing_view')
 def spot_purchase_workout_summary(request):
     items = Item.objects.all()
     spots = PurchasingSpot.objects.all()
@@ -1094,6 +1402,7 @@ def spot_purchase_workout_summary(request):
         },
     )
 
+@check_permission('purchasing_view')
 def local_purchase_workout_summary(request):
     items = Item.objects.all()
     categories = ItemCategory.objects.all()
@@ -1178,17 +1487,23 @@ def local_purchase_workout_summary(request):
         "period": period,
     })
 
-# views.py
-class PeelingShedSupplyListView(ListView):
+
+
+
+# function for Peelingshed 
+class PeelingShedSupplyListView(CustomPermissionMixin,ListView):
+    permission_required = 'adminapp.processing_view'
     model = PeelingShedSupply
     template_name = 'adminapp/purchases/peeling_shed_supply_list.html'
     context_object_name = 'supplies'
 
-class PeelingShedSupplyDeleteView(DeleteView):
+class PeelingShedSupplyDeleteView(CustomPermissionMixin,DeleteView):
+    permission_required = 'adminapp.processing_delete'
     model = PeelingShedSupply
     template_name = 'adminapp/purchases/confirm_delete.html'
     success_url = reverse_lazy('adminapp:peeling_shed_supply_list')
 
+@check_permission('processing_add')
 def create_peeling_shed_supply(request):
     if request.method == 'POST':
         form = PeelingShedSupplyForm(request.POST)
@@ -1289,7 +1604,52 @@ def get_peeling_charge_by_shed(request):
             })
     return JsonResponse({'peeling_types': data})
 
-class PeelingShedSupplyDetailView(DetailView):
+def get_spot_purchase_item_details_with_balance(request):
+    """
+    Get spot purchase item details including available balance boxes
+    considering previous peeling supplies
+    """
+    item_id = request.GET.get('item_id')
+    try:
+        item = SpotPurchaseItem.objects.get(id=item_id)
+        
+        # Calculate total boxes already used in previous peeling supplies
+        used_boxes = PeelingShedSupply.objects.filter(
+            spot_purchase_item=item
+        ).aggregate(
+            total_used=models.Sum('boxes_received_shed')
+        )['total_used'] or 0
+        
+        # Calculate available balance
+        total_boxes = float(item.boxes or 0)
+        available_boxes = total_boxes - used_boxes
+        
+        # Calculate average weight
+        avg_weight = float(item.quantity) / float(item.boxes) if item.boxes else 0
+        
+        data = {
+            'total_boxes': total_boxes,
+            'quantity': float(item.quantity),
+            'average_weight': avg_weight,
+            'used_boxes': used_boxes,
+            'available_boxes': max(0, available_boxes),
+            'is_fully_used': available_boxes <= 0
+        }
+        
+    except SpotPurchaseItem.DoesNotExist:
+        data = {
+            'total_boxes': 0,
+            'quantity': 0,
+            'average_weight': 0,
+            'used_boxes': 0,
+            'available_boxes': 0,
+            'is_fully_used': True
+        }
+
+    return JsonResponse(data)
+
+class PeelingShedSupplyDetailView(CustomPermissionMixin,DetailView):
+    permission_required = 'adminapp.processing_view'
     model = PeelingShedSupply
     template_name = 'adminapp/purchases/peeling_shed_supply_detail.html'
     context_object_name = 'supply'
@@ -1301,22 +1661,63 @@ class PeelingShedSupplyDetailView(DetailView):
 
 def update_peeling_shed_supply(request, pk):
     supply = get_object_or_404(PeelingShedSupply, pk=pk)
-    FreezingEntrySpotItemFormSet = inlineformset_factory(
-    FreezingEntrySpot,
-    FreezingEntrySpotItem,
-    form=FreezingEntrySpotItemForm,
-    extra=0,
-    can_delete=True
-)
-
+    
     if request.method == 'POST':
         form = PeelingShedSupplyForm(request.POST, instance=supply)
         formset = PeelingShedPeelingTypeFormSet(request.POST, instance=supply, prefix='form')
 
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
+                # Get the spot purchase item and new boxes received
+                spot_purchase_item = form.cleaned_data.get('spot_purchase_item')
+                new_boxes_received = form.cleaned_data.get('boxes_received_shed', 0)
+                
+                if spot_purchase_item:
+                    # Get total boxes from the spot purchase item
+                    total_boxes = float(spot_purchase_item.boxes or 0)
+                    
+                    # Calculate already used boxes from database (excluding current supply)
+                    used_boxes = PeelingShedSupply.objects.filter(
+                        spot_purchase_item=spot_purchase_item
+                    ).exclude(id=supply.id).aggregate(
+                        total_used=models.Sum('boxes_received_shed')
+                    )['total_used'] or 0
+                    
+                    # Calculate available boxes (what's left for this update)
+                    available_boxes = total_boxes - used_boxes
+                    
+                    # Validate if new boxes received doesn't exceed available boxes
+                    if new_boxes_received > available_boxes:
+                        form.add_error('boxes_received_shed', 
+                            f'Cannot receive {new_boxes_received} boxes. '
+                            f'Already used by others: {used_boxes} boxes. '
+                            f'Total available: {total_boxes} boxes. '
+                            f'Maximum you can receive: {available_boxes} boxes.')
+                        
+                        return render(request, 'adminapp/purchases/update_peeling_shed_supply_form.html', {
+                            'form': form,
+                            'formset': formset,
+                            'is_update': True,
+                            'supply': supply,
+                        })
+                    
+                    # Calculate balance: Available boxes - current boxes being received
+                    balance_boxes = available_boxes - new_boxes_received
+                    
+                    # Ensure balance is not negative
+                    balance_boxes = max(0, int(balance_boxes))
+                    
+                    # Set the calculated balance
+                    form.instance.SpotPurchase_balance_boxes = balance_boxes
+                
                 supply = form.save()
-                formset.save()  # saves peeling types linked to supply
+                formset.save()
+                
+                messages.success(request, 
+                    f'Peeling Shed Supply updated successfully. '
+                    f'Boxes received: {new_boxes_received}, '
+                    f'Remaining balance: {balance_boxes}')
+                
             return redirect('adminapp:peeling_shed_supply_detail', pk=supply.pk)
         else:
             print("Form Errors:", form.errors)
@@ -1324,6 +1725,29 @@ def update_peeling_shed_supply(request, pk):
     else:
         form = PeelingShedSupplyForm(instance=supply)
         formset = PeelingShedPeelingTypeFormSet(instance=supply, prefix='form')
+        
+        # Pre-populate the calculation fields with existing data
+        if supply.spot_purchase_item:
+            spot_item = supply.spot_purchase_item
+            
+            # Calculate available boxes for current update (excluding this supply)
+            used_boxes = PeelingShedSupply.objects.filter(
+                spot_purchase_item=spot_item
+            ).exclude(id=supply.id).aggregate(
+                total_used=models.Sum('boxes_received_shed')
+            )['total_used'] or 0
+            
+            available_boxes = float(spot_item.boxes or 0) - used_boxes
+            current_balance = max(0, available_boxes - (supply.boxes_received_shed or 0))
+            
+            # Set the initial form data for readonly fields
+            form.initial.update({
+                'SpotPurchase_total_boxes': int(spot_item.boxes or 0),
+                'SpotPurchase_quantity': float(spot_item.quantity or 0),
+                'SpotPurchase_average_box_weight': float(spot_item.quantity or 0) / float(spot_item.boxes or 1) if spot_item.boxes else 0,
+                'SpotPurchase_balance_boxes': int(current_balance),
+                'quantity_received_shed': float(supply.quantity_received_shed or 0)
+            })
 
     return render(request, 'adminapp/purchases/update_peeling_shed_supply_form.html', {
         'form': form,
@@ -1332,9 +1756,65 @@ def update_peeling_shed_supply(request, pk):
         'supply': supply,
     })
 
+def get_spot_purchase_item_details_for_update(request):
+    """
+    Get spot purchase item details for update form, excluding current supply from calculations
+    """
+    item_id = request.GET.get('item_id')
+    supply_id = request.GET.get('supply_id')
+    
+    try:
+        item = SpotPurchaseItem.objects.get(id=item_id)
+        
+        # Calculate total boxes already used in previous peeling supplies (excluding current supply)
+        used_boxes_query = PeelingShedSupply.objects.filter(
+            spot_purchase_item=item
+        )
+        
+        # Exclude current supply from calculation if updating
+        if supply_id:
+            used_boxes_query = used_boxes_query.exclude(id=supply_id)
+        
+        used_boxes = used_boxes_query.aggregate(
+            total_used=models.Sum('boxes_received_shed')
+        )['total_used'] or 0
+        
+        # Calculate available balance
+        total_boxes = float(item.boxes or 0)
+        available_boxes = total_boxes - used_boxes
+        
+        # Calculate average weight
+        avg_weight = float(item.quantity) / float(item.boxes) if item.boxes else 0
+        
+        data = {
+            'total_boxes': total_boxes,
+            'quantity': float(item.quantity),
+            'average_weight': avg_weight,
+            'used_boxes': used_boxes,
+            'available_boxes': max(0, available_boxes),
+            'is_fully_used': available_boxes <= 0
+        }
+        
+    except SpotPurchaseItem.DoesNotExist:
+        data = {
+            'total_boxes': 0,
+            'quantity': 0,
+            'average_weight': 0,
+            'used_boxes': 0,
+            'available_boxes': 0,
+            'is_fully_used': True
+        }
+
+    return JsonResponse(data)
+
+
+
+
 
 
 # Create Freezing Entry Spot with Stock Management (FIXED)
+
+@check_permission('freezing_add')
 def create_freezing_entry_spot(request):
     if request.method == 'POST':
         form = FreezingEntrySpotForm(request.POST)
@@ -1494,140 +1974,13 @@ def create_freezing_entry_spot(request):
         'formset': formset,
     })
 
-def get_spots_by_date(request):
-    date = request.GET.get('date')
-    spots = SpotPurchase.objects.filter(date=date).values('id', 'spot__location_name' , 'voucher_number')
-    return JsonResponse({'spots': list(spots)})
-
-def get_spot_details(request):
-    spot_id = request.GET.get('spot_id')
-
-    try:
-        spot = SpotPurchase.objects.select_related('agent', 'supervisor').get(id=spot_id)
-
-        # ✅ Fetch all related items for this spot purchase
-        items = SpotPurchaseItem.objects.filter(purchase=spot).select_related("item")
-
-        items_data = [
-            {
-                "id": item.item.id,
-                "name": item.item.name,
-                "quantity": str(item.quantity),  # ensure JSON serializable
-            }
-            for item in items
-        ]
-
-        data = {
-            "agent_id": spot.agent.id,
-            "agent_name": str(spot.agent),  # e.g. "John - AG001"
-            "supervisor_id": spot.supervisor.id,
-            "supervisor_name": str(spot.supervisor),  # e.g. "Anita - 9876543210"
-            "items": items_data,  # ✅ added items list
-        }
-
-        # Debug print for terminal
-        print("Spot Purchase Details:", data)
-
-        return JsonResponse(data)
-
-    except SpotPurchase.DoesNotExist:
-        return JsonResponse({"error": "SpotPurchase not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-def get_sheds_by_date(request):
-    date_str = request.GET.get('date')  # Spot Purchase Date
-    if not date_str:
-        return JsonResponse({'error': 'Missing date'}, status=400)
-
-    # Convert string to Python date
-    try:
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return JsonResponse({'error': 'Invalid date format'}, status=400)
-
-    # Fetch supplies for that spot purchase date
-    supplies = PeelingShedSupply.objects.filter(
-        spot_purchase__date=date_obj
-    ).select_related('shed', 'spot_purchase_item__item')
-
-    seen_pairs = set()
-    result = []
-
-    for supply in supplies:
-        shed = supply.shed
-        item = supply.spot_purchase_item.item
-        key = (shed.id, item.id)
-
-        if key not in seen_pairs:
-            seen_pairs.add(key)
-
-            # Yield calculation example
-            try:
-                total_qty = supply.spot_purchase_item.quantity  # adjust field name
-                qty_received = supply.quantity_received_shed
-                yield_percent = (qty_received / total_qty) * 100 if total_qty else 0
-            except:
-                yield_percent = 0
-
-            result.append({
-                'shed_id': shed.id,
-                'shed_name': str(shed),
-                'item_id': item.id,
-                'item_name': str(item),
-                'boxes_received_shed': supply.boxes_received_shed,
-                'quantity_received_shed': str(supply.quantity_received_shed),
-                'yield_percent': round(yield_percent, 2)
-            })
-
-    return JsonResponse({'sheds': result})
-
-def get_unit_details(request):
-    unit_id = request.GET.get('unit_id')
-    try:
-        unit = PackingUnit.objects.get(pk=unit_id)
-        return JsonResponse({
-            'precision': float(unit.precision),
-            'factor': float(unit.factor)
-        })
-    except PackingUnit.DoesNotExist:
-        return JsonResponse({'error': 'Unit not found'}, status=404)
-
-def get_dollar_rate(request):
-    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
-    if settings_obj:
-        return JsonResponse({
-            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
-        })
-    return JsonResponse({'error': 'Settings not found'}, status=404)
-
+@check_permission('freezing_view')
 def freezing_entry_spot_list(request):
     entries = FreezingEntrySpot.objects.all()
     return render(request, 'adminapp/freezing/freezing_entry_spot_list.html', {'entries': entries})
 
-def get_spot_purchase_items_by_date(request):
-    date = request.GET.get("date")
-    if not date:
-        return JsonResponse({"error": "Missing date"}, status=400)
-
-    items = SpotPurchaseItem.objects.filter(
-        purchase__date=date
-    ).select_related("item")
-
-    data = []
-    for item in items:
-        # ✅ print to terminal
-        print(f"Item: {item.item.name}, Quantity: {item.quantity}")
-
-        data.append({
-            "id": item.id,
-            "name": str(item.item),
-            "quantity": str(item.quantity),
-        })
-
-    return JsonResponse({"items": data})
-
-class FreezingEntrySpotDetailView(View):
+class FreezingEntrySpotDetailView(CustomPermissionMixin,View):
+    permission_required = 'adminapp.freezing_view'
     template_name = "adminapp/freezing/freezing_entry_spot_detail.html"
 
     def get(self, request, pk):
@@ -1644,6 +1997,7 @@ class FreezingEntrySpotDetailView(View):
         }
         return render(request, self.template_name, context)
 
+@check_permission('freezing_edit')
 def freezing_entry_spot_update(request, pk):
     freezing_entry = get_object_or_404(FreezingEntrySpot, pk=pk)
 
@@ -1815,6 +2169,159 @@ def freezing_entry_spot_update(request, pk):
         {"form": form, "formset": formset, "entry": freezing_entry},
     )
 
+@check_permission('freezing_delete')
+def delete_freezing_entry_spot(request, pk):
+    entry = get_object_or_404(FreezingEntrySpot, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Subtract quantities from stock entries (don't delete entire stock records)
+                delete_stock_entries_for_spot_entry(entry)
+                
+                # Then delete the entry
+                entry.delete()
+                
+                messages.success(request, 'Freezing entry deleted and stock quantities updated successfully!')
+                
+        except Exception as e:
+            print(f"Error deleting freezing entry: {e}")
+            messages.error(request, f'Error deleting entry: {str(e)}')
+            
+        return redirect('adminapp:freezing_entry_spot_list')
+    
+    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
+
+
+def get_spots_by_date(request):
+    date = request.GET.get('date')
+    spots = SpotPurchase.objects.filter(date=date).values('id', 'spot__location_name' , 'voucher_number')
+    return JsonResponse({'spots': list(spots)})
+
+def get_spot_details(request):
+    spot_id = request.GET.get('spot_id')
+
+    try:
+        spot = SpotPurchase.objects.select_related('agent', 'supervisor').get(id=spot_id)
+
+        # ✅ Fetch all related items for this spot purchase
+        items = SpotPurchaseItem.objects.filter(purchase=spot).select_related("item")
+
+        items_data = [
+            {
+                "id": item.item.id,
+                "name": item.item.name,
+                "quantity": str(item.quantity),  # ensure JSON serializable
+            }
+            for item in items
+        ]
+
+        data = {
+            "agent_id": spot.agent.id,
+            "agent_name": str(spot.agent),  # e.g. "John - AG001"
+            "supervisor_id": spot.supervisor.id,
+            "supervisor_name": str(spot.supervisor),  # e.g. "Anita - 9876543210"
+            "items": items_data,  # ✅ added items list
+        }
+
+        # Debug print for terminal
+        print("Spot Purchase Details:", data)
+
+        return JsonResponse(data)
+
+    except SpotPurchase.DoesNotExist:
+        return JsonResponse({"error": "SpotPurchase not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+def get_sheds_by_date(request):
+    date_str = request.GET.get('date')  # Spot Purchase Date
+    if not date_str:
+        return JsonResponse({'error': 'Missing date'}, status=400)
+
+    # Convert string to Python date
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+    # Fetch supplies for that spot purchase date
+    supplies = PeelingShedSupply.objects.filter(
+        spot_purchase__date=date_obj
+    ).select_related('shed', 'spot_purchase_item__item')
+
+    seen_pairs = set()
+    result = []
+
+    for supply in supplies:
+        shed = supply.shed
+        item = supply.spot_purchase_item.item
+        key = (shed.id, item.id)
+
+        if key not in seen_pairs:
+            seen_pairs.add(key)
+
+            # Yield calculation example
+            try:
+                total_qty = supply.spot_purchase_item.quantity  # adjust field name
+                qty_received = supply.quantity_received_shed
+                yield_percent = (qty_received / total_qty) * 100 if total_qty else 0
+            except:
+                yield_percent = 0
+
+            result.append({
+                'shed_id': shed.id,
+                'shed_name': str(shed),
+                'item_id': item.id,
+                'item_name': str(item),
+                'boxes_received_shed': supply.boxes_received_shed,
+                'quantity_received_shed': str(supply.quantity_received_shed),
+                'yield_percent': round(yield_percent, 2)
+            })
+
+    return JsonResponse({'sheds': result})
+
+def get_unit_details(request):
+    unit_id = request.GET.get('unit_id')
+    try:
+        unit = PackingUnit.objects.get(pk=unit_id)
+        return JsonResponse({
+            'precision': float(unit.precision),
+            'factor': float(unit.factor)
+        })
+    except PackingUnit.DoesNotExist:
+        return JsonResponse({'error': 'Unit not found'}, status=404)
+
+def get_dollar_rate(request):
+    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
+    if settings_obj:
+        return JsonResponse({
+            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
+        })
+    return JsonResponse({'error': 'Settings not found'}, status=404)
+
+def get_spot_purchase_items_by_date(request):
+    date = request.GET.get("date")
+    if not date:
+        return JsonResponse({"error": "Missing date"}, status=400)
+
+    items = SpotPurchaseItem.objects.filter(
+        purchase__date=date
+    ).select_related("item")
+
+    data = []
+    for item in items:
+        # ✅ print to terminal
+        print(f"Item: {item.item.name}, Quantity: {item.quantity}")
+
+        data.append({
+            "id": item.id,
+            "name": str(item.item),
+            "quantity": str(item.quantity),
+        })
+
+    return JsonResponse({"items": data})
+
 def reverse_stock_changes_for_spot_entry(freezing_entry):
     """
     Helper function to reverse stock changes for a specific freezing entry
@@ -1866,28 +2373,6 @@ def reverse_stock_changes_for_spot_entry(freezing_entry):
                 
     except Exception as e:
         print(f"Error reversing stock changes: {e}")
-
-def delete_freezing_entry_spot(request, pk):
-    entry = get_object_or_404(FreezingEntrySpot, pk=pk)
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # Subtract quantities from stock entries (don't delete entire stock records)
-                delete_stock_entries_for_spot_entry(entry)
-                
-                # Then delete the entry
-                entry.delete()
-                
-                messages.success(request, 'Freezing entry deleted and stock quantities updated successfully!')
-                
-        except Exception as e:
-            print(f"Error deleting freezing entry: {e}")
-            messages.error(request, f'Error deleting entry: {str(e)}')
-            
-        return redirect('adminapp:freezing_entry_spot_list')
-    
-    return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
 
 def delete_stock_entries_for_spot_entry(freezing_entry):
     """
@@ -1944,6 +2429,8 @@ def delete_stock_entries_for_spot_entry(freezing_entry):
 
 
 # Create Freezing Entry Local with Stock Management
+
+@check_permission('freezing_add')
 def create_freezing_entry_local(request):
     if request.method == 'POST':
         form = FreezingEntryLocalForm(request.POST)
@@ -2111,66 +2598,12 @@ def create_freezing_entry_local(request):
         "formset": formset,
     })
 
-def get_parties_by_date(request):
-    date = request.GET.get('date')
-    parties = LocalPurchase.objects.filter(date=date).values(
-        'id', 'party_name', 'voucher_number'
-    )
-    return JsonResponse({'parties': list(parties)})
-
-def get_party_details(request):
-    party_id = request.GET.get('party_id')
-    try:
-        purchase = LocalPurchase.objects.get(id=party_id)
-
-        # assuming LocalPurchaseItem has FK → ItemGrade as `grade`
-        items = purchase.items.all().values(
-            'id',
-            'item__id',
-            'item__name',
-            'quantity',
-            'rate',
-            'amount',
-            'grade__id',
-            'grade__grade',             # grade text
-            'grade__species__name',     # ✅ species name
-            'item_quality__quality',   # ✅ correct field
-            'item_quality__code',      
-        )
-
-        data = {
-            'party_name': purchase.party_name,
-            'voucher_number': purchase.voucher_number,
-            'items': list(items),
-        }
-        return JsonResponse(data)
-
-    except LocalPurchase.DoesNotExist:
-        return JsonResponse({'error': 'LocalPurchase not found'}, status=404)
-
-def get_unit_details_local(request):
-    unit_id = request.GET.get('unit_id')
-    try:
-        unit = PackingUnit.objects.get(pk=unit_id)
-        return JsonResponse({
-            'precision': float(unit.precision),
-            'factor': float(unit.factor)
-        })
-    except PackingUnit.DoesNotExist:
-        return JsonResponse({'error': 'Unit not found'}, status=404)
-
-def get_dollar_rate_local(request):
-    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
-    if settings_obj:
-        return JsonResponse({
-            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
-        })
-    return JsonResponse({'error': 'Settings not found'}, status=404)
-
+@check_permission('freezing_view')
 def freezing_entry_local_list(request):
     entries = FreezingEntryLocal.objects.all()
     return render(request, 'adminapp/freezing/freezing_entry_local_list.html', {'entries': entries})
 
+@check_permission('freezing_view')
 def freezing_entry_local_detail(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
     items = entry.items.all().select_related(
@@ -2192,48 +2625,7 @@ def freezing_entry_local_detail(request, pk):
     }
     return render(request, 'adminapp/freezing/freezing_entry_local_detail.html', context)
 
-def get_items_by_local_date(request):
-    date = request.GET.get('date')
-    if not date:
-        return JsonResponse({'items': []})
-    
-    # Adjust this query based on your LocalPurchase model structure
-    items = LocalPurchaseItem.objects.filter(
-        local_purchase__purchase_date=date
-    ).select_related('item').values(
-        'item_id', 
-        'item__name'
-    ).annotate(
-        item_name=F('item__name')
-    ).distinct()
-    
-    return JsonResponse({'items': list(items)})
-
-@require_http_methods(["GET"])
-@csrf_exempt  # Remove this if CSRF protection is needed
-def get_item_qualities(request):
-    item_id = request.GET.get("item_id")
-    
-    # If item_id is missing, return empty JSON array
-    if not item_id:
-        return JsonResponse([], safe=False)
-    
-    # Validate item_id is not empty (allow alphanumeric IDs)
-    item_id = item_id.strip()
-    if not item_id:
-        return JsonResponse({"error": "Invalid item_id"}, status=400)
-
-    try:
-        # Filter qualities for the given item
-        qualities = ItemQuality.objects.filter(item_id=item_id).values("id", "quality")
-        
-        # Return as JSON
-        return JsonResponse(list(qualities), safe=False)
-    
-    except Exception as e:
-        # Handle any database errors
-        return JsonResponse({"error": "Database error occurred"}, status=500)
-
+@check_permission('freezing_delete')
 def delete_freezing_entry_local(request, pk):
     entry = get_object_or_404(FreezingEntryLocal, pk=pk)
     
@@ -2256,108 +2648,7 @@ def delete_freezing_entry_local(request, pk):
     
     return render(request, 'adminapp/freezing/freezing_entry_local_confirm_delete.html', {'entry': entry})
 
-def delete_stock_entries_for_local_entry(freezing_entry):
-    """
-    Helper function to subtract quantities from stock entries (not delete the entire stock record)
-    """
-    try:
-        # Get all items from this freezing entry and subtract their quantities from matching stock entries
-        items = freezing_entry.items.all()
-        
-        for item in items:
-            # Build stock filter criteria using Stock model fields
-            stock_filters = {
-                'store': item.store,
-                'item': item.item,
-                'brand': item.brand,
-                'item_quality': item.item_quality,
-                'unit': item.unit,  # Keep as FK instance
-                'glaze': item.glaze,  # Keep as FK instance
-                'species': item.species,  # Keep as FK instance
-                'item_grade': item.grade,  # Use item_grade field name
-                'freezing_category': item.freezing_category,  # Keep as FK instance
-            }
-            
-            # Remove None values
-            stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
-            
-            # Find matching stock entries and subtract quantities
-            try:
-                matching_stocks = Stock.objects.filter(**stock_filters)
-                
-                for stock in matching_stocks:
-                    # Subtract the quantities from this freezing entry item
-                    stock.cs_quantity -= (item.c_s_quantity or Decimal(0))
-                    stock.kg_quantity -= (item.kg or Decimal(0))
-                    
-                    # If quantities become zero or negative, delete the stock record
-                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
-                        print(f"Deleting empty stock record: {stock}")
-                        stock.delete()
-                    else:
-                        # Save the updated quantities
-                        print(f"Updated stock quantities for {item.item.name}: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
-                        stock.save()
-                    
-            except Exception as e:
-                print(f"Error updating stock for item {item.item.name}: {e}")
-                
-    except Exception as e:
-        print(f"Error updating stock entries: {e}")
-        raise e
-
-def reverse_stock_changes_for_local_entry(freezing_entry):
-    """
-    Improved stock reversal function that handles multiple stock records properly
-    """
-    try:
-        # Get all items from the freezing entry to reverse their quantities
-        entry_items = FreezingEntryLocalItem.objects.filter(freezing_entry=freezing_entry)
-        
-        for entry_item in entry_items:
-            try:
-                # Build filter criteria to find the exact stock record using FK instances
-                stock_filters = {
-                    'store': entry_item.store,
-                    'item': entry_item.item,
-                    'brand': entry_item.brand,
-                    'item_quality': entry_item.item_quality,
-                    'unit': entry_item.unit,  # Keep as FK instance
-                    'glaze': entry_item.glaze,  # Keep as FK instance
-                    'species': entry_item.species,  # Keep as FK instance
-                    'item_grade': entry_item.grade,  # Use item_grade field name
-                    'freezing_category': entry_item.freezing_category,  # Keep as FK instance
-                }
-                
-                # Remove None values
-                stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
-                
-                # Find all matching stock records
-                matching_stocks = Stock.objects.filter(**stock_filters)
-                
-                print(f"Found {matching_stocks.count()} matching stock records for item {entry_item.item.name}")
-                
-                for stock in matching_stocks:
-                    # Reverse the quantities
-                    stock.cs_quantity -= (entry_item.c_s_quantity or Decimal(0))
-                    stock.kg_quantity -= (entry_item.kg or Decimal(0))
-                    
-                    # If quantities become zero or negative, delete the stock record
-                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
-                        print(f"Deleting stock record: {stock}")
-                        stock.delete()
-                    else:
-                        print(f"Updating stock quantities: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
-                        stock.save()
-                        
-            except Exception as e:
-                print(f"Error reversing stock for item {entry_item.item.name}: {e}")
-                continue
-                
-    except Exception as e:
-        print(f"Error during stock reversal: {e}")
-        # Don't raise the exception, just log it and continue
-
+@check_permission('freezing_edit')
 def freezing_entry_local_update(request, pk):
     freezing_entry = get_object_or_404(FreezingEntryLocal, pk=pk)
     FreezingEntryLocalItemFormSet = inlineformset_factory(
@@ -2558,7 +2849,222 @@ def freezing_entry_local_update(request, pk):
     )
 
 
-class FreezingWorkOutView(View):
+
+def get_parties_by_date(request):
+    date = request.GET.get('date')
+    if not date:
+        return JsonResponse({'error': 'Date parameter is required'}, status=400)
+    
+    purchases = LocalPurchase.objects.select_related('party_name').filter(date=date)
+    
+    parties = []
+    for purchase in purchases:
+        parties.append({
+            'id': purchase.id,
+            'party_name': purchase.party_name.party,
+            'voucher_number': purchase.voucher_number
+        })
+    
+    return JsonResponse({'parties': parties})
+
+def get_party_details(request):
+    party_id = request.GET.get('party_id')
+    try:
+        purchase = LocalPurchase.objects.get(id=party_id)
+
+        # assuming LocalPurchaseItem has FK → ItemGrade as `grade`
+        items = purchase.items.all().values(
+            'id',
+            'item__id',
+            'item__name',
+            'quantity',
+            'rate',
+            'amount',
+            'grade__id',
+            'grade__grade',             # grade text
+            'grade__species__name',     # ✅ species name
+            'item_quality__quality',   # ✅ correct field
+            'item_quality__code',      
+        )
+
+        data = {
+            'party_name': purchase.party_name,
+            'voucher_number': purchase.voucher_number,
+            'items': list(items),
+        }
+        return JsonResponse(data)
+
+    except LocalPurchase.DoesNotExist:
+        return JsonResponse({'error': 'LocalPurchase not found'}, status=404)
+
+def get_unit_details_local(request):
+    unit_id = request.GET.get('unit_id')
+    try:
+        unit = PackingUnit.objects.get(pk=unit_id)
+        return JsonResponse({
+            'precision': float(unit.precision),
+            'factor': float(unit.factor)
+        })
+    except PackingUnit.DoesNotExist:
+        return JsonResponse({'error': 'Unit not found'}, status=404)
+
+def get_dollar_rate_local(request):
+    settings_obj = Settings.objects.filter(is_active=True).order_by('-created_at').first()
+    if settings_obj:
+        return JsonResponse({
+            'dollar_rate_to_inr': float(settings_obj.dollar_rate_to_inr)
+        })
+    return JsonResponse({'error': 'Settings not found'}, status=404)
+
+def get_items_by_local_date(request):
+    date = request.GET.get('date')
+    if not date:
+        return JsonResponse({'items': []})
+    
+    # Adjust this query based on your LocalPurchase model structure
+    items = LocalPurchaseItem.objects.filter(
+        local_purchase__purchase_date=date
+    ).select_related('item').values(
+        'item_id', 
+        'item__name'
+    ).annotate(
+        item_name=F('item__name')
+    ).distinct()
+    
+    return JsonResponse({'items': list(items)})
+
+
+@require_http_methods(["GET"])
+@csrf_exempt  # Remove this if CSRF protection is needed
+def get_item_qualities(request):
+    item_id = request.GET.get("item_id")
+    
+    # If item_id is missing, return empty JSON array
+    if not item_id:
+        return JsonResponse([], safe=False)
+    
+    # Validate item_id is not empty (allow alphanumeric IDs)
+    item_id = item_id.strip()
+    if not item_id:
+        return JsonResponse({"error": "Invalid item_id"}, status=400)
+
+    try:
+        # Filter qualities for the given item
+        qualities = ItemQuality.objects.filter(item_id=item_id).values("id", "quality")
+        
+        # Return as JSON
+        return JsonResponse(list(qualities), safe=False)
+    
+    except Exception as e:
+        # Handle any database errors
+        return JsonResponse({"error": "Database error occurred"}, status=500)
+
+def delete_stock_entries_for_local_entry(freezing_entry):
+    """
+    Helper function to subtract quantities from stock entries (not delete the entire stock record)
+    """
+    try:
+        # Get all items from this freezing entry and subtract their quantities from matching stock entries
+        items = freezing_entry.items.all()
+        
+        for item in items:
+            # Build stock filter criteria using Stock model fields
+            stock_filters = {
+                'store': item.store,
+                'item': item.item,
+                'brand': item.brand,
+                'item_quality': item.item_quality,
+                'unit': item.unit,  # Keep as FK instance
+                'glaze': item.glaze,  # Keep as FK instance
+                'species': item.species,  # Keep as FK instance
+                'item_grade': item.grade,  # Use item_grade field name
+                'freezing_category': item.freezing_category,  # Keep as FK instance
+            }
+            
+            # Remove None values
+            stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+            
+            # Find matching stock entries and subtract quantities
+            try:
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                for stock in matching_stocks:
+                    # Subtract the quantities from this freezing entry item
+                    stock.cs_quantity -= (item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (item.kg or Decimal(0))
+                    
+                    # If quantities become zero or negative, delete the stock record
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting empty stock record: {stock}")
+                        stock.delete()
+                    else:
+                        # Save the updated quantities
+                        print(f"Updated stock quantities for {item.item.name}: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
+                        stock.save()
+                    
+            except Exception as e:
+                print(f"Error updating stock for item {item.item.name}: {e}")
+                
+    except Exception as e:
+        print(f"Error updating stock entries: {e}")
+        raise e
+
+def reverse_stock_changes_for_local_entry(freezing_entry):
+    """
+    Improved stock reversal function that handles multiple stock records properly
+    """
+    try:
+        # Get all items from the freezing entry to reverse their quantities
+        entry_items = FreezingEntryLocalItem.objects.filter(freezing_entry=freezing_entry)
+        
+        for entry_item in entry_items:
+            try:
+                # Build filter criteria to find the exact stock record using FK instances
+                stock_filters = {
+                    'store': entry_item.store,
+                    'item': entry_item.item,
+                    'brand': entry_item.brand,
+                    'item_quality': entry_item.item_quality,
+                    'unit': entry_item.unit,  # Keep as FK instance
+                    'glaze': entry_item.glaze,  # Keep as FK instance
+                    'species': entry_item.species,  # Keep as FK instance
+                    'item_grade': entry_item.grade,  # Use item_grade field name
+                    'freezing_category': entry_item.freezing_category,  # Keep as FK instance
+                }
+                
+                # Remove None values
+                stock_filters = {k: v for k, v in stock_filters.items() if v is not None}
+                
+                # Find all matching stock records
+                matching_stocks = Stock.objects.filter(**stock_filters)
+                
+                print(f"Found {matching_stocks.count()} matching stock records for item {entry_item.item.name}")
+                
+                for stock in matching_stocks:
+                    # Reverse the quantities
+                    stock.cs_quantity -= (entry_item.c_s_quantity or Decimal(0))
+                    stock.kg_quantity -= (entry_item.kg or Decimal(0))
+                    
+                    # If quantities become zero or negative, delete the stock record
+                    if stock.cs_quantity <= 0 and stock.kg_quantity <= 0:
+                        print(f"Deleting stock record: {stock}")
+                        stock.delete()
+                    else:
+                        print(f"Updating stock quantities: CS={stock.cs_quantity}, KG={stock.kg_quantity}")
+                        stock.save()
+                        
+            except Exception as e:
+                print(f"Error reversing stock for item {entry_item.item.name}: {e}")
+                continue
+                
+    except Exception as e:
+        print(f"Error during stock reversal: {e}")
+        # Don't raise the exception, just log it and continue
+
+
+# function for Both Freezing Workouts
+class FreezingWorkOutView(CustomPermissionMixin,View):
+    permission_required = 'adminapp.freezing_view'
     template_name = "adminapp/freezing/freezing_workout.html"
 
     def get_summary(self, queryset, has_yield=True):
@@ -2671,7 +3177,8 @@ class FreezingWorkOutView(View):
 
 
 # PRE SHIPMENT WORK OUT 
-class PreShipmentWorkOutCreateAndSummaryView(View):
+class PreShipmentWorkOutCreateAndSummaryView(CustomPermissionMixin,View):
+    permission_required = 'adminapp.shipping_view'
     template_name = "adminapp/create_preshipment_workout.html"
 
     def get_summary(self, queryset):
@@ -2858,6 +3365,66 @@ class PreShipmentWorkOutCreateAndSummaryView(View):
         }
         return render(request, self.template_name, context)
 
+class PreShipmentWorkOutListView(CustomPermissionMixin,ListView):
+    permission_required = 'adminapp.shipping_view'
+    model = PreShipmentWorkOut
+    template_name = "adminapp/preshipment_workout_list.html"
+    context_object_name = "workouts"
+    paginate_by = 20  # Optional: pagination
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related()
+        # Optional filtering
+        if self.request.GET.get("item"):
+            queryset = queryset.filter(item_id=self.request.GET["item"])
+        return queryset.order_by("-id")  # Latest first
+
+class PreShipmentWorkOutDeleteView(CustomPermissionMixin,DeleteView):
+    permission_required = 'adminapp.shipping_delete'
+    model = PreShipmentWorkOut
+    template_name = "adminapp/confirm_delete.html"
+    success_url = reverse_lazy("adminapp:preshipment_workout_list")
+
+    def delete(self, request, *args, **kwargs):
+        obj = self.get_object()
+        messages.success(request, f"Pre-Shipment WorkOut '{obj}' deleted successfully.")
+        return super().delete(request, *args, **kwargs)
+
+class PreShipmentWorkOutDetailView(CustomPermissionMixin,DetailView):
+    permission_required = 'adminapp.shipping_view'
+    model = PreShipmentWorkOut
+    template_name = "adminapp/detail_preshipment_workout.html"
+    context_object_name = "workout"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # All related items
+        items_qs = PreShipmentWorkOutItem.objects.filter(workout=self.object)
+
+        # Summary calculation
+        summary = items_qs.aggregate(
+            total_cartons=Coalesce(Sum("cartons"), Decimal(0), output_field=DecimalField()),
+            total_quantity=Coalesce(Sum("quantity"), Decimal(0), output_field=DecimalField()),
+            total_usd_rate_item=Coalesce(Sum("usd_rate_item"), Decimal(0), output_field=DecimalField()),
+            total_usd_rate_item_get=Coalesce(Sum("usd_rate_item_get"), Decimal(0), output_field=DecimalField()),
+            total_usd_inr=Coalesce(Sum("usd_rate_item_to_inr"), Decimal(0), output_field=DecimalField()),
+            total_usd_inr_get=Coalesce(Sum("usd_rate_item_to_inr_get"), Decimal(0), output_field=DecimalField()),
+            avg_usd_per_kg=Coalesce(Avg("usd_rate_per_kg"), Decimal(0), output_field=DecimalField()),
+            avg_usd_per_kg_get=Coalesce(Avg("usd_rate_per_kg_get"), Decimal(0), output_field=DecimalField()),
+            total_profit=Coalesce(Sum("profit"), Decimal(0), output_field=DecimalField()),
+            total_loss=Coalesce(Sum("loss"), Decimal(0), output_field=DecimalField()),
+            item_count=Count("id")
+        )
+
+        context.update({
+            "items": items_qs,
+            "summary": summary
+        })
+        return context
+
+
+
 def get_species_for_item(request):
     item_id = request.GET.get("item_id")
     species_list = []
@@ -2897,63 +3464,9 @@ def get_dollar_rate_pre_workout(request):
         })
     return JsonResponse({'error': 'Settings not found'}, status=404)
 
-class PreShipmentWorkOutListView(ListView):
-    model = PreShipmentWorkOut
-    template_name = "adminapp/preshipment_workout_list.html"
-    context_object_name = "workouts"
-    paginate_by = 20  # Optional: pagination
-
-    def get_queryset(self):
-        queryset = super().get_queryset().select_related()
-        # Optional filtering
-        if self.request.GET.get("item"):
-            queryset = queryset.filter(item_id=self.request.GET["item"])
-        return queryset.order_by("-id")  # Latest first
-
-class PreShipmentWorkOutDeleteView(DeleteView):
-    model = PreShipmentWorkOut
-    template_name = "adminapp/confirm_delete.html"
-    success_url = reverse_lazy("adminapp:preshipment_workout_list")
-
-    def delete(self, request, *args, **kwargs):
-        obj = self.get_object()
-        messages.success(request, f"Pre-Shipment WorkOut '{obj}' deleted successfully.")
-        return super().delete(request, *args, **kwargs)
-
-class PreShipmentWorkOutDetailView(DetailView):
-    model = PreShipmentWorkOut
-    template_name = "adminapp/detail_preshipment_workout.html"
-    context_object_name = "workout"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # All related items
-        items_qs = PreShipmentWorkOutItem.objects.filter(workout=self.object)
-
-        # Summary calculation
-        summary = items_qs.aggregate(
-            total_cartons=Coalesce(Sum("cartons"), Decimal(0), output_field=DecimalField()),
-            total_quantity=Coalesce(Sum("quantity"), Decimal(0), output_field=DecimalField()),
-            total_usd_rate_item=Coalesce(Sum("usd_rate_item"), Decimal(0), output_field=DecimalField()),
-            total_usd_rate_item_get=Coalesce(Sum("usd_rate_item_get"), Decimal(0), output_field=DecimalField()),
-            total_usd_inr=Coalesce(Sum("usd_rate_item_to_inr"), Decimal(0), output_field=DecimalField()),
-            total_usd_inr_get=Coalesce(Sum("usd_rate_item_to_inr_get"), Decimal(0), output_field=DecimalField()),
-            avg_usd_per_kg=Coalesce(Avg("usd_rate_per_kg"), Decimal(0), output_field=DecimalField()),
-            avg_usd_per_kg_get=Coalesce(Avg("usd_rate_per_kg_get"), Decimal(0), output_field=DecimalField()),
-            total_profit=Coalesce(Sum("profit"), Decimal(0), output_field=DecimalField()),
-            total_loss=Coalesce(Sum("loss"), Decimal(0), output_field=DecimalField()),
-            item_count=Count("id")
-        )
-
-        context.update({
-            "items": items_qs,
-            "summary": summary
-        })
-        return context
-
 
 # purchase Report 
+@check_permission('reports_view')
 def spot_purchase_report(request):
     items = Item.objects.all()
     spots = PurchasingSpot.objects.all()
@@ -3093,6 +3606,7 @@ def spot_purchase_report(request):
         },
     )
 
+@check_permission('reports_export')
 def spot_purchase_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -3169,6 +3683,7 @@ def spot_purchase_report_print(request):
 
 
 # LOCAL PURCHASE REPORT 
+@check_permission('report_view')
 def local_purchase_report(request):
     items = Item.objects.all()
     grades = ItemGrade.objects.all()
@@ -3330,6 +3845,7 @@ def local_purchase_report(request):
         },
     )
 
+@check_permission('report_export')
 def local_purchase_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -3413,6 +3929,7 @@ def local_purchase_report_print(request):
 
 
 # PEELING SHED SUPPLY REPORT
+@check_permission('report_view')
 def peeling_shed_supply_report(request):
     items = Item.objects.all()
     item_types = ItemType.objects.all()
@@ -3606,6 +4123,7 @@ def peeling_shed_supply_report(request):
         },
     )
 
+@check_permission('report_export')
 def peeling_shed_supply_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -3708,11 +4226,8 @@ def peeling_shed_supply_report_print(request):
 
 
 
-
-
-
-
-
+# FREEZING REPORT
+@check_permission('report_view')
 def freezing_report(request):
     # First, let's check what fields actually exist on the models
     from django.db import connection
@@ -4188,7 +4703,7 @@ def freezing_report(request):
         },
     )
 
-# Separate view for print format
+@check_permission('report_export')
 def freezing_report_print(request):
     """Separate view specifically for print format"""
     items = Item.objects.all()
@@ -4344,22 +4859,19 @@ def freezing_report_print(request):
 
 
 
-
-
-
-
-
-
 # Tenant Freezing Entry Views
+@check_permission('freezing_view')
 def tenant_freezing_list(request):
     entries = FreezingEntryTenant.objects.all().order_by('-freezing_date')
     return render(request, 'adminapp/tenant/list.html', {'entries': entries})
 
+@check_permission('freezing_view')
 def tenant_freezing_detail(request, pk):
     entry = get_object_or_404(FreezingEntryTenant, pk=pk)
     return render(request, 'adminapp/tenant/detail.html', {'entry': entry})
 
 @transaction.atomic
+@check_permission('freezing_add')
 def tenant_freezing_create(request):
     if request.method == "POST":
         form = FreezingEntryTenantForm(request.POST)
@@ -4424,6 +4936,7 @@ def tenant_freezing_create(request):
     return render(request, 'adminapp/tenant/create.html', {'form': form, 'formset': formset})
 
 @transaction.atomic
+@check_permission('freezing_edit')
 def tenant_freezing_update(request, pk):
     entry = get_object_or_404(FreezingEntryTenant, pk=pk)
     if request.method == "POST":
@@ -4450,6 +4963,7 @@ def tenant_freezing_update(request, pk):
         formset = FreezingEntryTenantItemFormSet(instance=entry)
     return render(request, 'adminapp/tenant/update.html', {'form': form, 'formset': formset})
 
+@check_permission('freezing_delete')
 def tenant_freezing_delete(request, pk):
     entry = get_object_or_404(FreezingEntryTenant, pk=pk)
     if request.method == "POST":
@@ -4457,6 +4971,7 @@ def tenant_freezing_delete(request, pk):
         return redirect('adminapp:list_freezing_entry_tenant')
     return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
 
+@check_permission('freezing_view')
 def tenant_freezing_detail_pdf(request, pk):
     """
     Generate PDF for FreezingEntryTenant detail view
@@ -4500,16 +5015,9 @@ def tenant_freezing_detail_pdf(request, pk):
 
 
 
-
-
-
-
-
-
-
-
 # return_tenant views
 @transaction.atomic
+@check_permission('freezing_add')
 def return_tenant_create(request):
     if request.method == "POST":
         form = ReturnTenantForm(request.POST)
@@ -4609,6 +5117,7 @@ def return_tenant_create(request):
         'formset': formset,
     })
 
+@check_permission('freezing_view')
 def get_tenant_tariff(request):
     """
     Get tariff rate for a specific tenant and freezing category combination
@@ -4649,36 +5158,8 @@ def get_tenant_tariff(request):
             'tariff': 0
         })
 
-def get_tenant_companies(request):
-    """
-    Fixed: Get tenant companies properly
-    """
-    try:
-        # Get unique tenant companies from FreezingEntryTenant
-        # Assuming FreezingEntryTenant has a foreign key to TenantCompany
-        tenants = (
-            FreezingEntryTenant.objects
-            .values('tenant_company_name__id', 'tenant_company_name__company_name')
-            .distinct()
-            .order_by('tenant_company_name__company_name')
-        )
-        
-        data = [{"id": t['tenant_company_name__id'], "name": t['tenant_company_name__company_name']} 
-                for t in tenants if t['tenant_company_name__id'] is not None]
-        
-        return JsonResponse({"tenants": data})
-    
-    except Exception as e:
-        print(f"Error in get_tenant_companies: {str(e)}")
-        # Fallback: Get all tenant companies
-        try:
-            all_tenants = FreezingEntryTenant.objects.all().order_by('company_name')
-            data = [{"id": t.id, "name": t.company_name} for t in all_tenants]
-            return JsonResponse({"tenants": data})
-        except Exception as e2:
-            print(f"Fallback error in get_tenant_companies: {str(e2)}")
-            return JsonResponse({"tenants": []})
 
+@check_permission('freezing_view')
 def calculate_return_total_amount(request):
     """
     Calculate total amount based on current form data
@@ -4764,6 +5245,7 @@ def calculate_return_total_amount(request):
             'total_amount': 0
         })
 
+@check_permission('freezing_view')
 def get_tenant_original_items(request):
     """
     AJAX view to get original items filtered by tenant company
@@ -4873,6 +5355,7 @@ def get_tenant_original_items(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @transaction.atomic
+@check_permission('freezing_edit')
 def return_tenant_update(request, pk):
     entry = get_object_or_404(ReturnTenant, pk=pk)
     if request.method == "POST":
@@ -4899,6 +5382,7 @@ def return_tenant_update(request, pk):
         formset = ReturnTenantItemFormSet(instance=entry)
     return render(request, 'adminapp/ReturnTenant/update.html', {'form': form, 'formset': formset})
 
+@check_permission('freezing_delete')
 def return_tenant_delete(request, pk):
     entry = get_object_or_404(ReturnTenant, pk=pk)
     if request.method == "POST":
@@ -4906,10 +5390,12 @@ def return_tenant_delete(request, pk):
         return redirect('adminapp:list_return_tenant')
     return render(request, 'adminapp/confirm_delete.html', {'entry': entry})
 
+@check_permission('freezing_view')
 def return_tenant_list(request):
     entries = ReturnTenant.objects.all().order_by('-return_date')
     return render(request, 'adminapp/ReturnTenant/list.html', {'entries': entries})
 
+@check_permission('freezing_view')
 def generate_return_tenant_pdf(request, pk):
     """
     Generate PDF for ReturnTenant detail view
@@ -4950,6 +5436,7 @@ def generate_return_tenant_pdf(request, pk):
         # PDF generation failed
         return HttpResponse("Error generating PDF", status=500)
 
+@check_permission('freezing_view')
 def return_tenant_detail(request, pk):
     """
     Updated detail view with PDF generation option
@@ -4966,6 +5453,8 @@ def return_tenant_detail(request, pk):
 
 
 # Tenant Stock Balance Views
+
+@check_permission('reports_view')
 def tenant_stock_balance(request):
     """
     Calculate current stock balance for all tenants
@@ -5078,6 +5567,7 @@ def tenant_stock_balance(request):
     }
     return render(request, 'adminapp/TenantStock/balance.html', context)
 
+@check_permission('reports_view')
 def tenant_stock_detail(request, tenant_id):
     """
     Detailed stock view for a specific tenant
@@ -5132,6 +5622,38 @@ def tenant_stock_detail(request, tenant_id):
     }
     return render(request, 'adminapp/TenantStock/detail.html', context)
 
+@check_permission('reports_view')
+def get_tenant_companies(request):
+    """
+    Fixed: Get tenant companies properly
+    """
+    try:
+        # Get unique tenant companies from FreezingEntryTenant
+        # Assuming FreezingEntryTenant has a foreign key to TenantCompany
+        tenants = (
+            FreezingEntryTenant.objects
+            .values('tenant_company_name__id', 'tenant_company_name__company_name')
+            .distinct()
+            .order_by('tenant_company_name__company_name')
+        )
+        
+        data = [{"id": t['tenant_company_name__id'], "name": t['tenant_company_name__company_name']} 
+                for t in tenants if t['tenant_company_name__id'] is not None]
+        
+        return JsonResponse({"tenants": data})
+    
+    except Exception as e:
+        print(f"Error in get_tenant_companies: {str(e)}")
+        # Fallback: Get all tenant companies
+        try:
+            all_tenants = FreezingEntryTenant.objects.all().order_by('company_name')
+            data = [{"id": t.id, "name": t.company_name} for t in all_tenants]
+            return JsonResponse({"tenants": data})
+        except Exception as e2:
+            print(f"Fallback error in get_tenant_companies: {str(e2)}")
+            return JsonResponse({"tenants": []})
+
+@check_permission('reports_view')
 def tenant_stock_summary(request):
     """
     Summary view showing total stock per tenant
@@ -5181,11 +5703,6 @@ def tenant_stock_summary(request):
         'tenant_summary': tenant_summary,
     }
     return render(request, 'adminapp/TenantStock/summary.html', context)
-
-
-
-
-
 
 
 def create_tenant_bill(tenant, from_date, to_date):
@@ -5299,6 +5816,44 @@ def auto_generate_bills():
 
     return generated, errors
 
+def run_auto_billing(request):
+    """
+    Trigger auto billing manually.
+    If POST contains config_id -> generate only for that config.
+    Otherwise generate for all due configs.
+    """
+    if request.method == 'POST':
+        config_id = request.POST.get('config_id')
+        if config_id:
+            config = get_object_or_404(TenantBillingConfiguration, id=config_id)
+            today = timezone.now().date()
+            from_date = (config.last_bill_generated_date + timedelta(days=1)) if config.last_bill_generated_date else config.billing_start_date
+            bill = create_tenant_bill(config.tenant, from_date, today)
+            if bill:
+                config.last_bill_generated_date = today
+                config.next_bill_date = today + timedelta(days=config.billing_frequency_days)
+                config.save()
+                messages.success(request, f"Generated bill {getattr(bill, 'bill_number', bill.id)} for {config.tenant}")
+            else:
+                messages.warning(request, f"No freezing entries found for {config.tenant}")
+        else:
+            bills, errors = auto_generate_bills()
+            if bills:
+                messages.success(request, f"Generated {len(bills)} bills.")
+            else:
+                messages.info(request, "No bills generated. No due configurations found.")
+            for e in errors:
+                messages.error(request, e)
+    return redirect('adminapp:billing_config_list')
+
+
+
+@check_permission('billing_view')
+def bill_list(request):
+    bills = TenantBill.objects.select_related('tenant').order_by('-created_at')
+    return render(request, 'adminapp/billing/bill_list.html', {'bills': bills})
+
+@check_permission('billing_add')
 def generate_manual_bill(request):
     """Form to generate bill for chosen tenant and date range"""
     if request.method == 'POST':
@@ -5331,45 +5886,13 @@ def generate_manual_bill(request):
 
     return render(request, 'adminapp/billing/generate_manual_bill.html', {'form': form})
 
-def run_auto_billing(request):
-    """
-    Trigger auto billing manually.
-    If POST contains config_id -> generate only for that config.
-    Otherwise generate for all due configs.
-    """
-    if request.method == 'POST':
-        config_id = request.POST.get('config_id')
-        if config_id:
-            config = get_object_or_404(TenantBillingConfiguration, id=config_id)
-            today = timezone.now().date()
-            from_date = (config.last_bill_generated_date + timedelta(days=1)) if config.last_bill_generated_date else config.billing_start_date
-            bill = create_tenant_bill(config.tenant, from_date, today)
-            if bill:
-                config.last_bill_generated_date = today
-                config.next_bill_date = today + timedelta(days=config.billing_frequency_days)
-                config.save()
-                messages.success(request, f"Generated bill {getattr(bill, 'bill_number', bill.id)} for {config.tenant}")
-            else:
-                messages.warning(request, f"No freezing entries found for {config.tenant}")
-        else:
-            bills, errors = auto_generate_bills()
-            if bills:
-                messages.success(request, f"Generated {len(bills)} bills.")
-            else:
-                messages.info(request, "No bills generated. No due configurations found.")
-            for e in errors:
-                messages.error(request, e)
-    return redirect('adminapp:billing_config_list')
-
+@check_permission('billing_view')
 def view_bill(request, bill_id):
     bill = get_object_or_404(TenantBill, id=bill_id)
     items = bill.items.select_related('freezing_entry', 'freezing_entry_item').all()
     return render(request, 'adminapp/billing/view_bill.html', {'bill': bill, 'items': items})
 
-def bill_list(request):
-    bills = TenantBill.objects.select_related('tenant').order_by('-created_at')
-    return render(request, 'adminapp/billing/bill_list.html', {'bills': bills})
-
+@check_permission('billing_edit')
 def update_bill_status(request, bill_id):
     if request.method == 'POST':
         bill = get_object_or_404(TenantBill, id=bill_id)
@@ -5380,6 +5903,7 @@ def update_bill_status(request, bill_id):
             messages.success(request, f"Bill {bill.bill_number} status updated to {new_status}")
     return redirect('adminapp:view_bill', bill_id=bill_id)
 
+@check_permission('billing_delete')
 def delete_bill(request, bill_id):
     bill = get_object_or_404(TenantBill, id=bill_id)
     if request.method == 'POST':
@@ -5393,6 +5917,7 @@ def delete_bill(request, bill_id):
     # GET -> confirmation page
     return render(request, 'adminapp/billing/confirm_delete.html', {'bill': bill, 'bill_items_count': bill.items.count()})
 
+@check_permission('billing_delete')
 def delete_bill_ajax(request, bill_id):
     if request.method == 'POST':
         bill = get_object_or_404(TenantBill, id=bill_id)
@@ -5402,11 +5927,13 @@ def delete_bill_ajax(request, bill_id):
         return JsonResponse({'success': True, 'message': 'Bill deleted'})
     return JsonResponse({'success': False, 'message': 'Invalid request'}, status=405)
 
+@check_permission('billing_view')
 def billing_config_list(request):
     configs = TenantBillingConfiguration.objects.select_related('tenant').all()
     today = timezone.now().date()
     return render(request, 'adminapp/billing/config_list.html', {'configs': configs, 'today': today})
 
+@check_permission('billing_add')
 def setup_billing_configuration(request):
     if request.method == 'POST':
         form = TenantBillingConfigurationForm(request.POST)
@@ -5418,6 +5945,7 @@ def setup_billing_configuration(request):
         form = TenantBillingConfigurationForm()
     return render(request, 'adminapp/billing/setup_config.html', {'form': form})
 
+@check_permission('billing_view')
 def debug_billing_status(request):
     today = timezone.now().date()
     all_configs = TenantBillingConfiguration.objects.select_related('tenant').all()
@@ -5467,6 +5995,7 @@ def debug_billing_status(request):
     html.append("</ul>")
     return HttpResponse(''.join(html))
 
+@check_permission('billing_delete')
 def delete_billing_configuration(request, pk):
     config = get_object_or_404(TenantBillingConfiguration, pk=pk)
     if request.method == 'POST':
@@ -5476,6 +6005,7 @@ def delete_billing_configuration(request, pk):
         return redirect('adminapp:billing_config_list')
     return render(request, 'adminapp/billing/delete_confirm.html', {'config': config})
 
+@check_permission('billing_view')
 def get_last_bill_date(request):
     tenant_id = request.GET.get("tenant_id")
     if not tenant_id:
@@ -5491,6 +6021,7 @@ def get_last_bill_date(request):
         })
     return JsonResponse({"success": False, "error": "No bills found"})
 
+@check_permission('billing_view')
 def render_to_pdf(template_src, context_dict={}):
     """
     Utility function to render a template to PDF using xhtml2pdf.
@@ -5502,6 +6033,7 @@ def render_to_pdf(template_src, context_dict={}):
     pisa.CreatePDF(html, dest=response)
     return response
 
+@check_permission('billing_view')
 def bill_pdf(request, bill_id):
     """
     Generate PDF for a TenantBill with grouped categories and qualities.
@@ -5672,6 +6204,7 @@ def bill_pdf(request, bill_id):
     
     return render_to_pdf('bill_template.html', context)
 
+@check_permission('billing_view')
 def bill_list_by_status(request, status):
     """Generic view to list bills by status."""
     bills = TenantBill.objects.filter(status=status).select_related("tenant").order_by("-created_at")
@@ -5680,32 +6213,25 @@ def bill_list_by_status(request, status):
         "status": status,
     })
 
+@check_permission('billing_view')
 def bill_list_draft(request):
     return bill_list_by_status(request, "draft")
 
-def bill_list_finalized(request):
-    return bill_list_by_status(request, "finalized")
+# def bill_list_finalized(request):
+#     return bill_list_by_status(request, "finalized")
 
-def bill_list_sent(request):
-    return bill_list_by_status(request, "sent")
+# def bill_list_sent(request):
+#     return bill_list_by_status(request, "sent")
 
-def bill_list_paid(request):
-    return bill_list_by_status(request, "paid")
+# def bill_list_paid(request):
+#     return bill_list_by_status(request, "paid")
 
-def bill_list_cancelled(request):
-    return bill_list_by_status(request, "cancelled")
-
-
+# def bill_list_cancelled(request):
+#     return bill_list_by_status(request, "cancelled")
 
 
 
 
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.forms import formset_factory
-from django.db import transaction
 
 # Create a simple formset (not inline)
 StoreTransferItemFormSet = formset_factory(
@@ -5714,101 +6240,6 @@ StoreTransferItemFormSet = formset_factory(
     can_delete=True
 )
 
-@login_required
-def create_store_transfer(request):
-    if request.method == 'POST':
-        form = StoreTransferForm(request.POST)
-        formset = StoreTransferItemFormSet(request.POST)
-        
-        # DEBUG: Print all formset-related POST data
-        print("=== FULL POST DATA DEBUG ===")
-        for key, value in request.POST.items():
-            print(f"{key}: {value}")
-        print("=== END POST DATA DEBUG ===")
-        
-        print("=== FORMSET DEBUG ===")
-        print("TOTAL_FORMS:", request.POST.get('form-TOTAL_FORMS'))
-        print("INITIAL_FORMS:", request.POST.get('form-INITIAL_FORMS'))
-        print("Form is valid:", form.is_valid())
-        print("Formset is valid:", formset.is_valid())
-        
-        if not form.is_valid():
-            print("Form errors:", form.errors)
-            
-        if not formset.is_valid():
-            print("Formset errors:", formset.errors)
-            print("Non-form errors:", formset.non_form_errors())
-            
-            # Debug each form in formset
-            for i, item_form in enumerate(formset):
-                if item_form.errors:
-                    print(f"Item form {i} errors:", item_form.errors)
-
-        if form.is_valid() and formset.is_valid():
-            try:
-                with transaction.atomic():
-                    # Save the transfer
-                    transfer = form.save()
-                    print(f"Transfer saved: {transfer}")
-                    
-                    items_saved = 0
-                    
-                    # Process each form in the formset
-                    for i, item_form in enumerate(formset):
-                        if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
-                            # Check if item is selected and has quantity
-                            item = item_form.cleaned_data.get('item')
-                            cs_quantity = item_form.cleaned_data.get('cs_quantity', 0) or 0
-                            kg_quantity = item_form.cleaned_data.get('kg_quantity', 0) or 0
-                            
-                            print(f"Processing item form {i}: Item={item}, CS={cs_quantity}, KG={kg_quantity}")
-                            
-                            if item and (cs_quantity > 0 or kg_quantity > 0):
-                                # Create transfer item manually since this isn't an inline formset
-                                transfer_item = StoreTransferItem(
-                                    transfer=transfer,
-                                    item=item,
-                                    brand=item_form.cleaned_data.get('brand'),
-                                    item_quality=item_form.cleaned_data.get('item_quality'),
-                                    freezing_category=item_form.cleaned_data.get('freezing_category'),
-                                    unit=item_form.cleaned_data.get('unit'),
-                                    glaze=item_form.cleaned_data.get('glaze'),
-                                    species=item_form.cleaned_data.get('species'),
-                                    item_grade=item_form.cleaned_data.get('item_grade'),
-                                    cs_quantity=cs_quantity,
-                                    kg_quantity=kg_quantity,
-                                )
-                                transfer_item.save()
-                                items_saved += 1
-                                
-                                print(f"Saved transfer item {items_saved}: {transfer_item}")
-                                
-                                # Process stock transfer
-                                process_stock_transfer(transfer, transfer_item)
-                            else:
-                                print(f"Skipping item form {i}: no item or no quantity")
-                    
-                    if items_saved > 0:
-                        messages.success(request, f"Transfer created successfully with {items_saved} items!")
-                        return redirect('adminapp:store_transfer_list')
-                    else:
-                        transfer.delete()
-                        messages.error(request, "No valid items were added to the transfer.")
-                        
-            except Exception as e:
-                print(f"Error creating transfer: {str(e)}")
-                messages.error(request, f"Error creating transfer: {str(e)}")
-        else:
-            messages.error(request, "Please correct the errors below.")
-    else:
-        # GET request
-        form = StoreTransferForm()
-        formset = StoreTransferItemFormSet()
-
-    return render(request, "adminapp/create_transfer.html", {
-        "form": form, 
-        "formset": formset
-    })
 
 def process_stock_transfer(transfer, transfer_item):
     """Process stock transfer between stores"""
@@ -5910,15 +6341,6 @@ def get_stock_by_store(request):
 
     return JsonResponse({"stocks": stocks_list})
 
-
-
-
-
-
-
-
-
-
 # API endpoint to get available stock for validation
 def get_available_stock(request):
     """API endpoint to check available stock for transfer validation"""
@@ -5955,7 +6377,9 @@ def get_available_stock(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-class StoreTransferListView(LoginRequiredMixin, ListView):
+
+class StoreTransferListView(LoginRequiredMixin,CustomPermissionMixin,ListView):
+    permission_required = 'adminapp.shipping_view'
     """List all store transfers"""
     model = StoreTransfer
     template_name = 'adminapp/transfer_list.html'
@@ -5969,6 +6393,105 @@ class StoreTransferListView(LoginRequiredMixin, ListView):
         return context
 
 @login_required
+@check_permission('shipping_view')
+def create_store_transfer(request):
+    if request.method == 'POST':
+        form = StoreTransferForm(request.POST)
+        formset = StoreTransferItemFormSet(request.POST)
+        
+        # DEBUG: Print all formset-related POST data
+        print("=== FULL POST DATA DEBUG ===")
+        for key, value in request.POST.items():
+            print(f"{key}: {value}")
+        print("=== END POST DATA DEBUG ===")
+        
+        print("=== FORMSET DEBUG ===")
+        print("TOTAL_FORMS:", request.POST.get('form-TOTAL_FORMS'))
+        print("INITIAL_FORMS:", request.POST.get('form-INITIAL_FORMS'))
+        print("Form is valid:", form.is_valid())
+        print("Formset is valid:", formset.is_valid())
+        
+        if not form.is_valid():
+            print("Form errors:", form.errors)
+            
+        if not formset.is_valid():
+            print("Formset errors:", formset.errors)
+            print("Non-form errors:", formset.non_form_errors())
+            
+            # Debug each form in formset
+            for i, item_form in enumerate(formset):
+                if item_form.errors:
+                    print(f"Item form {i} errors:", item_form.errors)
+
+        if form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    # Save the transfer
+                    transfer = form.save()
+                    print(f"Transfer saved: {transfer}")
+                    
+                    items_saved = 0
+                    
+                    # Process each form in the formset
+                    for i, item_form in enumerate(formset):
+                        if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                            # Check if item is selected and has quantity
+                            item = item_form.cleaned_data.get('item')
+                            cs_quantity = item_form.cleaned_data.get('cs_quantity', 0) or 0
+                            kg_quantity = item_form.cleaned_data.get('kg_quantity', 0) or 0
+                            
+                            print(f"Processing item form {i}: Item={item}, CS={cs_quantity}, KG={kg_quantity}")
+                            
+                            if item and (cs_quantity > 0 or kg_quantity > 0):
+                                # Create transfer item manually since this isn't an inline formset
+                                transfer_item = StoreTransferItem(
+                                    transfer=transfer,
+                                    item=item,
+                                    brand=item_form.cleaned_data.get('brand'),
+                                    item_quality=item_form.cleaned_data.get('item_quality'),
+                                    freezing_category=item_form.cleaned_data.get('freezing_category'),
+                                    unit=item_form.cleaned_data.get('unit'),
+                                    glaze=item_form.cleaned_data.get('glaze'),
+                                    species=item_form.cleaned_data.get('species'),
+                                    item_grade=item_form.cleaned_data.get('item_grade'),
+                                    cs_quantity=cs_quantity,
+                                    kg_quantity=kg_quantity,
+                                )
+                                transfer_item.save()
+                                items_saved += 1
+                                
+                                print(f"Saved transfer item {items_saved}: {transfer_item}")
+                                
+                                # Process stock transfer
+                                process_stock_transfer(transfer, transfer_item)
+                            else:
+                                print(f"Skipping item form {i}: no item or no quantity")
+                    
+                    if items_saved > 0:
+                        messages.success(request, f"Transfer created successfully with {items_saved} items!")
+                        return redirect('adminapp:store_transfer_list')
+                    else:
+                        transfer.delete()
+                        messages.error(request, "No valid items were added to the transfer.")
+                        
+            except Exception as e:
+                print(f"Error creating transfer: {str(e)}")
+                messages.error(request, f"Error creating transfer: {str(e)}")
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        # GET request
+        form = StoreTransferForm()
+        formset = StoreTransferItemFormSet()
+
+    return render(request, "adminapp/create_transfer.html", {
+        "form": form, 
+        "formset": formset
+    })
+
+
+@login_required
+@check_permission('shipping_view')
 def transfer_detail(request, pk):
     """View transfer details"""
     transfer = get_object_or_404(StoreTransfer, pk=pk)
@@ -5986,6 +6509,7 @@ def transfer_detail(request, pk):
 
 @login_required
 @require_http_methods(["POST"])
+@check_permission('shipping_delete')
 def delete_transfer(request, pk):
     """Delete a store transfer and its items"""
     transfer = get_object_or_404(StoreTransfer, pk=pk)
@@ -6014,17 +6538,9 @@ def delete_transfer(request, pk):
             return redirect("adminapp:store_transfer_list")
 
 
-
-
-
-
-# In your views.py - USE THIS VERSION
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.contrib.auth.decorators import login_required
-
 @login_required
 @require_http_methods(["GET"])
+@check_permission('shipping_view')
 def get_stock_details(request):
     stock_id = request.GET.get('stock_id')
     
@@ -6176,33 +6692,8 @@ def get_stock_details_simple(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
-
-
-
-
-
-
-
-# views.py
-from django.shortcuts import render, get_object_or_404
-from django.views.generic import ListView, DetailView, TemplateView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q, F, Sum
-from django.core.paginator import Paginator
-from django.http import JsonResponse
-from .models import Stock, Store, ItemCategory, ItemBrand, Item, ItemQuality, FreezingCategory
-
-from django.views.generic import ListView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
-from .models import Stock, Store, ItemCategory, ItemBrand
-
-from django.db.models import Q
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView
-from .models import Stock, Store, ItemCategory, ItemBrand
-
-class StockListView(LoginRequiredMixin, ListView):
+class StockListView(LoginRequiredMixin,CustomPermissionMixin, ListView):
+    permission_required = 'adminapp.reports_view'
     model = Stock
     template_name = 'adminapp/stock/stock_list.html'
     context_object_name = 'stocks'
@@ -6269,7 +6760,8 @@ class StockListView(LoginRequiredMixin, ListView):
 
         return context
 
-class StockDetailView(LoginRequiredMixin, DetailView):
+class StockDetailView(LoginRequiredMixin,CustomPermissionMixin, DetailView):
+    permission_required = 'adminapp.reports_view'
     """Detail view for individual stock item"""
     model = Stock
     template_name = 'adminapp/stock/stock_detail.html'
@@ -6323,8 +6815,9 @@ class StockDetailView(LoginRequiredMixin, DetailView):
         else:
             return {'status': 'in_stock', 'class': 'success', 'text': 'In Stock'}
 
-class StockDashboardView(LoginRequiredMixin, TemplateView):
+class StockDashboardView(LoginRequiredMixin,CustomPermissionMixin, TemplateView):
     """Dashboard view showing stock overview and analytics"""
+    permission_required = 'adminapp.reports_view'
     template_name = 'adminapp/stock/stock_dashboard.html'
     
     def get_context_data(self, **kwargs):
@@ -6396,6 +6889,44 @@ class StockDashboardView(LoginRequiredMixin, TemplateView):
         
         return context
 
+@login_required
+@require_http_methods(["POST"])
+def delete_stock(request, pk):
+    """Function-based view to delete a stock item"""
+    stock = get_object_or_404(Stock, pk=pk)
+    stock_name = f"{stock.item.name} - {stock.store.name}"
+    
+    try:
+        stock.delete()
+        
+        # Check if it's an AJAX request
+        if request.headers.get('Content-Type') == 'application/json':
+            return JsonResponse({
+                'success': True,
+                'message': f'Stock item "{stock_name}" has been successfully deleted.'
+            })
+        else:
+            messages.success(
+                request, 
+                f'Stock item "{stock_name}" has been successfully deleted.'
+            )
+            return redirect('adminapp:list')  # Make sure this matches your URL name
+        
+    except Exception as e:
+        if request.headers.get('Content-Type') == 'application/json':
+            return JsonResponse({
+                'success': False,
+                'message': f'Error deleting stock item: {str(e)}'
+            }, status=500)
+        else:
+            messages.error(
+                request, 
+                f'Error deleting stock item: {str(e)}'
+            )
+            return redirect('adminapp:detail', pk=pk)  # Make sure this matches your URL name
+
+
+
 # API Views for AJAX requests
 def stock_search_api(request):
     """API endpoint for stock search with JSON response"""
@@ -6443,46 +6974,2195 @@ def stock_quick_info(request, pk):
     
     return JsonResponse(data)
 
-@login_required
-@require_http_methods(["POST"])
-def delete_stock(request, pk):
-    """Function-based view to delete a stock item"""
-    stock = get_object_or_404(Stock, pk=pk)
-    stock_name = f"{stock.item.name} - {stock.store.name}"
-    
+
+
+
+
+
+
+
+
+
+# --- Spot Agent Voucher --- fix
+def create_spot_agent_voucher(request):
+    if request.method == "POST":
+        form = SpotAgentVoucherForm(request.POST)
+        if form.is_valid():
+            voucher = form.save(commit=False)
+
+            # get last total for this agent
+            last_total = SpotAgentVoucher.objects.filter(agent=voucher.agent).aggregate(
+                total=Sum('total_amount')
+            )['total'] or 0
+
+            # remain amount before this entry
+            voucher.remain_amount = last_total
+
+            # compute new total after receipt/payment
+            voucher.total_amount = last_total + (voucher.receipt or 0) - (voucher.payment or 0)
+
+            voucher.save()
+            messages.success(request, "Spot Agent Voucher created successfully ✅")
+            return redirect("adminapp:spotagentvoucher_list")
+    else:
+        form = SpotAgentVoucherForm()
+
+    return render(request, "adminapp/vouchers/spotagentvoucher_form.html", {"form": form})
+
+def get_agent_balance(request):
+    agent_id = request.GET.get("agent_id")
+    if not agent_id:
+        return JsonResponse({"error": "No agent_id provided"}, status=400)
+
     try:
-        stock.delete()
-        
-        # Check if it's an AJAX request
-        if request.headers.get('Content-Type') == 'application/json':
-            return JsonResponse({
-                'success': True,
-                'message': f'Stock item "{stock_name}" has been successfully deleted.'
-            })
+        agent = PurchasingAgent.objects.get(pk=agent_id)
+
+        # 🔹 1. Sum of all purchases for this agent
+        purchase_total = SpotPurchase.objects.filter(agent=agent).aggregate(
+            total=Sum("total_purchase_amount")
+        )["total"] or 0
+
+        # 🔹 2. Sum of receipts & payments in vouchers
+        voucher_sums = SpotAgentVoucher.objects.filter(agent=agent).aggregate(
+            total_receipt=Sum("receipt"),
+            total_payment=Sum("payment"),
+        )
+
+        total_receipt = voucher_sums["total_receipt"] or 0
+        total_payment = voucher_sums["total_payment"] or 0
+
+        # 🔹 3. Calculate remaining balance
+        remain_amount = purchase_total + total_receipt - total_payment
+
+        return JsonResponse({
+            "purchase_total": float(purchase_total),
+            "total_receipt": float(total_receipt),
+            "total_payment": float(total_payment),
+            "remain_amount": float(remain_amount),
+        })
+
+    except PurchasingAgent.DoesNotExist:
+        return JsonResponse({"error": "Agent not found"}, status=404)
+
+def spotagentvoucher_list_with_summary(request):
+    """Enhanced list view with transaction summary and filtering"""
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')  # all, today, week, month, year, custom
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    agent_filter = request.GET.get('agent')
+    search_query = request.GET.get('search', '')
+    
+    # Base queryset
+    vouchers = SpotAgentVoucher.objects.select_related('agent').order_by('-date', '-id')
+    
+    # Apply date filtering
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
         else:
-            messages.success(
-                request, 
-                f'Stock item "{stock_name}" has been successfully deleted.'
-            )
-            return redirect('adminapp:list')  # Make sure this matches your URL name
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    # Apply agent filtering
+    if agent_filter:
+        vouchers = vouchers.filter(agent_id=agent_filter)
+    
+    # Apply search filtering
+    if search_query:
+        vouchers = vouchers.filter(
+            Q(voucher_no__icontains=search_query) |
+            Q(agent__name__icontains=search_query) |
+            Q(agent__mobile__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Calculate summary statistics
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    # Convert None to 0 for display
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get agent-wise summary - Fixed to ensure we get proper agent IDs
+    agent_summary = vouchers.values(
+        'agent__id',  # Make sure we include the actual ID field
+        'agent__name',
+        'agent__mobile'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Pagination
+    paginator = Paginator(vouchers, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all agents for filter dropdown
+    all_agents = PurchasingAgent.objects.all().order_by('name')
+    
+    context = {
+        'vouchers': page_obj,
+        'summary': summary,
+        'agent_summary': agent_summary,
+        'all_agents': all_agents,
+        'search_query': search_query,
+        'date_filter': date_filter,
+        'start_date': start_date,
+        'end_date': end_date,
+        'agent_filter': agent_filter,
+        'period_name': period_name,
+        'total_count': paginator.count,
+        'today': today,
+    }
+    
+    return render(request, "adminapp/vouchers/spotagentvoucher_list_summary.html", context)
+
+def spot_agent_voucher_summary_pdf(request):
+    """Generate PDF summary report for spot agent vouchers"""
+    
+    # Get same filter parameters as list view
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    agent_filter = request.GET.get('agent')
+    
+    # Apply same filtering logic
+    vouchers = SpotAgentVoucher.objects.select_related('agent').order_by('-date', '-id')
+    
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    if agent_filter:
+        vouchers = vouchers.filter(agent_id=agent_filter)
+    
+    # Calculate summary
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get agent-wise summary
+    agent_summary = vouchers.values(
+        'agent__name',
+        'agent__mobile'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/spot_agent_voucher_summary_pdf.html')
+    context = {
+        'vouchers': vouchers,
+        'summary': summary,
+        'agent_summary': agent_summary,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="spot_agent_voucher_summary_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+def spot_agent_statement_pdf(request, agent_id):
+    """Generate PDF statement for specific spot agent"""
+    
+    agent = get_object_or_404(PurchasingAgent, pk=agent_id)  # Changed to pk to handle string IDs
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    # Get agent purchases and vouchers
+    today = timezone.now().date()
+    
+    # Filter purchases - use 'date' field instead of 'purchase_date'
+    purchases = SpotPurchase.objects.filter(agent=agent)
+    
+    # Filter vouchers
+    vouchers = SpotAgentVoucher.objects.filter(agent=agent)
+    
+    # Apply date filtering
+    if date_filter == 'today':
+        purchases = purchases.filter(date=today)  # Changed from purchase_date to date
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        purchases = purchases.filter(date__range=[week_start, week_end])  # Changed from purchase_date to date
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        purchases = purchases.filter(date__range=[month_start, month_end])  # Changed from purchase_date to date
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        purchases = purchases.filter(date__range=[year_start, year_end])  # Changed from purchase_date to date
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            purchases = purchases.filter(date__range=[start_date_obj, end_date_obj])  # Changed from purchase_date to date
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    purchases = purchases.order_by('date')  # Changed from purchase_date to date
+    vouchers = vouchers.order_by('date')
+    
+    # Calculate totals
+    purchases_total = purchases.aggregate(total=Sum('total_purchase_amount'))['total'] or Decimal('0.00')
+    vouchers_summary = vouchers.aggregate(
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment')
+    )
+    
+    total_receipts = vouchers_summary['total_receipts'] or Decimal('0.00')
+    total_payments = vouchers_summary['total_payments'] or Decimal('0.00')
+    outstanding_balance = purchases_total + total_receipts - total_payments
+    
+    # Create combined transaction list for chronological order
+    transactions = []
+    
+    for purchase in purchases:
+        transactions.append({
+            'date': purchase.date,  # Changed from purchase_date to date
+            'type': 'Purchase',
+            'reference': purchase.voucher_number or f"Purchase #{purchase.id}",  # Use voucher_number if available
+            'description': f"Purchase: {purchase.items.count()} items" if hasattr(purchase, 'items') else 'Purchase',
+            'debit': purchase.total_purchase_amount,
+            'credit': Decimal('0.00'),
+            'balance': None  # Will calculate running balance
+        })
+    
+    for voucher in vouchers:
+        if voucher.receipt > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Receipt',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Amount received from agent',
+                'debit': Decimal('0.00'),
+                'credit': voucher.receipt,
+                'balance': None
+            })
+        
+        if voucher.payment > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Payment',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment made to agent',
+                'debit': voucher.payment,
+                'credit': Decimal('0.00'),
+                'balance': None
+            })
+    
+    # Sort by date
+    transactions.sort(key=lambda x: x['date'])
+    
+    # Calculate running balance
+    running_balance = Decimal('0.00')
+    for transaction in transactions:
+        running_balance += transaction['debit'] - transaction['credit']
+        transaction['balance'] = running_balance
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/spot_agent_statement_pdf.html')
+    context = {
+        'agent': agent,
+        'transactions': transactions,
+        'purchases_total': purchases_total,
+        'total_receipts': total_receipts,
+        'total_payments': total_payments,
+        'outstanding_balance': outstanding_balance,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="spot_agent_statement_{agent.pk}_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+
+
+
+
+
+# --- Supervisor Voucher ---
+class SupervisorVoucherCreateView(CreateView):
+    model = SupervisorVoucher
+    form_class = SupervisorVoucherForm
+    template_name = "adminapp/vouchers/supervisorvoucher_form.html"
+    success_url = reverse_lazy("supervisorvoucher_list")
+
+class SupervisorVoucherListView(ListView):
+    model = SupervisorVoucher
+    template_name = "adminapp/vouchers/supervisorvoucher_list.html"
+    context_object_name = "vouchers"
+    ordering = ["-date", "-id"]
+
+
+
+
+# --- Local Purchase Voucher ---fix
+def create_local_purchase_voucher(request):
+    if request.method == "POST":
+        form = LocalPurchaseVoucherForm(request.POST)
+        if form.is_valid():
+            voucher = form.save(commit=False)
+
+            # Get combined total for all parties with same name
+            party_name = voucher.party.party_name.party
+            last_total = LocalPurchaseVoucher.objects.filter(
+                party__party_name__party=party_name
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+
+            # Remain amount before this entry
+            voucher.remain_amount = last_total
+
+            # Compute new total after receipt/payment
+            voucher.total_amount = last_total + (voucher.receipt or 0) - (voucher.payment or 0)
+
+            voucher.save()
+            messages.success(request, "Local Purchase Voucher created successfully ✅")
+            return redirect("adminapp:localpurchasevoucher_list")
+    else:
+        # Create custom form with unique party names
+        form = LocalPurchaseVoucherForm()
+        
+        # Get unique party names and create choices
+        unique_parties = LocalPurchase.objects.select_related('party_name').values(
+            'party_name__party', 'party_name__district', 'party_name__state'
+        ).distinct()
+        
+        # Create a mapping of party names to representative LocalPurchase objects
+        party_choices = []
+        party_mapping = {}
+        
+        for party_data in unique_parties:
+            party_name = party_data['party_name__party']
+            if party_name not in party_mapping:
+                # Get the first LocalPurchase object for this party name
+                representative_purchase = LocalPurchase.objects.filter(
+                    party_name__party=party_name
+                ).first()
+                
+                if representative_purchase:
+                    party_mapping[party_name] = representative_purchase
+                    display_name = f"{party_name}"
+                    if party_data['party_name__district']:
+                        display_name += f" - {party_data['party_name__district']}"
+                    if party_data['party_name__state']:
+                        display_name += f", {party_data['party_name__state']}"
+                    
+                    party_choices.append((representative_purchase.id, display_name))
+        
+        # Update form choices
+        form.fields['party'].choices = [('', '--- Select Party ---')] + party_choices
+
+    return render(request, "adminapp/vouchers/localpurchasevoucher_form.html", {"form": form})
+
+def get_party_balance(request):
+    party_id = request.GET.get("party_id")
+    if not party_id:
+        return JsonResponse({"error": "No party_id provided"}, status=400)
+
+    try:
+        party = LocalPurchase.objects.get(pk=party_id)
+        party_name = party.party_name.party
+
+        # 🔹 1. Sum of ALL purchases for parties with same name
+        purchase_total = LocalPurchase.objects.filter(
+            party_name__party=party_name
+        ).aggregate(total=Sum("total_amount"))["total"] or 0
+
+        # 🔹 2. Sum of receipts & payments in vouchers for parties with same name
+        voucher_sums = LocalPurchaseVoucher.objects.filter(
+            party__party_name__party=party_name
+        ).aggregate(
+            total_receipt=Sum("receipt"),
+            total_payment=Sum("payment"),
+        )
+
+        total_receipt = voucher_sums["total_receipt"] or 0
+        total_payment = voucher_sums["total_payment"] or 0
+
+        # 🔹 3. Calculate remaining balance
+        remain_amount = purchase_total + total_receipt - total_payment
+
+        return JsonResponse({
+            "purchase_total": float(purchase_total),
+            "total_receipt": float(total_receipt),
+            "total_payment": float(total_payment),
+            "remain_amount": float(remain_amount),
+            "party_name": party_name,
+        })
+
+    except LocalPurchase.DoesNotExist:
+        return JsonResponse({"error": "Party not found"}, status=404)
+
+def localpurchasevoucher_list_with_summary(request):
+    """Enhanced list view with transaction summary and filtering"""
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')  # all, today, week, month, year, custom
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    party_filter = request.GET.get('party')
+    search_query = request.GET.get('search', '')
+    
+    # Base queryset
+    vouchers = LocalPurchaseVoucher.objects.select_related(
+        'party__party_name'
+    ).order_by('-date', '-id')
+    
+    # Apply date filtering
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strpython(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    # Apply party filtering
+    if party_filter:
+        vouchers = vouchers.filter(party_id=party_filter)
+    
+    # Apply search filtering
+    if search_query:
+        vouchers = vouchers.filter(
+            Q(voucher_no__icontains=search_query) |
+            Q(party__party_name__party__icontains=search_query) |
+            Q(party__party_name__district__icontains=search_query) |
+            Q(party__party_name__state__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Calculate summary statistics
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    # Convert None to 0 for display
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get party-wise summary
+    party_summary = vouchers.values(
+        'party__party_name__party',
+        'party__party_name__district', 
+        'party__party_name__state'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Pagination
+    paginator = Paginator(vouchers, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all unique parties for filter dropdown
+    unique_parties = LocalPurchase.objects.select_related('party_name').values(
+        'id', 'party_name__party', 'party_name__district', 'party_name__state'
+    ).distinct()
+    
+    # Create party choices for dropdown
+    party_choices = []
+    party_mapping = {}
+    
+    for party_data in unique_parties:
+        party_name = party_data['party_name__party']
+        if party_name not in party_mapping:
+            party_mapping[party_name] = party_data
+            display_name = f"{party_name}"
+            if party_data['party_name__district']:
+                display_name += f" - {party_data['party_name__district']}"
+            if party_data['party_name__state']:
+                display_name += f", {party_data['party_name__state']}"
+            
+            party_choices.append((party_data['id'], display_name))
+    
+    context = {
+        'vouchers': page_obj,
+        'summary': summary,
+        'party_summary': party_summary,
+        'all_parties': party_choices,
+        'search_query': search_query,
+        'date_filter': date_filter,
+        'start_date': start_date,
+        'end_date': end_date,
+        'party_filter': party_filter,
+        'period_name': period_name,
+        'total_count': paginator.count,
+        'today': today,
+    }
+    
+    return render(request, "adminapp/vouchers/localpurchasevoucher_list_summary.html", context)
+
+def localpurchase_voucher_summary_pdf(request):
+    """Generate PDF summary report for local purchase vouchers"""
+    
+    # Get same filter parameters as list view
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    party_filter = request.GET.get('party')
+    
+    # Apply same filtering logic
+    vouchers = LocalPurchaseVoucher.objects.select_related(
+        'party__party_name'
+    ).order_by('-date', '-id')
+    
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    if party_filter:
+        vouchers = vouchers.filter(party_id=party_filter)
+    
+    # Calculate summary
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get party-wise summary
+    party_summary = vouchers.values(
+        'party__party_name__party',
+        'party__party_name__district',
+        'party__party_name__state'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/localpurchase_voucher_summary_pdf.html')
+    context = {
+        'vouchers': vouchers,
+        'summary': summary,
+        'party_summary': party_summary,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="localpurchase_voucher_summary_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+def localpurchase_party_statement_pdf(request, party_id):
+    """Generate PDF statement for specific local purchase party"""
+    
+    party = get_object_or_404(LocalPurchase, id=party_id)
+    party_name = party.party_name.party
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    today = timezone.now().date()
+    
+    # Get all purchases for parties with same name
+    purchases = LocalPurchase.objects.filter(
+        party_name__party=party_name
+    )
+    
+    # Get all vouchers for parties with same name
+    vouchers = LocalPurchaseVoucher.objects.filter(
+        party__party_name__party=party_name
+    )
+    
+    # Apply date filtering
+    if date_filter == 'today':
+        purchases = purchases.filter(date=today)
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        purchases = purchases.filter(date__range=[week_start, week_end])
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        purchases = purchases.filter(date__range=[month_start, month_end])
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        purchases = purchases.filter(date__range=[year_start, year_end])
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            purchases = purchases.filter(date__range=[start_date_obj, end_date_obj])
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    purchases = purchases.order_by('date')
+    vouchers = vouchers.order_by('date')
+    
+    # Calculate totals
+    purchases_total = purchases.aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    vouchers_summary = vouchers.aggregate(
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment')
+    )
+    
+    total_receipts = vouchers_summary['total_receipts'] or Decimal('0.00')
+    total_payments = vouchers_summary['total_payments'] or Decimal('0.00')
+    outstanding_balance = purchases_total + total_receipts - total_payments
+    
+    # Create combined transaction list for chronological order
+    transactions = []
+    
+    for purchase in purchases:
+        transactions.append({
+            'date': purchase.date,
+            'type': 'Purchase',
+            'reference': purchase.bill_number or f"Purchase #{purchase.id}",
+            'description': f"Local Purchase - {purchase.party_name.party}",
+            'debit': purchase.total_amount,
+            'credit': Decimal('0.00'),
+            'balance': None  # Will calculate running balance
+        })
+    
+    for voucher in vouchers:
+        if voucher.receipt > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Receipt',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Amount received',
+                'debit': Decimal('0.00'),
+                'credit': voucher.receipt,
+                'balance': None
+            })
+        
+        if voucher.payment > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Payment',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment made',
+                'debit': voucher.payment,
+                'credit': Decimal('0.00'),
+                'balance': None
+            })
+    
+    # Sort by date
+    transactions.sort(key=lambda x: x['date'])
+    
+    # Calculate running balance
+    running_balance = Decimal('0.00')
+    for transaction in transactions:
+        running_balance += transaction['debit'] - transaction['credit']
+        transaction['balance'] = running_balance
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/localpurchase_party_statement_pdf.html')
+    context = {
+        'party': party,
+        'party_name': party_name,
+        'transactions': transactions,
+        'purchases_total': purchases_total,
+        'total_receipts': total_receipts,
+        'total_payments': total_payments,
+        'outstanding_balance': outstanding_balance,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    safe_party_name = re.sub(r'[^\w\s-]', '', party_name).strip()
+    response['Content-Disposition'] = f'attachment; filename="localpurchase_statement_{safe_party_name}_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+
+
+
+
+
+
+
+
+
+# --- Peeling Shed Voucher --- fix
+
+def create_peeling_shed_voucher(request):
+    """Enhanced create voucher view with better calculation handling"""
+    if request.method == 'POST':
+        form = PeelingShedVoucherForm(request.POST)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    voucher = form.save(commit=False)
+                    shed = voucher.shed
+                    
+                    # Get current transaction amounts
+                    current_receipt = form.cleaned_data.get('receipt') or Decimal('0.00')
+                    current_payment = form.cleaned_data.get('payment') or Decimal('0.00')
+                    
+                    # Calculate base amount from work done
+                    base_calculation = calculate_shed_base_amount(shed)
+                    if base_calculation['error']:
+                        messages.error(request, base_calculation['error'])
+                        return render(request, 'adminapp/vouchers/peelingshedvoucher_form.html', {
+                            'form': form,
+                            'sheds_with_freezing': get_sheds_with_freezing(),
+                        })
+                    
+                    # Get previous cumulative amounts
+                    previous_totals = get_cumulative_amounts_for_shed(shed, exclude_voucher=None)
+                    
+                    # Set voucher amounts
+                    voucher.total_amount = base_calculation['base_amount']
+                    voucher.receipt = current_receipt
+                    voucher.payment = current_payment
+                    
+                    # Calculate new balance
+                    new_total_receipts = previous_totals['total_receipts'] + current_receipt
+                    new_total_payments = previous_totals['total_payments'] + current_payment
+                    voucher.remain_amount = base_calculation['base_amount'] + new_total_receipts - new_total_payments
+                    
+                    # Save voucher
+                    voucher.save()
+                    
+                    # Create success message with detailed breakdown
+                    success_msg = (
+                        f'Peeling Shed Voucher #{voucher.voucher_no} created successfully! '
+                        f'Base Work Value: ₹{base_calculation["base_amount"]}, '
+                        f'Total Receipts: ₹{new_total_receipts}, '
+                        f'Total Payments: ₹{new_total_payments}, '
+                        f'New Balance: ₹{voucher.remain_amount}'
+                    )
+                    
+                    # Add balance status
+                    if voucher.remain_amount < 0:
+                        success_msg += f' (Customer owes ₹{abs(voucher.remain_amount)})'
+                    elif voucher.remain_amount == 0:
+                        success_msg += ' (Account fully settled)'
+                    else:
+                        success_msg += f' (₹{voucher.remain_amount} owed to customer)'
+                    
+                    messages.success(request, success_msg)
+                    return redirect('adminapp:peeling_shed_voucher_list')
+                    
+            except Exception as e:
+                logger.error(f"Error creating peeling shed voucher: {str(e)}")
+                messages.error(request, f"Error creating voucher: {str(e)}")
+    else:
+        form = PeelingShedVoucherForm()
+    
+    context = {
+        'form': form,
+        'sheds_with_freezing': get_sheds_with_freezing(),
+    }
+    
+    return render(request, 'adminapp/vouchers/peelingshedvoucher_form.html', context)
+
+def get_sheds_with_freezing():
+    """Get sheds that have completed freezing entries"""
+    return Shed.objects.filter(
+        freezing_shed_items__freezing_entry__freezing_status='complete'
+    ).distinct().order_by('name')
+
+def get_cumulative_amounts_for_shed(shed, exclude_voucher=None):
+    """
+    Get cumulative receipts and payments from all vouchers for this shed
+    Args:
+        shed: The shed object
+        exclude_voucher: Voucher to exclude (for updates)
+    Returns:
+        dict: {'total_receipts': Decimal, 'total_payments': Decimal, 'voucher_count': int}
+    """
+    queryset = PeelingShedVoucher.objects.filter(shed=shed)
+    
+    if exclude_voucher:
+        queryset = queryset.exclude(id=exclude_voucher.id)
+    
+    totals = queryset.aggregate(
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment')
+    )
+    
+    return {
+        'total_receipts': totals['total_receipts'] or Decimal('0.00'),
+        'total_payments': totals['total_payments'] or Decimal('0.00'),
+        'voucher_count': queryset.count()
+    }
+
+def calculate_shed_base_amount(shed):
+    """
+    Calculate base amount for a shed based on freezing entries and shed item rates
+    Returns:
+        dict: {
+            'base_amount': Decimal,
+            'calculation_breakdown': list,
+            'error': str or None,
+            'warnings': list
+        }
+    """
+    try:
+        # Get completed freezing items for this shed
+        freezing_items = FreezingEntrySpotItem.objects.filter(
+            shed=shed,
+            freezing_entry__freezing_status='complete'
+        ).select_related('peeling_type', 'item', 'freezing_entry')
+        
+        if not freezing_items.exists():
+            return {
+                'base_amount': Decimal('0.00'),
+                'calculation_breakdown': [],
+                'error': 'No completed freezing entries found for this shed',
+                'warnings': []
+            }
+        
+        # Group by peeling type and sum quantities
+        peeling_summary = {}
+        for freezing_item in freezing_items:
+            if freezing_item.peeling_type:
+                peeling_type_id = freezing_item.peeling_type.id
+                if peeling_type_id not in peeling_summary:
+                    peeling_summary[peeling_type_id] = {
+                        'peeling_type': freezing_item.peeling_type,
+                        'total_kg': Decimal('0.00'),
+                        'entries': []
+                    }
+                peeling_summary[peeling_type_id]['total_kg'] += freezing_item.kg
+                peeling_summary[peeling_type_id]['entries'].append({
+                    'entry_id': freezing_item.freezing_entry.id,
+                    'kg': freezing_item.kg,
+                    'date': freezing_item.freezing_entry.created_at
+                })
+        
+        # Calculate amount for each peeling type using shed item rates
+        calculation_breakdown = []
+        total_amount = Decimal('0.00')
+        warnings = []
+        
+        for peeling_data in peeling_summary.values():
+            peeling_type = peeling_data['peeling_type']
+            total_kg = peeling_data['total_kg']
+            
+            try:
+                # Get rate from ShedItem for this peeling type
+                shed_item = ShedItem.objects.get(
+                    shed=shed,
+                    item_type=peeling_type
+                )
+                rate = shed_item.amount
+                amount = total_kg * rate
+                total_amount += amount
+                
+                calculation_breakdown.append({
+                    'peeling_type': peeling_type.name,
+                    'peeling_type_id': peeling_type.id,
+                    'quantity': str(total_kg),
+                    'rate': str(rate),
+                    'amount': str(amount),
+                    'entries_count': len(peeling_data['entries']),
+                    'error': None
+                })
+                
+            except ShedItem.DoesNotExist:
+                warnings.append(f"No rate configured for {peeling_type.name} in shed {shed.name}")
+                calculation_breakdown.append({
+                    'peeling_type': peeling_type.name,
+                    'peeling_type_id': peeling_type.id,
+                    'quantity': str(total_kg),
+                    'rate': 'N/A',
+                    'amount': '0.00',
+                    'entries_count': len(peeling_data['entries']),
+                    'error': 'Rate not configured in shed items'
+                })
+            except Exception as e:
+                logger.error(f"Error calculating amount for {peeling_type.name}: {str(e)}")
+                warnings.append(f"Calculation error for {peeling_type.name}: {str(e)}")
+        
+        return {
+            'base_amount': total_amount,
+            'calculation_breakdown': calculation_breakdown,
+            'error': None,
+            'warnings': warnings
+        }
         
     except Exception as e:
-        if request.headers.get('Content-Type') == 'application/json':
-            return JsonResponse({
-                'success': False,
-                'message': f'Error deleting stock item: {str(e)}'
-            }, status=500)
+        logger.error(f"Error in calculate_shed_base_amount: {str(e)}")
+        return {
+            'base_amount': Decimal('0.00'),
+            'calculation_breakdown': [],
+            'error': f'Calculation error: {str(e)}',
+            'warnings': []
+        }
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def get_shed_calculation_preview(request):
+    """
+    Enhanced AJAX view to preview calculation for selected shed with complete financial summary
+    """
+    try:
+        data = json.loads(request.body)
+        shed_id = data.get('shed_id')
+        current_receipt = Decimal(str(data.get('receipt', '0') or '0'))
+        current_payment = Decimal(str(data.get('payment', '0') or '0'))
+        
+        if not shed_id:
+            return JsonResponse({'error': 'Shed ID is required'}, status=400)
+        
+        try:
+            shed = get_object_or_404(Shed, id=shed_id)
+            
+            # Calculate base amount using enhanced function
+            base_calculation = calculate_shed_base_amount(shed)
+            
+            if base_calculation['error']:
+                return JsonResponse({'error': base_calculation['error']}, status=404)
+            
+            # Get cumulative amounts from previous vouchers
+            cumulative_totals = get_cumulative_amounts_for_shed(shed)
+            
+            # Calculate new totals including current transaction
+            new_total_receipts = cumulative_totals['total_receipts'] + current_receipt
+            new_total_payments = cumulative_totals['total_payments'] + current_payment
+            new_balance = base_calculation['base_amount'] + new_total_receipts - new_total_payments
+            
+            # Calculate previous balance for comparison
+            previous_balance = base_calculation['base_amount'] + cumulative_totals['total_receipts'] - cumulative_totals['total_payments']
+            balance_change = new_balance - previous_balance
+            
+            # Prepare response data
+            response_data = {
+                'success': True,
+                'shed_name': f"{shed.name} - {shed.code}",
+                'shed_id': shed.id,
+                
+                # Base calculation data
+                'calculation_preview': base_calculation['calculation_breakdown'],
+                'base_amount': str(base_calculation['base_amount']),
+                
+                # Previous cumulative data
+                'cumulative_receipts': str(cumulative_totals['total_receipts']),
+                'cumulative_payments': str(cumulative_totals['total_payments']),
+                'previous_balance': str(previous_balance),
+                'voucher_count': cumulative_totals['voucher_count'],
+                
+                # Current transaction data
+                'current_receipt': str(current_receipt),
+                'current_payment': str(current_payment),
+                
+                # New totals
+                'new_total_receipts': str(new_total_receipts),
+                'new_total_payments': str(new_total_payments),
+                'new_balance': str(new_balance),
+                'balance_change': str(balance_change),
+                
+                # Additional info
+                'warnings': base_calculation['warnings'],
+                'has_warnings': len(base_calculation['warnings']) > 0,
+                'balance_status': get_balance_status(new_balance),
+                
+                # Statistics
+                'stats': {
+                    'total_peeling_types': len([item for item in base_calculation['calculation_breakdown'] if not item['error']]),
+                    'missing_rates': len([item for item in base_calculation['calculation_breakdown'] if item['error']]),
+                    'total_work_entries': sum(item['entries_count'] for item in base_calculation['calculation_breakdown']),
+                }
+            }
+            
+            return JsonResponse(response_data)
+            
+        except Shed.DoesNotExist:
+            return JsonResponse({'error': 'Shed not found'}, status=404)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'error': f'Invalid number format: {str(e)}'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in get_shed_calculation_preview: {str(e)}")
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+def get_balance_status(balance):
+    """
+    Get human-readable balance status
+    Args:
+        balance: Decimal balance amount
+    Returns:
+        dict: {'status': str, 'message': str, 'class': str}
+    """
+    if balance > 0:
+        return {
+            'status': 'positive',
+            'message': f'₹{balance} owed to customer',
+            'class': 'text-success'
+        }
+    elif balance < 0:
+        return {
+            'status': 'negative', 
+            'message': f'Customer owes ₹{abs(balance)}',
+            'class': 'text-danger'
+        }
+    else:
+        return {
+            'status': 'settled',
+            'message': 'Account fully settled',
+            'class': 'text-success'
+        }
+
+def update_peeling_shed_voucher(request, voucher_id):
+    """
+    Enhanced update view that recalculates amounts correctly
+    """
+    voucher = get_object_or_404(PeelingShedVoucher, id=voucher_id)
+    
+    if request.method == 'POST':
+        form = PeelingShedVoucherForm(request.POST, instance=voucher)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Get current values
+                    old_receipt = voucher.receipt
+                    old_payment = voucher.payment
+                    
+                    updated_voucher = form.save(commit=False)
+                    new_receipt = form.cleaned_data.get('receipt') or Decimal('0.00')
+                    new_payment = form.cleaned_data.get('payment') or Decimal('0.00')
+                    
+                    # Recalculate base amount (in case shed items changed)
+                    base_calculation = calculate_shed_base_amount(updated_voucher.shed)
+                    if base_calculation['error']:
+                        messages.error(request, f"Calculation error: {base_calculation['error']}")
+                        return render(request, 'adminapp/vouchers/peelingshedvoucher_form.html', {
+                            'form': form,
+                            'voucher': voucher,
+                            'is_update': True,
+                        })
+                    
+                    # Get cumulative amounts excluding current voucher
+                    cumulative_totals = get_cumulative_amounts_for_shed(
+                        updated_voucher.shed, 
+                        exclude_voucher=voucher
+                    )
+                    
+                    # Update voucher amounts
+                    updated_voucher.total_amount = base_calculation['base_amount']
+                    updated_voucher.receipt = new_receipt
+                    updated_voucher.payment = new_payment
+                    
+                    # Calculate new balance
+                    new_total_receipts = cumulative_totals['total_receipts'] + new_receipt
+                    new_total_payments = cumulative_totals['total_payments'] + new_payment
+                    updated_voucher.remain_amount = base_calculation['base_amount'] + new_total_receipts - new_total_payments
+                    
+                    updated_voucher.save()
+                    
+                    # Show what changed
+                    changes = []
+                    if old_receipt != new_receipt:
+                        changes.append(f"Receipt: ₹{old_receipt} → ₹{new_receipt}")
+                    if old_payment != new_payment:
+                        changes.append(f"Payment: ₹{old_payment} → ₹{new_payment}")
+                    
+                    change_summary = ", ".join(changes) if changes else "No amount changes"
+                    
+                    messages.success(
+                        request,
+                        f'Voucher updated successfully! {change_summary}. '
+                        f'New balance: ₹{updated_voucher.remain_amount}'
+                    )
+                    
+                    return redirect('adminapp:peeling_shed_voucher_list')
+                    
+            except Exception as e:
+                logger.error(f"Error updating voucher: {str(e)}")
+                messages.error(request, f"Error updating voucher: {str(e)}")
+    else:
+        form = PeelingShedVoucherForm(instance=voucher)
+    
+    context = {
+        'form': form,
+        'voucher': voucher,
+        'is_update': True,
+        'sheds_with_freezing': get_sheds_with_freezing(),
+    }
+    
+    return render(request, 'adminapp/vouchers/peelingshedvoucher_form.html', context)
+
+def peeling_shed_voucher_detail(request, voucher_id):
+    """
+    Enhanced detail view showing complete calculation breakdown
+    """
+    voucher = get_object_or_404(PeelingShedVoucher, id=voucher_id)
+    
+    # Get calculation breakdown
+    base_calculation = calculate_shed_base_amount(voucher.shed)
+    
+    # Get all vouchers for this shed to show cumulative progression
+    all_vouchers = PeelingShedVoucher.objects.filter(
+        shed=voucher.shed
+    ).order_by('date', 'created_at')
+    
+    # Calculate running totals
+    running_receipts = Decimal('0.00')
+    running_payments = Decimal('0.00')
+    voucher_progression = []
+    
+    for v in all_vouchers:
+        running_receipts += v.receipt
+        running_payments += v.payment
+        running_balance = base_calculation['base_amount'] + running_receipts - running_payments
+        
+        voucher_progression.append({
+            'voucher': v,
+            'running_receipts': running_receipts,
+            'running_payments': running_payments,
+            'running_balance': running_balance,
+            'is_current': v.id == voucher.id
+        })
+    
+    context = {
+        'voucher': voucher,
+        'base_calculation': base_calculation,
+        'voucher_progression': voucher_progression,
+        'balance_status': get_balance_status(voucher.remain_amount),
+    }
+    
+    return render(request, 'adminapp/vouchers/peelingshedvoucher_detail.html', context)
+
+class PeelingShedVoucherListView(ListView):
+    model = PeelingShedVoucher
+    template_name = "adminapp/vouchers/peelingshedvoucher_list.html"
+    context_object_name = "vouchers"
+    ordering = ["-date", "-id"]
+
+
+def peeling_shed_voucher_list_with_summary(request):
+    """Enhanced list view with transaction summary and filtering"""
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')  # all, today, week, month, year, custom
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    shed_filter = request.GET.get('shed')
+    search_query = request.GET.get('search', '')
+    
+    # Base queryset
+    vouchers = PeelingShedVoucher.objects.select_related('shed').order_by('-date', '-id')
+    
+    # Apply date filtering
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
         else:
-            messages.error(
-                request, 
-                f'Error deleting stock item: {str(e)}'
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    # Apply shed filtering
+    if shed_filter:
+        vouchers = vouchers.filter(shed_id=shed_filter)
+    
+    # Apply search filtering
+    if search_query:
+        vouchers = vouchers.filter(
+            Q(voucher_no__icontains=search_query) |
+            Q(shed__name__icontains=search_query) |
+            Q(shed__code__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Calculate summary statistics
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        total_work_amount=Sum('total_amount'),
+        total_remaining=Sum('remain_amount')
+    )
+    
+    # Convert None to 0 for display
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00') if 'total' in key or 'remaining' in key else 0
+    
+    # Calculate net amount (receipts - payments)
+    summary['net_amount'] = summary['total_receipts'] - summary['total_payments']
+    
+    # Get shed-wise summary
+    shed_summary = vouchers.values(
+        'shed__id', 
+        'shed__name',
+        'shed__code'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        total_work_amount=Sum('total_amount'),
+        total_remaining=Sum('remain_amount'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-total_remaining')
+    
+    # Pagination
+    paginator = Paginator(vouchers, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all sheds for filter dropdown
+    all_sheds = Shed.objects.all().order_by('name')
+    
+    context = {
+        'vouchers': page_obj,
+        'summary': summary,
+        'shed_summary': shed_summary,
+        'all_sheds': all_sheds,
+        'search_query': search_query,
+        'date_filter': date_filter,
+        'start_date': start_date,
+        'end_date': end_date,
+        'shed_filter': shed_filter,
+        'period_name': period_name,
+        'total_count': paginator.count,
+        'today': today,
+    }
+    
+    return render(request, "adminapp/vouchers/peelingshedvoucher_list_summary.html", context)
+
+def peeling_shed_voucher_summary_pdf(request):
+    """Generate PDF summary report for Peeling Shed Vouchers"""
+    
+    # Get same filter parameters as list view
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    shed_filter = request.GET.get('shed')
+    
+    # Apply same filtering logic
+    vouchers = PeelingShedVoucher.objects.select_related('shed').order_by('-date', '-id')
+    
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    if shed_filter:
+        vouchers = vouchers.filter(shed_id=shed_filter)
+    
+    # Calculate summary
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        total_work_amount=Sum('total_amount'),
+        total_remaining=Sum('remain_amount')
+    )
+    
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00') if 'total' in key or 'remaining' in key else 0
+    
+    summary['net_amount'] = summary['total_receipts'] - summary['total_payments']
+    
+    # Get shed-wise summary
+    shed_summary = vouchers.values(
+        'shed__name',
+        'shed__code'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        total_work_amount=Sum('total_amount'),
+        total_remaining=Sum('remain_amount'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-total_remaining')
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/peeling_shed_voucher_summary_pdf.html')
+    context = {
+        'vouchers': vouchers,
+        'summary': summary,
+        'shed_summary': shed_summary,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="peeling_shed_voucher_summary_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+def shed_statement_pdf(request, shed_id):
+    """Generate PDF statement for specific shed"""
+    
+    shed = get_object_or_404(Shed, id=shed_id)
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    today = timezone.now().date()
+    
+    # Filter vouchers for this shed
+    vouchers = PeelingShedVoucher.objects.filter(shed=shed)
+    
+    # Apply date filtering
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    vouchers = vouchers.order_by('date')
+    
+    # Get base calculation for total work amount
+    base_calculation = calculate_shed_base_amount(shed)
+    total_work_amount = base_calculation['base_amount']
+    
+    # Calculate totals
+    vouchers_summary = vouchers.aggregate(
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment')
+    )
+    
+    total_receipts = vouchers_summary['total_receipts'] or Decimal('0.00')
+    total_payments = vouchers_summary['total_payments'] or Decimal('0.00')
+    outstanding_balance = total_work_amount + total_receipts - total_payments
+    
+    # Create transaction list for chronological order
+    transactions = []
+    
+    # Add work done as first entry
+    transactions.append({
+        'date': vouchers.first().date if vouchers.exists() else today,
+        'type': 'Work Done',
+        'reference': 'Base Calculation',
+        'description': f'Total work completed for shed {shed.name}',
+        'debit': total_work_amount,
+        'credit': Decimal('0.00'),
+        'balance': None
+    })
+    
+    for voucher in vouchers:
+        if voucher.receipt > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Receipt',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment received',
+                'debit': Decimal('0.00'),
+                'credit': voucher.receipt,
+                'balance': None
+            })
+        
+        if voucher.payment > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Payment',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment made',
+                'debit': voucher.payment,
+                'credit': Decimal('0.00'),
+                'balance': None
+            })
+    
+    # Sort by date
+    transactions.sort(key=lambda x: x['date'])
+    
+    # Calculate running balance
+    running_balance = Decimal('0.00')
+    for transaction in transactions:
+        running_balance += transaction['debit'] - transaction['credit']
+        transaction['balance'] = running_balance
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/shed_statement_pdf.html')
+    context = {
+        'shed': shed,
+        'transactions': transactions,
+        'total_work_amount': total_work_amount,
+        'total_receipts': total_receipts,
+        'total_payments': total_payments,
+        'outstanding_balance': outstanding_balance,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+        'base_calculation': base_calculation,
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="shed_statement_{shed.name}_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+
+
+
+
+
+
+
+
+
+
+# --- Tenant Voucher Views --- fix
+def create_tenant_voucher(request):
+    if request.method == "POST":
+        form = TenantVoucherForm(request.POST)
+        if form.is_valid():
+            voucher = form.save(commit=False)
+
+            # Get combined balance for all tenants with same company name
+            tenant_company_name = voucher.tenant.company_name
+            
+            # Get total bills amount
+            bills_total = TenantBill.objects.filter(
+                tenant__company_name=tenant_company_name,
+                status__in=['finalized', 'sent', 'paid']
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            
+            # Get previous voucher totals
+            voucher_sums = TenantVoucher.objects.filter(
+                tenant__company_name=tenant_company_name
+            ).aggregate(
+                total_receipt=Sum('receipt'),
+                total_payment=Sum('payment')
             )
-            return redirect('adminapp:detail', pk=pk)  # Make sure this matches your URL name
+            
+            total_receipt = voucher_sums['total_receipt'] or 0
+            total_payment = voucher_sums['total_payment'] or 0
+            
+            # Calculate previous balance: Bills - Receipts + Payments
+            last_total = bills_total - total_receipt + total_payment
 
+            # Remain amount before this entry
+            voucher.remain_amount = last_total
 
+            # Compute new total after receipt/payment
+            voucher.total_amount = last_total - (voucher.receipt or 0) + (voucher.payment or 0)
 
+            voucher.save()
+            messages.success(request, "Tenant Voucher created successfully ✅")
+            return redirect("adminapp:tenantvoucher_list")
+    else:
+        form = TenantVoucherForm()
 
+    return render(request, "adminapp/vouchers/tenantvoucher_form.html", {"form": form})
 
+def get_tenant_balance(request):
+    tenant_id = request.GET.get("tenant_id")
+    if not tenant_id:
+        return JsonResponse({"error": "No tenant_id provided"}, status=400)
+
+    try:
+        tenant = Tenant.objects.get(pk=tenant_id)
+        tenant_company_name = tenant.company_name
+
+        # 🔹 1. Sum of all tenant bills for tenants with same company name
+        bills_total = TenantBill.objects.filter(
+            tenant__company_name=tenant_company_name,
+            status__in=['draft']  # Only include finalized bills
+        ).aggregate(total=Sum("total_amount"))["total"] or 0
+
+        # 🔹 2. Sum of receipts & payments in vouchers for tenants with same company name
+        voucher_sums = TenantVoucher.objects.filter(
+            tenant__company_name=tenant_company_name
+        ).aggregate(
+            total_receipt=Sum("receipt"),
+            total_payment=Sum("payment"),
+        )
+
+        total_receipt = voucher_sums["total_receipt"] or 0
+        total_payment = voucher_sums["total_payment"] or 0
+
+        # 🔹 3. Calculate remaining balance
+        # Bills increase the amount owed (positive)
+        # Receipts reduce the amount owed (negative for tenant)
+        # Payments increase the amount owed (positive - we pay tenant)
+        remain_amount = bills_total - total_receipt + total_payment
+
+        return JsonResponse({
+            "bills_total": float(bills_total),
+            "total_receipt": float(total_receipt),
+            "total_payment": float(total_payment),
+            "remain_amount": float(remain_amount),
+            "tenant_name": tenant_company_name,
+        })
+
+    except Tenant.DoesNotExist:
+        return JsonResponse({"error": "Tenant not found"}, status=404)
+    
+def tenantvoucher_list_with_summary(request):
+    """Enhanced list view with transaction summary and filtering"""
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')  # all, today, week, month, year, custom
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    tenant_filter = request.GET.get('tenant')
+    search_query = request.GET.get('search', '')
+    
+    # Base queryset
+    vouchers = TenantVoucher.objects.select_related('tenant').order_by('-date', '-id')
+    
+    # Apply date filtering
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    # Apply tenant filtering
+    if tenant_filter:
+        vouchers = vouchers.filter(tenant_id=tenant_filter)
+    
+    # Apply search filtering
+    if search_query:
+        vouchers = vouchers.filter(
+            Q(voucher_no__icontains=search_query) |
+            Q(tenant__company_name__icontains=search_query) |
+            Q(tenant__contact_person__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Calculate summary statistics
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    # Convert None to 0 for display
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get tenant-wise summary
+    tenant_summary = vouchers.values(
+        'tenant__id', 
+        'tenant__company_name'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Pagination
+    paginator = Paginator(vouchers, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get all tenants for filter dropdown
+    all_tenants = Tenant.objects.all().order_by('company_name')
+    
+    context = {
+        'vouchers': page_obj,
+        'summary': summary,
+        'tenant_summary': tenant_summary,
+        'all_tenants': all_tenants,
+        'search_query': search_query,
+        'date_filter': date_filter,
+        'start_date': start_date,
+        'end_date': end_date,
+        'tenant_filter': tenant_filter,
+        'period_name': period_name,
+        'total_count': paginator.count,
+        'today': today,
+    }
+    
+    return render(request, "adminapp/vouchers/tenantvoucher_list_summary.html", context)
+
+def tenant_voucher_summary_pdf(request):
+    """Generate PDF summary report"""
+    
+    # Get same filter parameters as list view
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    tenant_filter = request.GET.get('tenant')
+    
+    # Apply same filtering logic
+    vouchers = TenantVoucher.objects.select_related('tenant').order_by('-date', '-id')
+    
+    today = timezone.now().date()
+    
+    if date_filter == 'today':
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    if tenant_filter:
+        vouchers = vouchers.filter(tenant_id=tenant_filter)
+    
+    # Calculate summary
+    summary = vouchers.aggregate(
+        total_vouchers=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    )
+    
+    for key, value in summary.items():
+        if value is None:
+            summary[key] = Decimal('0.00')
+    
+    # Get tenant-wise summary
+    tenant_summary = vouchers.values(
+        'tenant__company_name',
+        'tenant__contact_person'
+    ).annotate(
+        voucher_count=Count('id'),
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment'),
+        net_amount=Sum('receipt') - Sum('payment')
+    ).order_by('-net_amount')
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/tenant_voucher_summary_pdf.html')
+    context = {
+        'vouchers': vouchers,
+        'summary': summary,
+        'tenant_summary': tenant_summary,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="tenant_voucher_summary_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
+
+def tenant_statement_pdf(request, tenant_id):
+    """Generate PDF statement for specific tenant"""
+    
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    
+    # Get filter parameters
+    date_filter = request.GET.get('date_filter', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    # Get tenant bills and vouchers
+    today = timezone.now().date()
+    
+    # Filter bills
+    bills = TenantBill.objects.filter(
+        tenant__company_name=tenant.company_name,
+        status__in=['finalized', 'sent', 'paid']
+    )
+    
+    # Filter vouchers
+    vouchers = TenantVoucher.objects.filter(
+        tenant__company_name=tenant.company_name
+    )
+    
+    # Apply date filtering
+    if date_filter == 'today':
+        bills = bills.filter(bill_date=today)
+        vouchers = vouchers.filter(date=today)
+        period_name = f"Today ({today})"
+    elif date_filter == 'week':
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        bills = bills.filter(bill_date__range=[week_start, week_end])
+        vouchers = vouchers.filter(date__range=[week_start, week_end])
+        period_name = f"This Week ({week_start} to {week_end})"
+    elif date_filter == 'month':
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        bills = bills.filter(bill_date__range=[month_start, month_end])
+        vouchers = vouchers.filter(date__range=[month_start, month_end])
+        period_name = f"This Month ({month_start.strftime('%B %Y')})"
+    elif date_filter == 'year':
+        year_start = today.replace(month=1, day=1)
+        year_end = today.replace(month=12, day=31)
+        bills = bills.filter(bill_date__range=[year_start, year_end])
+        vouchers = vouchers.filter(date__range=[year_start, year_end])
+        period_name = f"This Year ({today.year})"
+    elif date_filter == 'custom' and start_date and end_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            bills = bills.filter(bill_date__range=[start_date_obj, end_date_obj])
+            vouchers = vouchers.filter(date__range=[start_date_obj, end_date_obj])
+            period_name = f"Custom Range ({start_date} to {end_date})"
+        except ValueError:
+            period_name = "All Time"
+    else:
+        period_name = "All Time"
+    
+    bills = bills.order_by('bill_date')
+    vouchers = vouchers.order_by('date')
+    
+    # Calculate totals
+    bills_total = bills.aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    vouchers_summary = vouchers.aggregate(
+        total_receipts=Sum('receipt'),
+        total_payments=Sum('payment')
+    )
+    
+    total_receipts = vouchers_summary['total_receipts'] or Decimal('0.00')
+    total_payments = vouchers_summary['total_payments'] or Decimal('0.00')
+    outstanding_balance = bills_total - total_receipts + total_payments
+    
+    # Create combined transaction list for chronological order
+    transactions = []
+    
+    for bill in bills:
+        transactions.append({
+            'date': bill.bill_date,
+            'type': 'Bill',
+            'reference': bill.bill_number,
+            'description': f"Bill from {bill.from_date} to {bill.to_date}",
+            'debit': bill.total_amount,
+            'credit': Decimal('0.00'),
+            'balance': None  # Will calculate running balance
+        })
+    
+    for voucher in vouchers:
+        if voucher.receipt > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Receipt',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment received',
+                'debit': Decimal('0.00'),
+                'credit': voucher.receipt,
+                'balance': None
+            })
+        
+        if voucher.payment > 0:
+            transactions.append({
+                'date': voucher.date,
+                'type': 'Payment',
+                'reference': voucher.voucher_no,
+                'description': voucher.description or 'Payment made',
+                'debit': voucher.payment,
+                'credit': Decimal('0.00'),
+                'balance': None
+            })
+    
+    # Sort by date
+    transactions.sort(key=lambda x: x['date'])
+    
+    # Calculate running balance
+    running_balance = Decimal('0.00')
+    for transaction in transactions:
+        running_balance += transaction['debit'] - transaction['credit']
+        transaction['balance'] = running_balance
+    
+    # Render PDF
+    template = get_template('adminapp/vouchers/tenant_statement_pdf.html')
+    context = {
+        'tenant': tenant,
+        'transactions': transactions,
+        'bills_total': bills_total,
+        'total_receipts': total_receipts,
+        'total_payments': total_payments,
+        'outstanding_balance': outstanding_balance,
+        'period_name': period_name,
+        'generated_date': timezone.now(),
+        'company_name': 'Your Company Name',  # Replace with actual company name
+    }
+    
+    html = template.render(context)
+    
+    # Create PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="tenant_statement_{tenant.company_name}_{date_filter}_{today}.pdf"'
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    
+    return response
 
 
 

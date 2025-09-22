@@ -102,6 +102,7 @@
       }
     }
   </style>
+
   <!-- Fonts and icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
     integrity="sha512-dymN7x4vS+U/n2Pb5L3PvGj3g3xFhPtX2+oCFYoMumOqUg6G4z5fdbUu9Qafj0pychj1zLkUp1tb6dXHjdXpwA=="
@@ -760,7 +761,7 @@
               </div>
             </li>
 
-            <!-- Profile & Settings -->
+            <!-- report -->
             <li class="nav-item">
               <a data-bs-toggle="collapse" href="#report">
                 <i class="fas fa-chart-line"></i> <!-- General reports icon -->
@@ -839,6 +840,62 @@
                       </ul>
                     </div>
                   </li>
+                </ul>
+              </div>
+            </li>
+
+
+            <!-- voucher -->
+            <li class="nav-item">
+              <a data-bs-toggle="collapse" href="#voucher">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <p>Voucher</p>
+                <span class="caret"></span>
+              </a>
+              <div class="collapse" id="voucher">
+                <ul class="nav nav-collapse">
+
+                  <li>
+                    <a href="{%url 'adminapp:spotagentvoucher_create'%}">
+                      <span class="sub-item">
+                        <i class="fas fa-shopping-cart"></i>
+                        Spot agent voucher
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{%url 'adminapp:supervisorvoucher_create'%}">
+                      <span class="sub-item">
+                        <i class="fas fa-shopping-cart"></i>
+                        Spot supervisor voucher
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{%url 'adminapp:localpurchasevoucher_create'%}">
+                      <span class="sub-item">
+                        <i class="fas fa-shopping-cart"></i>
+                        local purchase voucher
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{%url 'adminapp:create_peeling_shed_voucher'%}">
+                      <span class="sub-item">
+                        <i class="fas fa-shopping-cart"></i>
+                        peeling shed voucher
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{%url 'adminapp:tenantvoucher_create'%}">
+                      <span class="sub-item">
+                        <i class="fas fa-shopping-cart"></i>
+                        tenant voucher
+                      </span>
+                    </a>
+                  </li>
+
                 </ul>
               </div>
             </li>

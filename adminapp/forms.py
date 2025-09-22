@@ -61,6 +61,14 @@ class PurchasingSpotForm(forms.ModelForm):
         model = PurchasingSpot
         fields = '__all__'
 
+class LocalPartyForm(forms.ModelForm):
+    class Meta:
+        model = LocalParty
+        fields = '__all__'
+
+
+
+
 # Personnel
 class PurchasingSupervisorForm(forms.ModelForm):
     joining_date = forms.DateField(
@@ -278,7 +286,7 @@ class LocalPurchaseForm(forms.ModelForm):
         fields = ['date', 'voucher_number', 'party_name']
         widgets = {
             'voucher_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'party_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'party_name': forms.Select(attrs={'class': 'form-control'}),
         }
 
 class LocalPurchaseItemForm(forms.ModelForm):
@@ -705,9 +713,6 @@ class TenantBillForm(forms.ModelForm):
 
 
 
-
-
-
 from django import forms
 from django.forms import inlineformset_factory
 from decimal import Decimal
@@ -753,4 +758,171 @@ StoreTransferItemFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+
+
+
+
+
+
+
+# --- Spot Agent Voucher Form ---
+class SpotAgentVoucherForm(forms.ModelForm):
+    class Meta:
+        model = SpotAgentVoucher
+        fields = ["voucher_no", "agent", "date", "description", "remain_amount", "receipt", "payment","total_amount"]
+        widgets = {
+            "voucher_no": forms.TextInput(attrs={"class": "form-control"}),
+            "agent": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "remain_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            "receipt": forms.NumberInput(attrs={"class": "form-control"}),
+            "payment": forms.NumberInput(attrs={"class": "form-control"}),
+            "total_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+        }
+
+
+# --- Supervisor Voucher Form ---
+class SupervisorVoucherForm(forms.ModelForm):
+    class Meta:
+        model = SupervisorVoucher
+        fields = ["voucher_no", "supervisor", "date", "description", "receipt", "payment"]
+        widgets = {
+            "voucher_no": forms.TextInput(attrs={"class": "form-control"}),
+            "supervisor": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "receipt": forms.NumberInput(attrs={"class": "form-control"}),
+            "payment": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+
+# --- Local Purchase Voucher Form ---
+class LocalPurchaseVoucherForm(forms.ModelForm):
+    class Meta:
+        model = LocalPurchaseVoucher
+        fields = ["voucher_no", "party", "date", "description", "remain_amount", "receipt", "payment", "total_amount"]
+        widgets = {
+            "voucher_no": forms.TextInput(attrs={"class": "form-control"}),
+            "party": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "remain_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            "receipt": forms.NumberInput(attrs={"class": "form-control"}),
+            "payment": forms.NumberInput(attrs={"class": "form-control"}),
+            "total_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Get unique party names and create choices
+        unique_parties = LocalPurchase.objects.select_related('party_name').values(
+            'party_name__party', 'party_name__district', 'party_name__state'
+        ).distinct().order_by('party_name__party')
+        
+        party_choices = [('', '--- Select Party ---')]
+        party_mapping = {}
+        
+        for party_data in unique_parties:
+            party_name = party_data['party_name__party']
+            if party_name not in party_mapping:
+                # Get the first LocalPurchase object for this party name
+                representative_purchase = LocalPurchase.objects.filter(
+                    party_name__party=party_name
+                ).first()
+                
+                if representative_purchase:
+                    party_mapping[party_name] = representative_purchase
+                    display_name = f"{party_name}"
+                    if party_data['party_name__district']:
+                        display_name += f" - {party_data['party_name__district']}"
+                    if party_data['party_name__state']:
+                        display_name += f", {party_data['party_name__state']}"
+                    
+                    party_choices.append((representative_purchase.id, display_name))
+        
+        # Update form choices
+        self.fields['party'].choices = party_choices
+
+
+# --- Peeling Shed Voucher Form ---
+class PeelingShedVoucherForm(forms.ModelForm):
+    class Meta:
+        model = PeelingShedVoucher
+        fields = ["voucher_no", "shed", "date", "description", "receipt", "payment"]
+        widgets = {
+            "voucher_no": forms.TextInput(attrs={"class": "form-control"}),
+            "shed": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "receipt": forms.NumberInput(attrs={"class": "form-control"}),
+            "payment": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+
+
+# --- Tenant Voucher Form ---
+class TenantVoucherForm(forms.ModelForm):
+    class Meta:
+        model = TenantVoucher
+        fields = ["voucher_no", "tenant", "date", "description", "remain_amount", "receipt", "payment", "total_amount"]
+        widgets = {
+            "voucher_no": forms.TextInput(attrs={"class": "form-control"}),
+            "tenant": forms.Select(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "remain_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+            "receipt": forms.NumberInput(attrs={"class": "form-control"}),
+            "payment": forms.NumberInput(attrs={"class": "form-control"}),
+            "total_amount": forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Get unique tenants and create choices (in case of duplicate company names)
+        unique_tenants = Tenant.objects.values(
+            'id', 'company_name', 'contact_person', 'phone'
+        ).distinct().order_by('company_name')
+        
+        tenant_choices = [('', '--- Select Tenant ---')]
+        tenant_mapping = {}
+        
+        for tenant_data in unique_tenants:
+            company_name = tenant_data['company_name'] or "Unnamed Tenant"
+            tenant_id = tenant_data['id']
+            
+            # Create unique identifier for duplicate company names
+            if company_name not in tenant_mapping:
+                tenant_mapping[company_name] = []
+            tenant_mapping[company_name].append(tenant_data)
+        
+        # Build choices with unique display names
+        for company_name, tenant_list in tenant_mapping.items():
+            if len(tenant_list) == 1:
+                tenant = tenant_list[0]
+                display_name = company_name
+                if tenant['contact_person']:
+                    display_name += f" - {tenant['contact_person']}"
+                tenant_choices.append((tenant['id'], display_name))
+            else:
+                # Handle duplicate company names
+                for tenant in tenant_list:
+                    display_name = company_name
+                    if tenant['contact_person']:
+                        display_name += f" - {tenant['contact_person']}"
+                    if tenant['phone']:
+                        display_name += f" ({tenant['phone']})"
+                    tenant_choices.append((tenant['id'], display_name))
+        
+        # Update form choices
+        self.fields['tenant'].choices = tenant_choices
+
+
+
+
+
 
