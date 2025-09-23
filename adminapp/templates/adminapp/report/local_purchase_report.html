@@ -872,11 +872,17 @@
                         <tr>
                             <td>{{ row.purchase__date }}</td>
                             <td>{{ row.purchase__voucher_number }}</td>
-                            <td>{{ row.purchase__party_name }}</td>
+                            <td>{{ row.purchase__party_name__party }}</td>
                             <td>{{ row.item__name }}</td>
                             <td>{{ row.grade__grade|default:"N/A" }}</td>
                             <td>{{ row.item__category__name }}</td>
-                            <td>{{ row.item__species__name|default:"N/A" }}</td>
+                            <td>
+                                {% if row.species__name %}
+                                    <span class="species-cell">{{ row.species__name }}</span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
                             <td>{{ row.total_quantity }}</td>
                             <td>₹{{ row.total_amount|floatformat:2 }}</td>
                             <td>₹{{ row.avg_rate|floatformat:2 }}</td>

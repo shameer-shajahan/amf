@@ -1,6 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
+{% extends 'admin_base.html' %}
+{% block title %}Spot Purchase Workout Summary - Admin Panel{% endblock %}
+
+{% block content %}
     <title>Spot Purchase Workout Summary</title>
     <style>
         body {
@@ -147,8 +148,7 @@
             background: #f0f8ff;
         }
     </style>
-</head>
-<body>
+
     <div class="container">
         <h2>Spot Purchase Workout Summary</h2>
 
@@ -331,5 +331,5 @@
             });
         </script>
     </div>
-</body>
-</html>
+    
+{% endblock %}

@@ -1,6 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
+{% extends 'admin_base.html' %}
+{% block title %}Local Purchase Workout Summary - Admin Panel{% endblock %}
+
+{% block content %}
     <title>Local Purchase Workout Summary</title>
     <style>
         body {
@@ -147,8 +148,7 @@
             background: #f0f8ff;
         }
     </style>
-</head>
-<body>
+
     <h2>Local Purchase Workout Summary</h2>
 
     <form method="get">
@@ -330,5 +330,5 @@
             setupSearch('partiesSearch', 'partiesContainer', 'partiesCount');
         });
     </script>
-</body>
-</html>
+    
+{% endblock %}
