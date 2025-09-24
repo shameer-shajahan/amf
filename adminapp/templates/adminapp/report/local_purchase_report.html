@@ -969,6 +969,54 @@
                         </tbody>
                     </table>
                 </div>
+<<<<<<< HEAD
+=======
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Voucher No</th>
+                            <th>Party</th>
+                            <th>Item</th>
+                            <th>Grade</th>
+                            <th>Category</th>
+                            <th>Species</th>
+                            <th>Total Quantity</th>
+                            <th>Total Amount</th>
+                            <th>Average Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in summary %}
+                        <tr>
+                            <td>{{ row.purchase__date }}</td>
+                            <td>{{ row.purchase__voucher_number }}</td>
+                            <td>{{ row.purchase__party_name__party }}</td>
+                            <td>{{ row.item__name }}</td>
+                            <td>{{ row.grade__grade|default:"N/A" }}</td>
+                            <td>{{ row.item__category__name }}</td>
+                            <td>
+                                {% if row.species__name %}
+                                    <span class="species-cell">{{ row.species__name }}</span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ row.total_quantity }}</td>
+                            <td>₹{{ row.total_amount|floatformat:2 }}</td>
+                            <td>₹{{ row.avg_rate|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr class="empty-state">
+                            <td colspan="10">🔍 No records found matching your criteria</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
             </div>
         </div>
 </div>

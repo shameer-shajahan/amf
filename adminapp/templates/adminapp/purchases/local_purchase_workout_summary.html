@@ -2,6 +2,10 @@
 {% block title %}Local Purchase Workout Summary - Admin Panel{% endblock %}
 
 {% block content %}
+<<<<<<< HEAD
+=======
+    <title>Local Purchase Workout Summary</title>
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
     <style>
         * {
             margin: 0;
@@ -747,10 +751,30 @@
         }
     }
     </style>
+<<<<<<< HEAD
     
             <div class="filter-card">
                 <div class="card-header">
                     <h3>🔍 Advanced Filters</h3>
+=======
+
+    <h2>Local Purchase Workout Summary</h2>
+
+    <form method="get">
+        <fieldset>
+            <legend>Filters</legend>
+
+            <div class="filter-section">
+                <label>Items: <span id="itemsCount" class="selected-count" style="display: none;">0</span></label>
+                <input type="text" class="search-box" placeholder="Search items..." id="itemsSearch">
+                <div class="options-container" id="itemsContainer">
+                    {% for item in items %}
+                        <div class="option-item">
+                            <input type="checkbox" name="items" value="{{ item.id }}" id="item_{{ item.id }}" {% if item.id|stringformat:"s" in selected_items %}checked{% endif %}>
+                            <label for="item_{{ item.id }}">{{ item.name }}</label>
+                        </div>
+                    {% endfor %}
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
                 </div>
                 
                 <div class="card-body">
@@ -1107,5 +1131,9 @@
             });
         });
     </script>
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
 {% endblock %}

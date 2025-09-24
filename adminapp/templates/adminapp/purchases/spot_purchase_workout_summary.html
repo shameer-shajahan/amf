@@ -2,6 +2,10 @@
 {% block title %}Spot Purchase Workout Summary - Admin Panel{% endblock %}
 
 {% block content %}
+<<<<<<< HEAD
+=======
+    <title>Spot Purchase Workout Summary</title>
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
     <style>
         * {
             margin: 0;
@@ -747,10 +751,32 @@
         }
     }
     </style>
+<<<<<<< HEAD
     
             <div class="filter-card">
                 <div class="card-header">
                     <h3>🔍 Advanced Filters</h3>
+=======
+
+    <div class="container">
+        <h2>Spot Purchase Workout Summary</h2>
+
+        <form method="get">
+            <fieldset>
+                <legend>Filters</legend>
+
+                <div class="filter-section">
+                    <label>Items: <span id="itemsCount" class="selected-count" style="display: none;">0</span></label>
+                    <input type="text" class="search-box" placeholder="Search items..." id="itemsSearch">
+                    <div class="options-container" id="itemsContainer">
+                        {% for i in items %}
+                            <div class="option-item">
+                                <input type="checkbox" name="items" value="{{ i.id }}" id="item_{{ i.id }}" {% if i.id|stringformat:"s" in selected_items %}checked{% endif %}>
+                                <label for="item_{{ i.id }}">{{ i.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
                 </div>
                 
                 <div class="card-body">
@@ -1051,6 +1077,7 @@
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2
             });
+<<<<<<< HEAD
             document.getElementById('avgRate').textContent = '₹' + avgRate.toLocaleString('en-IN', {
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2
@@ -1170,3 +1197,9 @@ function updateExportLinks() {
 
 
 {%endblock%}
+=======
+        </script>
+    </div>
+    
+{% endblock %}
+>>>>>>> 738cb802c635e57244cd41e1005ad5440b6ac48f
